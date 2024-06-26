@@ -1,0 +1,2 @@
+# BirdTalkClientAndroid
+安卓版本的BirdTalk客户端，kotlin 编写，其中引用了BirdTalkClientSdk
