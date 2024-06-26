@@ -33,7 +33,7 @@ class SecondFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         binding.buttonSecond.setOnClickListener {
-            (activity as? MainActivity)?.switchFragment(FirstFragment())
+            (activity as? MainActivity)?.switchFragment(AppPageCode.PROFILE)
         }
     }
 

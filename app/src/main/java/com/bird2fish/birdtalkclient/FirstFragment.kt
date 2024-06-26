@@ -33,7 +33,7 @@ class FirstFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         binding.buttonFirst.setOnClickListener {
-            (activity as? MainActivity)?.switchFragment(LoginFragment() as Fragment)
+            (activity as? MainActivity)?.switchFragment(AppPageCode.PROFILE)
         }
     }
 
