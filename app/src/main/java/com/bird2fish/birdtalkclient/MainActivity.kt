@@ -7,6 +7,7 @@ import androidx.annotation.IdRes
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
 import com.bird2fish.birdtalkclient.databinding.ActivityMainBinding
+import com.bird2fish.birdtalksdk.ui.FragmentTest
 
 
 enum class AppPageCode {
@@ -14,6 +15,7 @@ enum class AppPageCode {
     CONTACTS,
     CHAT,
     PROFILE,
+    TEST,
 }
 
 class MainActivity : AppCompatActivity() {
@@ -36,13 +38,14 @@ class MainActivity : AppCompatActivity() {
             fragmentMap[AppPageCode.CONTACTS] = FragmentContact()
             fragmentMap[AppPageCode.CHAT] = FragmentChat()
             fragmentMap[AppPageCode.PROFILE] = FragmentMe()
+            fragmentMap[AppPageCode.TEST] = FragmentTest()
 
             // 默认加载的 Fragment
-            switchFragment(AppPageCode.HOME)
+            switchFragment(AppPageCode.TEST)
         }
 
         // 初始化底部工具栏 tab
-        setupClickHandler<TextView>(AppPageCode.HOME, R.id.b_tab_btn_main)
+        setupClickHandler<TextView>(AppPageCode.TEST, R.id.b_tab_btn_main)
         setupClickHandler<TextView>(AppPageCode.CONTACTS, R.id.b_tab_btn_friends)
         setupClickHandler<TextView>(AppPageCode.CHAT, R.id.b_tab_btn_msg)
         setupClickHandler<TextView>(AppPageCode.PROFILE, R.id.b_tab_btn_me)
