@@ -6,7 +6,6 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import com.bird2fish.birdtalkclient.databinding.FragmentFirstBinding
-import com.bird2fish.birdtalksdk.LoginFragment
 
 /**
  * A simple [Fragment] subclass as the default destination in the navigation.

@@ -1,8 +1,8 @@
 package com.bird2fish.birdtalksdk.ui
 
 import android.database.SQLException
-import android.database.sqlite.SQLiteDatabase
 import android.os.Bundle
+import android.provider.Settings
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -11,8 +11,10 @@ import android.widget.TextView
 import androidx.fragment.app.Fragment
 import com.bird2fish.birdtalksdk.R
 import com.bird2fish.birdtalksdk.db.BaseDb
+import com.bird2fish.birdtalksdk.db.TopicDbHelper
 import com.bird2fish.birdtalksdk.db.UserDbHelper
-import com.bird2fish.birdtalksdk.db.UserDbHelper.TABLE_GROUP_MEMBERS
+import com.bird2fish.birdtalksdk.model.MessageData
+import com.bird2fish.birdtalksdk.model.Topic
 import com.bird2fish.birdtalksdk.model.User
 
 
@@ -57,7 +59,8 @@ class FragmentTest : Fragment() {
     fun onClickTestBtn1() {
         // 执行操作，例如跳转到聊天页面
         //showInfo("Button clicked, text updated!")
-        testUserDb()
+        //testUserDb()
+        testTopicDb()
     }
 
     fun addUser(){
@@ -178,10 +181,12 @@ class FragmentTest : Fragment() {
 
     }
 
+
+
     fun testUserDb(){
         // 获取数据库实例
         BaseDb.changeToDB(this.requireActivity(), "1234")
-//        addUser()
+        //        addUser()
 //        testAddFuns()
 //       testFindFun()
 //        testFindFollow()
@@ -190,6 +195,163 @@ class FragmentTest : Fragment() {
 
 //        testAddAccount()
         testAddGroupMem()
+
+    }
+
+    // 创建群组的会话信息以及
+    fun testCreateTopic(){
+        for (i in 1..10) {
+            val topic = Topic(
+                1000 + i.toLong(),  // tid
+                1000,  // syncId
+                2000,  // readId
+                i % 5,  // type
+                1,  // visible
+                "测试 $i",  // title
+                "Icon $i" // icon
+            )
+            TopicDbHelper.insertOrReplacePTopic(topic)
+        }
+
+        val lst = TopicDbHelper.getAllPTopics()
+        for (item in lst){
+            showInfo(item.toString())
+        }
+
+    }
+
+    fun testCreateTopic1(){
+
+            val topic = Topic(
+                201,  // tid
+                1000,  // syncId
+                2000,  // readId
+                1,  // type
+                1,  // visible
+                "群聊1",  // title
+                "" // icon
+            )
+
+        TopicDbHelper.insertOrReplaceGTopic(topic)
+
+
+        val lst = TopicDbHelper.getAllGTopics()
+        for (item in lst){
+            showInfo(item.toString())
+        }
+
+    }
+
+    fun testInsertGChatData(){
+        val name = Settings.Secure.getString(this.requireActivity().getContentResolver(), "bluetooth_name");
+        for (i in 1..10){
+            val msg = MessageData()
+            msg.id = i.toLong();
+            msg.sendId = msg.id
+            msg.devId = name
+
+            msg.tid = 201
+            msg.uid = 1000 + i.toLong()
+            msg.io = 1
+            msg.msgType = "text"
+
+            msg.data = "i love you".toByteArray()
+            msg.tm = System.currentTimeMillis()
+            msg.status = ""
+            TopicDbHelper.insertGChatMsg(msg)
+        }
+
+        val count = TopicDbHelper.getGChatCount(201);
+        showInfo("count: " + count)
+
+        TopicDbHelper.updateGChatStatus(201, 10, "sending")
+
+        val lst = TopicDbHelper.getGChatMessagesFromId(201, 9, 100, true)
+        for (item in lst){
+            showInfo(item.toString())
+        }
+
+    }
+
+    fun testInsertP2PChatData(){
+        val name = Settings.Secure.getString(this.requireActivity().getContentResolver(), "bluetooth_name");
+        for (i in 11..20){
+            val msg = MessageData()
+            msg.id = i.toLong();
+            msg.sendId = msg.id
+            msg.devId = name
+
+            msg.tid = 1001
+            msg.uid = 1001
+            msg.io = 0
+            msg.msgType = "text"
+
+            msg.data = "i love you".toByteArray()
+            msg.tm = System.currentTimeMillis()
+            msg.status = ""
+            TopicDbHelper.insertPChatMsg(msg)
+        }
+
+
+        //TopicDbHelper.updateGChatStatus(201, 10, "sending")
+        val msg = MessageData()
+        msg.id = 6;
+        msg.sendId = msg.id
+        msg.devId = name
+
+        msg.tid = 1001
+        msg.uid = 1001
+        msg.io = 1
+        msg.msgType = "text"
+
+        msg.data = "i love you".toByteArray()
+        msg.tm = System.currentTimeMillis()
+        msg.status = ""
+
+        msg.tm1 =  System.currentTimeMillis()
+        msg.tm2 = System.currentTimeMillis()
+
+        TopicDbHelper.updatePChatReply(msg)
+
+        msg.id = 5
+        msg.status = "ok"
+        TopicDbHelper.updatePChatStatus(msg)
+
+//        val lst = TopicDbHelper.getMessagesFromTopic(1001, 6, 100, false)
+//        for (item in lst){
+//            showInfo(item.toString())
+//        }
+
+    }
+
+    fun testUnread(){
+        TopicDbHelper.deleteFromPChatUnread(2)
+        val dataMap = TopicDbHelper.getUnreadCountsByUid()
+        for (key in dataMap.keys) {
+            val value: Int = dataMap.getValue(key)
+            println("Key: $key, Value: $value")
+            showInfo("fid=$key, count=$value")
+        }
+    }
+
+    fun testUnreply(){
+        val lst = TopicDbHelper.getMessagesUnReply()
+        for (item in lst){
+            showInfo(item.toString())
+        }
+    }
+
+    fun testTopicDb(){
+
+        BaseDb.changeToDB(this.requireActivity(), "1234")
+        //TopicDbHelper.reCreateTable();
+
+//        testCreateTopic()
+        //testInsertGChatData()
+        //testInsertP2PChatData()
+        //testUnread()
+        testInsertP2PChatData()
+        testUnreply()
     }
 
 

@@ -2,9 +2,11 @@ package com.bird2fish.birdtalksdk.db;
 
 import android.content.ContentValues;
 import android.database.Cursor;
+import android.database.SQLException;
 import android.database.sqlite.SQLiteDatabase;
 
 import com.bird2fish.birdtalksdk.model.MessageData;
+import com.bird2fish.birdtalksdk.model.Topic;
 import com.bird2fish.birdtalksdk.model.User;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -15,7 +17,8 @@ public class TopicDbHelper {
     // 表名
     public static final String TABLE_PCHAT = "pchat";
     public static final String TABLE_PCHAT_UNREAD  = "pchat_unread";
-    public static final String TABLE_TOPIC = "topic";
+    public static final String TABLE_PTOPIC = "p_topic";
+    public static final String TABLE_GTOPIC = "g_topic";
 
     // 列
     public static final String COLUMN_ID = "id";
@@ -44,8 +47,18 @@ public class TopicDbHelper {
     public static final String COLUMN_TITLE = "title";
     public static final String COLUMN_ICON = "icon";
 
-    private static final String SQL_CREATE_TOPIC_TABLE =
-            "CREATE TABLE IF NOT EXISTS " + TABLE_TOPIC + " (" +
+    private static final String SQL_CREATE_PTOPIC_TABLE =
+            "CREATE TABLE IF NOT EXISTS " + TABLE_PTOPIC + " (" +
+                    COLUMN_TID + " INTEGER PRIMARY KEY," +
+                    COLUMN_SYNC_ID + " INTEGER," +
+                    COLUMN_READ_ID + " INTEGER," +
+                    COLUMN_TYPE + " INTEGER," +
+                    COLUMN_VISIBLE + " INTEGER," +
+                    COLUMN_TITLE + " TEXT," +
+                    COLUMN_ICON + " TEXT);";
+
+    private static final String SQL_CREATE_GTOPIC_TABLE =
+            "CREATE TABLE IF NOT EXISTS " + TABLE_GTOPIC + " (" +
                     COLUMN_TID + " INTEGER PRIMARY KEY," +
                     COLUMN_SYNC_ID + " INTEGER," +
                     COLUMN_READ_ID + " INTEGER," +
@@ -82,10 +95,15 @@ public class TopicDbHelper {
 
     public static void onCreate(SQLiteDatabase db) {
         // 创建表
-        db.execSQL(SQL_CREATE_PCHAT_TABLE);
-        db.execSQL(SQL_CREATE_PCHAT_UNREAD_TABLE);
-        db.execSQL(SQL_CREATE_TOPIC_TABLE);
-
+        try {
+            db.execSQL(SQL_CREATE_PCHAT_TABLE);
+            db.execSQL(SQL_CREATE_PCHAT_UNREAD_TABLE);
+            db.execSQL(SQL_CREATE_PTOPIC_TABLE);
+            db.execSQL(SQL_CREATE_GTOPIC_TABLE);
+        }catch (SQLException e){
+            e.printStackTrace();
+            System.out.println(e.toString());
+        }
     }
 
     public static String getPChatName(long fid){
@@ -99,14 +117,32 @@ public class TopicDbHelper {
     }
 
     public static void createPChatTable(long fid){
-        String sql = "CREATE TABLE IF NOT EXISTS " + getPChatName(fid) + " (" +
+
+        // 0 标记一个特殊的用户，是私聊队列的同步位置信息
+        if (fid == 0){
+            return;
+        }
+        String tableName = getPChatName(fid);
+        boolean has = BaseDb.getInstance().hasPTable(tableName);
+        if (has){
+            return;
+        }
+
+        String sql = "CREATE TABLE IF NOT EXISTS " + tableName + " (" +
                         COLUMN_ID + " INTEGER PRIMARY KEY);";
 
         BaseDb.getInstance().getWritableDatabase().execSQL(sql);
+        BaseDb.getInstance().setPTable(tableName);
     }
 
     public static void createGChatTable(long gid){
-        String sql = "CREATE TABLE IF NOT EXISTS " + getGChatName(gid) + " (" +
+        String tableName = getGChatName(gid);
+        boolean has = BaseDb.getInstance().hasGTable(tableName);
+        if (has){
+            return;
+        }
+
+        String sql = "CREATE TABLE IF NOT EXISTS " + tableName + " (" +
                 COLUMN_ID + " INTEGER PRIMARY KEY," +
                 COLUMN_TID + " INTEGER," +
                 COLUMN_UID + " INTEGER," +
@@ -125,6 +161,7 @@ public class TopicDbHelper {
                 COLUMN_STATUS + " TEXT);";
 
         BaseDb.getInstance().getWritableDatabase().execSQL(sql);
+        BaseDb.getInstance().setGTable(tableName);
     }
     /////////////////////////////////////////////////////////////////////////////////
     // 收发P2P数据，同时写3个表，pchat, pchat..., pchat_unread
@@ -171,6 +208,7 @@ public class TopicDbHelper {
             row1 = db.insertWithOnConflict(TABLE_PCHAT, null, values, SQLiteDatabase.CONFLICT_REPLACE);
 
             long tid = messageData.getTid();
+            createPChatTable(tid);
             row2 = db.insertWithOnConflict(getPChatName(tid), null, values2, SQLiteDatabase.CONFLICT_REPLACE);
 
             row3 = db.insertWithOnConflict(TABLE_PCHAT_UNREAD, null, values3, SQLiteDatabase.CONFLICT_REPLACE);
@@ -194,9 +232,9 @@ public class TopicDbHelper {
 
 
     // 方法用于从数据库中获取从指定 id 开始的若干条消息数据，并返回 MessageData 对象列表
-    public List<MessageData> getPChatMessagesFromId(int startId, int limit, boolean forward) {
+    public  static List<MessageData> getPChatFromTableId(int startId, int limit, boolean forward) {
         List<MessageData> messages = new ArrayList<>();
-        SQLiteDatabase db = BaseDb.getInstance().getReadableDatabase();
+        SQLiteDatabase db = BaseDb.getInstance().getWritableDatabase();
         Cursor cursor = null;
 
         try {
@@ -211,8 +249,9 @@ public class TopicDbHelper {
             cursor = db.rawQuery(sql, selectionArgs);
 
             // 遍历 Cursor 并映射到 MessageData 对象列表
-            if (cursor != null && cursor.moveToFirst()) {
-                do {
+            if (cursor != null) {
+                while (cursor.moveToNext()) {
+
                     // 从 Cursor 中提取数据并创建 MessageData 对象
                     MessageData message = new MessageData();
                     message.setId(cursor.getInt(cursor.getColumnIndexOrThrow("id")));
@@ -234,7 +273,7 @@ public class TopicDbHelper {
 
                     // 将 MessageData 对象添加到列表中
                     messages.add(message);
-                } while (cursor.moveToNext());
+                };
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -249,7 +288,7 @@ public class TopicDbHelper {
     }
 
     // 方法用于从数据库中获取各个 uid 的未读消息数，并以 Map 形式返回
-    public Map<Integer, Integer> getUnreadCountsByUid() {
+    public  static Map<Integer, Integer> getUnreadCountsByUid() {
         Map<Integer, Integer> unreadCounts = new HashMap<>();
         SQLiteDatabase db = BaseDb.getInstance().getReadableDatabase();
         Cursor cursor = null;
@@ -280,7 +319,7 @@ public class TopicDbHelper {
     }
 
     // 从未读数据中查询所有没有回执的消息
-    public List<MessageData> getMessagesUnReply() {
+    public static  List<MessageData> getMessagesUnReply() {
         List<MessageData> messages = new ArrayList<>();
         SQLiteDatabase db = BaseDb.getInstance().getReadableDatabase();
         Cursor cursor = null;
@@ -330,12 +369,13 @@ public class TopicDbHelper {
 
 
     // 查询某个会话中的数据
-    public List<MessageData> getMessagesForTopic(long fid, long startId, int limit, boolean forward) {
+    public  static List<MessageData> getMessagesFromTopic(long fid, long startId, int limit, boolean forward) {
         List<MessageData> messages = new ArrayList<>();
 
-        SQLiteDatabase db = BaseDb.getInstance().getReadableDatabase();
+        SQLiteDatabase db = BaseDb.getInstance().getWritableDatabase();
         Cursor cursor = null;
         String tableName = getPChatName(fid);
+        createPChatTable(fid);
 
         try {
 
@@ -344,7 +384,7 @@ public class TopicDbHelper {
                     " FROM " + tableName +
                     " LEFT JOIN pchat ON " + tableName + ".id = pchat.id " +
                     " WHERE " + tableName + ".id <= ? " +
-                    "ORDER BY pchat.id ASC " +
+                    "ORDER BY pchat.id DESC " +
                     " LIMIT ?";
 
             if (forward){
@@ -396,7 +436,7 @@ public class TopicDbHelper {
 
 
     // 从未读表中删除一行；
-    public void deleteFromPChatUnread(long id) {
+    public  static void deleteFromPChatUnread(long id) {
         SQLiteDatabase db = BaseDb.getInstance().getWritableDatabase();
 
         try {
@@ -413,7 +453,7 @@ public class TopicDbHelper {
     // 清理历史数据
     public static void cleanPChatHistory(long fid, long id){
 
-        SQLiteDatabase db = BaseDb.getInstance().getReadableDatabase();
+        SQLiteDatabase db = BaseDb.getInstance().getWritableDatabase();
         Cursor cursor = null;
         String tableName = getPChatName(fid);
 
@@ -421,6 +461,7 @@ public class TopicDbHelper {
         String[] whereArgs = { String.valueOf(id) };
 
         // 会话表
+        createPChatTable(fid);
         int rowsDeleted = db.delete(tableName, whereClause, whereArgs);
 
         // 大表，
@@ -488,6 +529,7 @@ public class TopicDbHelper {
         SQLiteDatabase db = BaseDb.getInstance().getWritableDatabase();
         ContentValues values = new ContentValues();
 
+        createGChatTable(messageData.getTid());
         String tableName = getGChatName(messageData.getTid());
         // 基础数据表；
         values.put("id", messageData.getId());
@@ -541,6 +583,7 @@ public class TopicDbHelper {
         String[] selectionArgs = { String.valueOf(id) };
 
         String tableName = getGChatName(gid);
+        createGChatTable(gid);
 
         SQLiteDatabase db = BaseDb.getInstance().getWritableDatabase();
         int rowsUpdated = db.update(tableName, values, selection, selectionArgs);
@@ -552,13 +595,30 @@ public class TopicDbHelper {
     }
 
 
+    public static int getGChatCount(long gid) {
+        int count = 0;
+        Cursor cursor = null;
+        try {
+            String query = "SELECT COUNT(*) FROM " + getGChatName(gid);
+            cursor = BaseDb.getInstance().getWritableDatabase().rawQuery(query, null);
+            if (cursor.moveToFirst()) {
+                count = cursor.getInt(0);
+            }
+        } finally {
+            if (cursor != null) {
+                cursor.close();
+            }
+        }
+        return count;
+    }
 
     // 正向或者反向查找数据
-    public List<MessageData> getGChatMessagesFromId(long gid, int startId, int limit, boolean forward) {
+    public  static List<MessageData> getGChatMessagesFromId(long gid, long startId, int limit, boolean forward) {
         List<MessageData> messages = new ArrayList<>();
-        SQLiteDatabase db = BaseDb.getInstance().getReadableDatabase();
+        SQLiteDatabase db = BaseDb.getInstance().getWritableDatabase();
         Cursor cursor = null;
         String tableName = getGChatName(gid);
+        createGChatTable(gid);
 
         try {
             // SQL 查询语句
@@ -566,7 +626,7 @@ public class TopicDbHelper {
             if (forward){
                 sql = "SELECT * FROM " + tableName + " WHERE id >= ? ORDER BY id ASC LIMIT ?";
             }else{
-                sql = "SELECT * FROM " + tableName + " WHERE id <= ? ORDER BY id ASC LIMIT ?";
+                sql = "SELECT * FROM " + tableName + " WHERE id <= ? ORDER BY id DESC LIMIT ?";
             }
             String[] selectionArgs = {String.valueOf(startId), String.valueOf(limit)};
             cursor = db.rawQuery(sql, selectionArgs);
@@ -615,6 +675,7 @@ public class TopicDbHelper {
         SQLiteDatabase db = BaseDb.getInstance().getReadableDatabase();
         Cursor cursor = null;
         String tableName = getGChatName(gid);
+        createGChatTable(gid);
 
 
         String whereClause = "id < ?";
@@ -628,9 +689,142 @@ public class TopicDbHelper {
 
         String tableName = getGChatName(gid);
         SQLiteDatabase db = BaseDb.getInstance().getWritableDatabase();
-        db.delete(tableName, null, null);
+
+        String dropTableSql = "DROP TABLE IF EXISTS " + tableName;
+        db.execSQL(dropTableSql);
+
+        // 重新创建空表
+        createGChatTable(gid);
         return true;
     }
 
+    //////////////////////////////////////////////////////////////////////////////////////
+    private static  boolean insertOrReplaceTopic(Topic topic, String tableName) {
+        SQLiteDatabase db = BaseDb.getInstance().getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put("tid", topic.getTid());
+        values.put("sync_id", topic.getSyncId());
+        values.put("read_id", topic.getReadId());
+        values.put("type", topic.getType());
+        values.put("visible", topic.getVisible());
+        values.put("title", topic.getTitle());
+        values.put("icon", topic.getIcon());
+
+        long rowId = 0;
+        try {
+            rowId = db.insertWithOnConflict(tableName, null, values, SQLiteDatabase.CONFLICT_REPLACE);
+        }catch (Exception e){
+            e.printStackTrace();
+        }
+
+        if (rowId == -1) {
+            // 插入或替换失败
+            return false;
+        } else {
+            // 插入或替换成功
+        }
+        return true;
+    }
+
+    // 插入时候自动建表
+    public  static  boolean insertOrReplacePTopic(Topic topic) {
+        createPChatTable(topic.getTid());
+        return insertOrReplaceTopic(topic, TABLE_PTOPIC);
+    }
+
+    // 自动建表
+    public  static boolean insertOrReplaceGTopic(Topic topic) {
+        createGChatTable(topic.getTid());
+        return insertOrReplaceTopic(topic, TABLE_GTOPIC);
+    }
+
+
+    // 删除数据
+    private static  boolean deleteTopic(long tid, String tableName) {
+        SQLiteDatabase db = BaseDb.getInstance().getWritableDatabase();
+        String selection = "tid = ?";
+        String[] selectionArgs = { String.valueOf(tid) };
+        int deletedRows = db.delete(tableName, selection, selectionArgs);
+
+        if (deletedRows > 0) {
+            // 删除成功
+            return true;
+        } else {
+            // 没有匹配的行被删除
+        }
+        return false;
+    }
+
+    public  static boolean deleteFromPTopic(long tid){
+        return deleteTopic(tid, TABLE_PTOPIC);
+    }
+
+    public  static boolean deleteFromGTopic(long tid){
+        return deleteTopic(tid, TABLE_PTOPIC);
+    }
+
+    private  static List<Topic> getAllTopics(String tableName) {
+        List<Topic> topics = new ArrayList<>();
+        SQLiteDatabase db = BaseDb.getInstance().getWritableDatabase();
+        String sql = "SELECT * FROM " + tableName;
+        Cursor cursor = db.rawQuery(sql, null);
+
+        try {
+            if (cursor.moveToFirst()) {
+                do {
+                    Topic topic = new Topic();
+                    topic.setTid(cursor.getInt(cursor.getColumnIndexOrThrow("tid")));
+                    topic.setSyncId(cursor.getInt(cursor.getColumnIndexOrThrow("sync_id")));
+                    topic.setReadId(cursor.getInt(cursor.getColumnIndexOrThrow("read_id")));
+                    topic.setType(cursor.getInt(cursor.getColumnIndexOrThrow("type")));
+                    topic.setVisible(cursor.getInt(cursor.getColumnIndexOrThrow("visible")));
+                    topic.setTitle(cursor.getString(cursor.getColumnIndexOrThrow("title")));
+                    topic.setIcon(cursor.getString(cursor.getColumnIndexOrThrow("icon")));
+
+                    topics.add(topic);
+                } while (cursor.moveToNext());
+            }
+        } finally {
+            cursor.close();
+        }
+
+        return topics;
+    }
+
+    public  static List<Topic> getAllPTopics(){
+        return getAllTopics(TABLE_PTOPIC);
+    }
+
+    public  static List<Topic> getAllGTopics(){
+        return getAllTopics(TABLE_GTOPIC);
+    }
+
+    // 建表
+    public  static void InitGTables(List<Topic> gList, List<Topic> pList){
+
+        for (Topic topic : gList) {
+            // 处理每个 Topic 对象，例如打印信息
+            TopicDbHelper.createGChatTable(topic.getTid());
+        }
+
+        for (Topic topic : pList) {
+            // 处理每个 Topic 对象，例如打印信息
+            TopicDbHelper.createPChatTable(topic.getTid());
+        }
+
+    }
+
+//    public static void reCreateTable(){
+//        // 创建表
+//        try {
+//            BaseDb.getInstance().getWritableDatabase().execSQL(SQL_CREATE_PCHAT_TABLE);
+//            BaseDb.getInstance().getWritableDatabase().execSQL(SQL_CREATE_PCHAT_UNREAD_TABLE);
+//            BaseDb.getInstance().getWritableDatabase().execSQL(SQL_CREATE_PTOPIC_TABLE);
+//            BaseDb.getInstance().getWritableDatabase().execSQL(SQL_CREATE_GTOPIC_TABLE);
+//        }catch (SQLException e){
+//            e.printStackTrace();
+//            System.out.println(e.toString());
+//        }
+//    }
 
 }
