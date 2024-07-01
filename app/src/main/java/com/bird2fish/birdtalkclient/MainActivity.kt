@@ -8,6 +8,8 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
 import com.bird2fish.birdtalkclient.databinding.ActivityMainBinding
 import com.bird2fish.birdtalksdk.ui.FragmentTest
+import com.bird2fish.birdtalksdk.ui.LoginCodeFragment
+import com.bird2fish.birdtalksdk.ui.LoginFragment
 
 
 enum class AppPageCode {
@@ -16,6 +18,8 @@ enum class AppPageCode {
     CHAT,
     PROFILE,
     TEST,
+    LOGIN,
+    LOGIN_WITH_CODE,
 }
 
 class MainActivity : AppCompatActivity() {
@@ -39,6 +43,13 @@ class MainActivity : AppCompatActivity() {
             fragmentMap[AppPageCode.CHAT] = FragmentChat()
             fragmentMap[AppPageCode.PROFILE] = FragmentMe()
             fragmentMap[AppPageCode.TEST] = FragmentTest()
+            // 当点击页面切换到验证码登录时候，这里切换页面；
+            val loginPage = LoginFragment()
+            loginPage.setChangeWithCodeCallback {
+                switchFragment(AppPageCode.LOGIN_WITH_CODE)
+            }
+            fragmentMap[AppPageCode.LOGIN] = loginPage
+            fragmentMap[AppPageCode.LOGIN_WITH_CODE] = LoginCodeFragment()
 
             // 默认加载的 Fragment
             switchFragment(AppPageCode.TEST)
@@ -48,7 +59,7 @@ class MainActivity : AppCompatActivity() {
         setupClickHandler<TextView>(AppPageCode.TEST, R.id.b_tab_btn_main)
         setupClickHandler<TextView>(AppPageCode.CONTACTS, R.id.b_tab_btn_friends)
         setupClickHandler<TextView>(AppPageCode.CHAT, R.id.b_tab_btn_msg)
-        setupClickHandler<TextView>(AppPageCode.PROFILE, R.id.b_tab_btn_me)
+        setupClickHandler<TextView>(AppPageCode.LOGIN, R.id.b_tab_btn_me)
 
     }
 
@@ -84,6 +95,7 @@ class MainActivity : AppCompatActivity() {
         val fragment = fragmentMap[index]
         fragment?.let { // 如果 fragment 不为 null，则执行 let 代码块
             supportFragmentManager.beginTransaction()
+                .setCustomAnimations(R.anim.slide_in_right, R.anim.slide_out_left, R.anim.slide_in_left, R.anim.slide_out_right)
                 .replace(R.id.fragment_container, it) // 在 let 代码块中，it 代表非空的 fragment
                 .addToBackStack(null)
                 .commit()

@@ -27,6 +27,17 @@
                 android:name="android.app.lib_name"
                 android:value="" />
         </activity>
+
+        <!-- 其他活动声明 -->
+
+        <meta-data
+            android:name="android.app.default_searchable"
+            android:value=".MainActivity" />
+
+        <!-- 设置应用默认语言为中文 -->
+        <meta-data
+            android:name="android.app.local"
+            android:value="zh" />
     </application>
 
 </manifest>

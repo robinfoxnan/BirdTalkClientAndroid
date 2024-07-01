@@ -1,0 +1,23 @@
+<resources>
+    <!-- TODO: Remove or change this placeholder text -->
+    <string name="hello_blank_fragment">你好啊</string>
+    <string name="login_hint">还没有账号? 注册一个</string>
+    <string name="login_agree">"同意相关协议 "</string>
+    <string name="privacy_policy">隐私保护协议文件</string>
+    <string name="reg_hint">已经有账户了，登录</string>
+    <string name="login_name">邮箱或者账户ID</string>
+    <string name="login_pwd">密码</string>
+    <string name="login_btn">登录</string>
+    <string name="reg_name">邮箱或者用户名</string>
+    <string name="reg_pwd">密码</string>
+    <string name="reg_confirm_pwd">确认密码</string>
+    <string name="reg_btn">注册</string>
+    <string name="login_with_code">验证码登录</string>
+    <string name="login_setting">设置服务器</string>
+    <string name="reg_login">登录（如果没有账户则自动注册）</string>
+    <string name="login_send_code">发送验证码</string>
+    <string name="login_email">邮箱地址</string>
+    <string name="login_fill_code">输入验证码</string>
+    <string name="login_submit_code">提交验证码</string>
+    <string name="login_back">后退</string>
+</resources>
