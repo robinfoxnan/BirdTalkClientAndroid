@@ -7,9 +7,12 @@ import androidx.annotation.IdRes
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
 import com.bird2fish.birdtalkclient.databinding.ActivityMainBinding
+import com.bird2fish.birdtalksdk.ui.ChatManagerFragment
+import com.bird2fish.birdtalksdk.ui.ChatSessionFragment
 import com.bird2fish.birdtalksdk.ui.FragmentTest
 import com.bird2fish.birdtalksdk.ui.LoginCodeFragment
 import com.bird2fish.birdtalksdk.ui.LoginFragment
+import com.bird2fish.birdtalksdk.ui.ContactFragment
 
 
 enum class AppPageCode {
@@ -20,6 +23,8 @@ enum class AppPageCode {
     TEST,
     LOGIN,
     LOGIN_WITH_CODE,
+    CONTACT_SDK,
+    CHAT_SDK,
 }
 
 class MainActivity : AppCompatActivity() {
@@ -39,10 +44,13 @@ class MainActivity : AppCompatActivity() {
         if (savedInstanceState == null) {
             // 初始化 Fragment 实例并存储到 Map 中
             fragmentMap[AppPageCode.HOME] = FragmentArticles()
-            fragmentMap[AppPageCode.CONTACTS] = FragmentContact()
+
+            //fragmentMap[AppPageCode.CONTACTS] = FragmentContact()
             fragmentMap[AppPageCode.CHAT] = FragmentChat()
             fragmentMap[AppPageCode.PROFILE] = FragmentMe()
-            fragmentMap[AppPageCode.TEST] = FragmentTest()
+            fragmentMap[AppPageCode.TEST] = ChatSessionFragment() // FragmentTest()
+            fragmentMap[AppPageCode.CONTACT_SDK] = ContactFragment()
+            fragmentMap[AppPageCode.CHAT_SDK] = ChatManagerFragment()
             // 当点击页面切换到验证码登录时候，这里切换页面；
             val loginPage = LoginFragment()
             loginPage.setChangeWithCodeCallback {
@@ -52,13 +60,13 @@ class MainActivity : AppCompatActivity() {
             fragmentMap[AppPageCode.LOGIN_WITH_CODE] = LoginCodeFragment()
 
             // 默认加载的 Fragment
-            switchFragment(AppPageCode.TEST)
+            switchFragment(AppPageCode.CONTACT_SDK)
         }
 
         // 初始化底部工具栏 tab
         setupClickHandler<TextView>(AppPageCode.TEST, R.id.b_tab_btn_main)
-        setupClickHandler<TextView>(AppPageCode.CONTACTS, R.id.b_tab_btn_friends)
-        setupClickHandler<TextView>(AppPageCode.CHAT, R.id.b_tab_btn_msg)
+        setupClickHandler<TextView>(AppPageCode.CONTACT_SDK, R.id.b_tab_btn_friends)
+        setupClickHandler<TextView>(AppPageCode.CHAT_SDK, R.id.b_tab_btn_msg)
         setupClickHandler<TextView>(AppPageCode.LOGIN, R.id.b_tab_btn_me)
 
     }

@@ -7,7 +7,9 @@
     <color name="teal_700">#FF018786</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
-	
+    <color name ="pink">#FFDDDD</color>
+
+    <color name="highlight_color">#ffe7e0ec</color> <!-- 高亮颜色 -->
 	    <!-- app colors -->
     <color name="app_window_background">#ffe7e0ec</color> <!-- colorSurfaceVariant -->
     <color name="status_bar_background">#fffffbfe</color> <!-- android:colorBackground / colorSurface -->

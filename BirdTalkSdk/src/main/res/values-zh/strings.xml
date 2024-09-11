@@ -20,4 +20,16 @@
     <string name="login_fill_code">输入验证码</string>
     <string name="login_submit_code">提交验证码</string>
     <string name="login_back">后退</string>
+    <string name="contact_recommend">推荐</string>
+    <string name="contact_followed">互相关注</string>
+    <string name="contact_following">关注</string>
+    <string name="contact_fans">粉丝</string>
+    <string name="send_msg">发消息</string>
+    <string name="nick_name">昵称</string>
+    <string name="description">详情</string>
+    <string name="more_info">...</string>
+    <string name="follow">关注</string>
+    <string name="fan">粉丝</string>
+    <string name="followed">已关注</string>
+    <string name="mutual_following">互相关注</string>
 </resources>

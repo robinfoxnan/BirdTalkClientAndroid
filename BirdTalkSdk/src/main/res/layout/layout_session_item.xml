@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/selector_background">
+
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/content"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_marginTop="4dp"
+        android:layout_marginBottom="4dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <ImageView
+            android:id="@+id/iconTv"
+            android:layout_width="60dp"
+            android:layout_height="60dp"
+            android:layout_weight="1"
+            tools:ignore="MissingConstraints"
+            tools:layout_editor_absoluteX="5dp"
+            tools:srcCompat="@drawable/icon4" />
+
+        <!-- 渐变线条 -->
+        <View
+            android:id="@+id/gradientLine"
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+        android:background="@drawable/gradient_line"
+        app:layout_constraintTop_toBottomOf="@+id/iconTv"
+        app:layout_constraintStart_toEndOf="@+id/iconTv"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"/>
+
+        <LinearLayout
+            android:id="@+id/info"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            app:layout_constraintStart_toEndOf="@+id/iconTv"
+            app:layout_constraintEnd_toStartOf="@+id/detail"
+            app:layout_constraintTop_toTopOf="parent">
+
+            <TextView
+                android:id="@+id/nameTv"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="5dp"
+                android:layout_marginTop="5dp"
+                android:text="@string/nick_name"
+                android:textColor="#000000"
+                android:textSize="18sp" />
+
+            <TextView
+                android:id="@+id/desTv"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="5dp"
+                android:layout_marginTop="0dp"
+                android:text="@string/description"
+                android:textColor="#898989"
+                android:textSize="14sp" />
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/detail"
+            android:layout_width="100dp"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintEnd_toEndOf="parent">
+
+            <TextView
+                android:id="@+id/timeTv"
+                android:layout_gravity="end"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginRight="15dp"
+                android:layout_marginTop="5dp"
+                android:text="12:56"
+                android:textColor="#898989"
+                android:textSize="14sp" />
+
+            <ImageView
+                android:id="@+id/StateTv"
+                android:layout_width="22dp"
+                android:layout_height="22dp"
+                android:layout_gravity="end"
+                android:layout_marginRight="15dp"
+                android:layout_weight="1"
+                android:scaleType="centerInside"
+                tools:srcCompat="@android:drawable/ic_lock_silent_mode" />
+
+
+        </LinearLayout>
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</androidx.constraintlayout.widget.ConstraintLayout>

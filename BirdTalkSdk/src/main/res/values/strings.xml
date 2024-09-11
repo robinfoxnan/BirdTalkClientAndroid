@@ -20,4 +20,16 @@
     <string name="login_fill_code">fill code here</string>
     <string name="login_submit_code">Submit Verification Code</string>
     <string name="login_back">back to Email Page</string>
+    <string name="contact_recommend">recommended</string>
+    <string name="contact_followed">followed</string>
+    <string name="contact_following">following</string>
+    <string name="contact_fans">fans</string>
+    <string name="send_msg">send</string>
+    <string name="nick_name">nick</string>
+    <string name="description">description</string>
+    <string name="more_info">...</string>
+    <string name="follow">follow</string>
+    <string name="fan">fan</string>
+    <string name="followed">followed</string>
+    <string name="mutual_following">mutual</string>
 </resources>
