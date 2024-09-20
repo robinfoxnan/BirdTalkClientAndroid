@@ -12,7 +12,7 @@ import com.bird2fish.birdtalksdk.R
 class ChatPageFragment : Fragment() {
 
     private lateinit var chatId: String
-    private lateinit var chatTextView: TextView
+    //private lateinit var chatTextView: TextView
 
     companion object {
         private const val ARG_CHAT_ID = "chat_id"
@@ -42,15 +42,9 @@ class ChatPageFragment : Fragment() {
     ): View? {
         val view = inflater.inflate(R.layout.fragment_chat_page, container, false)
 
-        chatTextView = view.findViewById<TextView>(R.id.chatTextView)
+       // chatTextView = view.findViewById<TextView>(R.id.chatTextView)
 
-        // 设置 TextView 的文本或做其他处理
-        if (chatId.isNotEmpty()) {
-            chatTextView.text = chatId
-        } else {
-            // 处理空 chatId 的情况，例如设置默认文本或隐藏 TextView
-            chatTextView.text = "Default text" // 或者 chatTextView.visibility = View.GONE
-        }
+
         return view
     }
 

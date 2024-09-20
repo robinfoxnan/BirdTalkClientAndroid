@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 照片目录 -->
+    <external-path
+        name="my_images"
+        path="Pictures/" />
+    <!-- 下载目录 -->
+    <external-path
+        name="download"
+        path="Download/" />
+</paths>

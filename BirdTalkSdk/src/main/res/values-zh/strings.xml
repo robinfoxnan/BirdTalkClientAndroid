@@ -32,4 +32,21 @@
     <string name="fan">粉丝</string>
     <string name="followed">已关注</string>
     <string name="mutual_following">互相关注</string>
+    <string name="user_id">用户ID</string>
+    <string name="age">年龄</string>
+    <string name="gender">性别</string>
+    <string name="phone">手机</string>
+    <string name="mail">邮箱</string>
+    <string name="introduce">简介</string>
+    <string name="password">密码</string>
+    <string name="code">验证码</string>
+    <string name="record_audio_button_hint">录音</string>
+    <string name="send_message_button_hint">发送</string>
+    <string name="send_image_button_hint">选图</string>
+    <string name="send_file_button_hint">添加文件</string>
+    <string name="new_message_hint">输入文字</string>
+    <string name="delete_recording_hint">delete record</string>
+    <string name="stop_recording_button_hint">stop recording</string>
+    <string name="play_record_audio_button_hint">play record</string>
+    <string name="pause_audio_button_hint">pause audio</string>
 </resources>

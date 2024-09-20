@@ -32,4 +32,21 @@
     <string name="fan">fan</string>
     <string name="followed">followed</string>
     <string name="mutual_following">mutual</string>
+    <string name="user_id">user ID</string>
+    <string name="age">age</string>
+    <string name="gender">gender</string>
+    <string name="phone">phone</string>
+    <string name="mail">mail</string>
+    <string name="introduce">introduce</string>
+    <string name="password">password</string>
+    <string name="code">code</string>
+    <string name="record_audio_button_hint">record audio</string>
+    <string name="send_message_button_hint">send</string>
+    <string name="send_image_button_hint">choose image</string>
+    <string name="send_file_button_hint">choose file</string>
+    <string name="new_message_hint">type text</string>
+    <string name="delete_recording_hint">delete record</string>
+    <string name="stop_recording_button_hint">stop recording</string>
+    <string name="play_record_audio_button_hint">play record</string>
+    <string name="pause_audio_button_hint">pause audio</string>
 </resources>

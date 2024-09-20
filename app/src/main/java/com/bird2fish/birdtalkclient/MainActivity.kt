@@ -1,8 +1,11 @@
 package com.bird2fish.birdtalkclient
 
+import android.app.Activity
+import android.content.Intent
 import android.os.Bundle
 import android.view.View
 import android.widget.TextView
+import android.widget.Toast
 import androidx.annotation.IdRes
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
@@ -13,6 +16,9 @@ import com.bird2fish.birdtalksdk.ui.FragmentTest
 import com.bird2fish.birdtalksdk.ui.LoginCodeFragment
 import com.bird2fish.birdtalksdk.ui.LoginFragment
 import com.bird2fish.birdtalksdk.ui.ContactFragment
+import com.bird2fish.birdtalksdk.ui.ProfileFragment
+import com.bird2fish.birdtalksdk.uihelper.TextHelper
+import com.yalantis.ucrop.UCrop
 
 
 enum class AppPageCode {
@@ -25,6 +31,7 @@ enum class AppPageCode {
     LOGIN_WITH_CODE,
     CONTACT_SDK,
     CHAT_SDK,
+    PROFILE_SDK,
 }
 
 class MainActivity : AppCompatActivity() {
@@ -58,6 +65,7 @@ class MainActivity : AppCompatActivity() {
             }
             fragmentMap[AppPageCode.LOGIN] = loginPage
             fragmentMap[AppPageCode.LOGIN_WITH_CODE] = LoginCodeFragment()
+            fragmentMap[AppPageCode.PROFILE_SDK] = ProfileFragment()
 
             // 默认加载的 Fragment
             switchFragment(AppPageCode.CONTACT_SDK)
@@ -67,7 +75,7 @@ class MainActivity : AppCompatActivity() {
         setupClickHandler<TextView>(AppPageCode.TEST, R.id.b_tab_btn_main)
         setupClickHandler<TextView>(AppPageCode.CONTACT_SDK, R.id.b_tab_btn_friends)
         setupClickHandler<TextView>(AppPageCode.CHAT_SDK, R.id.b_tab_btn_msg)
-        setupClickHandler<TextView>(AppPageCode.LOGIN, R.id.b_tab_btn_me)
+        setupClickHandler<TextView>(AppPageCode.PROFILE_SDK, R.id.b_tab_btn_me)
 
     }
 
@@ -109,6 +117,22 @@ class MainActivity : AppCompatActivity() {
                 .commit()
         }
     }
+
+//    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+//        super.onActivityResult(requestCode, resultCode, data)
+//
+//        val fragment = supportFragmentManager.findFragmentById(R.id.fragment_container)
+//        fragment?.onActivityResult(requestCode, resultCode, data)
+//
+//        // Ensure UCrop result is handled correctly
+//        if (requestCode == UCrop.REQUEST_CROP ) {
+//            val uCropFragment = supportFragmentManager.findFragmentById(R.id.fragment_container) as? Fragment
+//            uCropFragment?.let {
+//                it.onActivityResult(requestCode, resultCode, data)
+//            }
+//        }
+//
+//    }
 
 
 }

@@ -5,10 +5,17 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.BitmapShader
+import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Matrix
+import android.graphics.Paint
+import android.graphics.PorterDuff
+import android.graphics.PorterDuffXfermode
+import android.graphics.Shader
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
+import android.net.Uri
 import android.util.TypedValue
 import android.view.Gravity
 import android.widget.ImageView
@@ -305,6 +312,60 @@ public object ImagesHelper {
         }
 
         return null
+    }
+
+    // 加载圆形的图标
+    fun loadRoundAvatar(uri: Uri, context: Context): Bitmap? {
+        val bitmap = getBitmapFromUri(uri, context) ?: return null
+        return getCircularBitmapWithTransparentEdge(bitmap, 3)
+    }
+
+    // 从URI加载文件
+    fun getBitmapFromUri(uri: Uri, context: Context): Bitmap? {
+        return try {
+            // 打开输入流从 URI 读取文件
+            val inputStream = context.contentResolver.openInputStream(uri)
+            // 使用 BitmapFactory 将输入流解码为 Bitmap
+            BitmapFactory.decodeStream(inputStream)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
+
+    // 重新计算圆形的蒙版
+    fun getCircularBitmapWithTransparentEdge(bitmap: Bitmap, edgeWidth: Int): Bitmap {
+        val size = Math.min(bitmap.width, bitmap.height)
+
+        // 创建一个正方形的位图
+        val output = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(output)
+
+        val paint = Paint().apply {
+            isAntiAlias = true
+            shader = BitmapShader(bitmap, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP)
+        }
+
+        // 半径为正方形的一半
+        val radius = size / 2f
+
+        // 画出圆形
+        canvas.drawCircle(radius, radius, radius, paint)
+
+        // 创建透明边缘的画笔
+        val edgePaint = Paint().apply {
+            isAntiAlias = true
+            style = Paint.Style.STROKE
+            color = Color.TRANSPARENT
+            xfermode = PorterDuffXfermode(PorterDuff.Mode.CLEAR)  // 使用 CLEAR 模式来绘制透明边缘
+            strokeWidth = edgeWidth.toFloat() // 设置透明边缘的宽度
+        }
+
+        // 绘制透明的边缘
+        canvas.drawCircle(radius, radius, radius - edgeWidth / 2f, edgePaint)
+
+        return output
     }
 
 }
