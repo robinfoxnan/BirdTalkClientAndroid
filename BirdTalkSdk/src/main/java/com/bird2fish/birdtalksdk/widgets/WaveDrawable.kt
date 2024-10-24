@@ -19,47 +19,50 @@ import kotlin.math.min
  */
 class WaveDrawable @JvmOverloads constructor(res: Resources, leftPaddingDP: Int = 0) :
     Drawable(), Runnable {
-    // Duration of the audio in milliseconds.
+    // 音频毫秒时长
     private var mDuration = 0
 
-    // Current thumb position as a fraction of the total 0..1
+    // 当前滑块的位置因子，范围为 0..1
     var position: Float = -1f
         private set
 
     private var mOriginal: ByteArray? = null
 
-    // Amplitude values received from the caller and resampled to fit the screen.
+    // 振幅的值，需要重新采样配合屏幕显示；作为一个环形缓冲使用
     private var mBuffer: FloatArray? = null
 
-    // Count of amplitude values actually added to the buffer.
+    // 当前buffer中已有的数据个数
     private var mContains = 0
 
-    // Entry point in mBuffer (mBuffer is a circular buffer).
+    // 加入的位置索引 mBuffer (mBuffer is a circular buffer).
     private var mIndex = 0
 
-    // Array of 4 values for each amplitude bar: startX, startY, stopX, stopY.
+    // 振幅的柱状图，每个元素是4个值 startX, startY, stopX, stopY.
     private var mBars: FloatArray? = null
 
-    // Canvas width which fits whole number of bars.
+    // 能显示所有柱状图的画布的宽度.
     private var mEffectiveWidth = 0
 
-    // If the Drawable is animated.
+    // 是否是动画.
     private var mRunning = false
 
-    // Duration of a single animation frame: about two pixels at a time, but no shorter than MIN_FRAME_DURATION.
+    // 每个动画帧显示的时长: 大约一次2个像素, 不短于 MIN_FRAME_DURATION.
     private var mFrameDuration = MIN_FRAME_DURATION
 
-    // Paints for individual components of the drawable.
+    // Paints 每个组件的画笔.
     private val mBarPaint: Paint
     private val mPastBarPaint: Paint
     private val mThumbPaint: Paint
 
     private var mSize = Rect()
 
-    // Padding on the left.
+    // 左侧的填充
     private var mLeftPadding = 0
 
     private var mCompletionListener: CompletionListener? = null
+
+    // 加个锁，防止绘图与放入动作异步冲突
+    private val lock = Any()
 
     init {
         if (sDensity <= 0) {
@@ -93,24 +96,39 @@ class WaveDrawable @JvmOverloads constructor(res: Resources, leftPaddingDP: Int 
         mThumbPaint.color = res.getColor(R.color.colorAccent, null)
     }
 
+    // 当图片大小改变的时候，重新计算数组大小
     override fun onBoundsChange(bounds: Rect) {
         mSize = Rect(bounds)
 
         val maxBars = ((mSize.width() - sSpacing - mLeftPadding) / (sLineWidth + sSpacing)).toInt()
         mEffectiveWidth = (maxBars * (sLineWidth + sSpacing) + sSpacing).toInt()
-        mBuffer = FloatArray(maxBars)
+
+
 
         // Recalculate frame duration (2 pixels per frame).
         mFrameDuration =
             max((mDuration / mEffectiveWidth * 2).toDouble(), MIN_FRAME_DURATION.toDouble())
                 .toInt()
 
-        if (mOriginal != null) {
-            resampleBars(mOriginal!!, mBuffer!!)
-            mIndex = 0
-            mContains = mBuffer!!.size
-            recalcBars()
+        synchronized (lock) {
+            mBuffer = FloatArray(maxBars)
+            if (mOriginal != null) {
+
+
+                resampleBars(mOriginal!!, mBuffer!!)
+                mIndex = 0
+                mContains = mBuffer!!.size
+
+                recalcBars()
+            }else{
+                mIndex = 0
+                if (mContains > mBuffer!!.size){
+                    mContains = mBuffer!!.size
+                }
+            }
         }
+
+
         invalidateSelf()
     }
 
@@ -217,43 +235,51 @@ class WaveDrawable @JvmOverloads constructor(res: Resources, leftPaddingDP: Int 
         }
     }
 
-    // Add another bar to waveform.
+    // 一次放入一个值
     fun put(amplitude: Int) {
-        if (mBuffer == null) {
-            return
+        synchronized (lock) {
+            if (mBuffer == null) {
+                return
+            }
+
+            if (mContains < mBuffer!!.size) {
+                val pos = (mIndex + mContains) % mBuffer!!.size
+                mBuffer!![pos] = amplitude.toFloat()
+                mContains++
+            } else {
+                mIndex++
+                mIndex %= mBuffer!!.size
+                mBuffer!![mIndex] = amplitude.toFloat()
+            }
+            recalcBars()
         }
 
-        if (mContains < mBuffer!!.size) {
-            mBuffer!![mIndex + mContains] = amplitude.toFloat()
-            mContains++
-        } else {
-            mIndex++
-            mIndex %= mBuffer!!.size
-            mBuffer!![mIndex] = amplitude.toFloat()
-        }
-        recalcBars()
         invalidateSelf()
     }
 
-    // Add entire waveform at once.
+    // 一次放入一组数据
     fun put(amplitudes: ByteArray) {
-        mOriginal = amplitudes
-        if (mBuffer == null) {
-            return
+        synchronized (lock){
+            mOriginal = amplitudes
+            if (mBuffer == null) {
+                return
+            }
+
+            resampleBars(amplitudes, mBuffer!!)
+            mIndex = 0
+            mContains = mBuffer!!.size
+            recalcBars()
         }
 
-        resampleBars(amplitudes, mBuffer!!)
-        mIndex = 0
-        mContains = mBuffer!!.size
-        recalcBars()
         invalidateSelf()
     }
 
+    // 这里是为了播放完之后，通知改变状态
     fun setOnCompletionListener(listener: CompletionListener?) {
         mCompletionListener = listener
     }
 
-    // Calculate vertices of amplitude bars.
+    // 放入数据后重新计算
     private fun recalcBars() {
         if (mBuffer!!.size == 0) {
             return
@@ -264,7 +290,7 @@ class WaveDrawable @JvmOverloads constructor(res: Resources, leftPaddingDP: Int 
             return
         }
 
-        // Values for scaling amplitude.
+        // 遍历求最大值，为了缩放需要
         var max = Int.MIN_VALUE.toFloat()
         for (amp in mBuffer!!) {
             if (amp > max) {
@@ -313,18 +339,18 @@ class WaveDrawable @JvmOverloads constructor(res: Resources, leftPaddingDP: Int 
         private const val LINE_WIDTH = 3f
         private const val SPACING = 1f
 
-        // Minimum time between redraws in milliseconds.
+        // 最小重绘时长 milliseconds.
         private const val MIN_FRAME_DURATION = 50
 
-        // Display density.
+        // 点密度
         private var sDensity = -1f
 
-        // Bars and spacing sizes in pixels.
+        // 按像素计算后的尺寸
         private var sLineWidth = 0f
         private var sSpacing = 0f
         private var sThumbRadius = 0f
 
-        // Quick and dirty resampling of the original preview bars into a smaller (or equal) number of bars we can display here.
+        // 针对原来的数据进行重新计算采样，当图片大小变动时候调用
         private fun resampleBars(src: ByteArray, dst: FloatArray) {
             // Resampling factor. Could be lower or higher than 1.
             val factor = src.size.toFloat() / dst.size

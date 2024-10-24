@@ -1,5 +1,6 @@
 package com.bird2fish.birdtalksdk.ui
 
+import android.net.Uri
 import android.os.Bundle
 import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
@@ -9,11 +10,14 @@ import android.widget.Button
 import androidx.viewpager2.adapter.FragmentStateAdapter
 import androidx.viewpager2.widget.ViewPager2
 import com.bird2fish.birdtalksdk.R
+import java.io.File
 
 class ChatManagerFragment : Fragment() {
 
     private lateinit var viewPager: ViewPager2
     private lateinit var chatPagerAdapter: ChatPagerAdapter
+    //private var imageviewPage = ImageViewFragment()   // 预览图片
+    //private var filePreviewPage = FilePreviewFragment()  // 预览文件信息
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -49,6 +53,13 @@ class ChatManagerFragment : Fragment() {
         return view
     }
 
+    // 打开图片的预览
+//    fun openImageView(content: Uri?){
+//        this.viewPager.setCurrentItem(0, true)
+//        imageviewPage.showImage(content)
+//
+//    }
+
     // 自定义的 FragmentStateAdapter
     inner class ChatPagerAdapter(fragment: Fragment) : FragmentStateAdapter(fragment) {
         // 假设有 4 个会话，实际可以根据需要动态生成
@@ -60,7 +71,13 @@ class ChatManagerFragment : Fragment() {
 
         override fun createFragment(position: Int): Fragment {
             // 创建 ChatFragment 实例，并传递对应的 chatId
-            return ChatPageFragment.newInstance(chatIds[position])
+//            if (position==0){
+//                return imageviewPage
+//            }else if (position == 1){
+//                return filePreviewPage
+//            }
+
+            return ChatPageFragment.newInstance(chatIds[position], this@ChatManagerFragment)
         }
     }
 }

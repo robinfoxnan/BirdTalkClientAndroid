@@ -8,6 +8,7 @@
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
     <color name ="pink">#FFDDDD</color>
+    <color name ="grey">#AADDDD</color>
 
     <color name="highlight_color">#ffe7e0ec</color> <!-- 高亮颜色 -->
 	    <!-- app colors -->

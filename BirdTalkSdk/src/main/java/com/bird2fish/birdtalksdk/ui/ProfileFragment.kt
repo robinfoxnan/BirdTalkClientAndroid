@@ -274,6 +274,21 @@ class ProfileFragment : Fragment() {
         }
     }
 
+    // 处理权限请求结果
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == PermissionsHelper.PERMISSION_REQUEST_CODE) {
+            // 检查每个请求的权限结果
+            for (i in permissions.indices) {
+                if (grantResults[i] == PackageManager.PERMISSION_GRANTED) {
+                    // 权限已被授予
+                } else {
+                    // 权限被拒绝，提示用户
+                }
+            }
+        }
+    }
+
     private fun showPermissionRationale() {
         if (ActivityCompat.shouldShowRequestPermissionRationale(this.requireActivity(), Manifest.permission.CAMERA) ||
             ActivityCompat.shouldShowRequestPermissionRationale(this.requireActivity(), Manifest.permission.READ_EXTERNAL_STORAGE) ||

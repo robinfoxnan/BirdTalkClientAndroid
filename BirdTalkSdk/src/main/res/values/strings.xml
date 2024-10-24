@@ -49,4 +49,18 @@
     <string name="stop_recording_button_hint">stop recording</string>
     <string name="play_record_audio_button_hint">play record</string>
     <string name="pause_audio_button_hint">pause audio</string>
+    <string name="content_deleted">content deleted</string>
+
+    <string name="action_cancel">cancel action</string>
+    <string name="canceled">canceled</string>
+
+    <string name="audio_recording_failed">audio record error</string>
+    <string name="image_caption_hint">image name</string>
+    <string name="file_name_label">file name</string>
+    <string name="content_type_label">content type</string>
+    <string name="image_size_label">"image size "</string>
+    <string name="accept_avatar_button_hint">"accept avatar "</string>
+    <string name="permission_missing">"permission_missing"</string>
+
+
 </resources>

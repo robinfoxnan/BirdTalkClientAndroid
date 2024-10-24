@@ -8,7 +8,8 @@
     android:orientation="horizontal"
     android:padding="6dp"
     android:visibility="gone"
-    tools:ignore="RtlSymmetry">
+    tools:ignore="RtlSymmetry"
+    tools:visibility="visible">
 
     <androidx.appcompat.widget.AppCompatImageButton
         android:id="@+id/deleteRecording"
@@ -32,13 +33,17 @@
         android:text="00:00"
         tools:ignore="HardcodedText" />
 
+    <!-- 这个属性导致了布局混乱
+    android:animateLayoutChanges="true"
+    -->
     <FrameLayout
-        android:layout_width="wrap_content"
+        android:layout_width="50dp"
         android:layout_height="match_parent"
         android:layout_weight="0"
-        android:animateLayoutChanges="true"
+
         android:paddingLeft="6dp"
-        android:paddingRight="6dp">
+        android:paddingRight="6dp"
+        android:visibility="visible">
 
         <androidx.appcompat.widget.AppCompatImageButton
             android:id="@+id/stopRecording"
@@ -53,7 +58,7 @@
             android:id="@+id/playRecording"
             android:layout_width="wrap_content"
             android:layout_height="match_parent"
-            android:layout_gravity="center_vertical"
+
             android:background="?android:attr/selectableItemBackgroundBorderless"
             android:contentDescription="@string/play_record_audio_button_hint"
             android:visibility="gone"
@@ -64,7 +69,7 @@
             android:id="@+id/pauseRecording"
             android:layout_width="wrap_content"
             android:layout_height="match_parent"
-            android:layout_gravity="center_vertical"
+
             android:background="?android:attr/selectableItemBackgroundBorderless"
             android:contentDescription="@string/pause_audio_button_hint"
             android:visibility="gone"

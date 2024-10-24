@@ -3,17 +3,25 @@ package com.bird2fish.birdtalksdk.widgets
 import android.content.Context
 import android.graphics.PointF
 import android.graphics.Rect
-import android.util.ArrayMap
 import android.util.AttributeSet
+import android.util.ArrayMap
 import android.view.MotionEvent
 import android.view.View
-import android.view.View.OnTouchListener
-import android.view.ViewGroup.MarginLayoutParams
+import android.view.ViewGroup
 import com.google.android.material.floatingactionbutton.FloatingActionButton
-import kotlin.math.abs
 
-class MovableActionButton1 : FloatingActionButton, OnTouchListener {
-    private var mDragToIgnore = 0
+/**
+ * FloatingActionButton which can be dragged around.
+ */
+class MovableActionButton @JvmOverloads constructor(
+    context: Context,
+    attrs: AttributeSet? = null,
+    defStyleAttr: Int = 0
+) : FloatingActionButton(context, attrs, defStyleAttr), View.OnTouchListener {
+
+    private val MIN_DRAG_DISTANCE = 8
+
+    private var mDragToIgnore: Int = 0
 
     private var mConstraintChecker: ConstraintChecker? = null
     private var mActionListener: ActionListener? = null
@@ -21,49 +29,36 @@ class MovableActionButton1 : FloatingActionButton, OnTouchListener {
     private var mActionZones: ArrayMap<Int, Rect>? = null
 
     // Drag started.
-    var mRawStartX: Float = 0f
-    var mRawStartY: Float = 0f
+    private var mRawStartX: Float = 0f
+    private var mRawStartY: Float = 0f
 
     // Distance between the button and the location of the initial DOWN click.
-    var mDiffX: Float = 0f
-    var mDiffY: Float = 0f
+    private var mDiffX: Float = 0f
+    private var mDiffY: Float = 0f
 
-    constructor(context: Context?) : super(context!!) {
-        initialize()
-    }
-
-    constructor(context: Context?, attrs: AttributeSet?) : super(
-        context!!, attrs
-    ) {
-        initialize()
-    }
-
-    constructor(context: Context?, attrs: AttributeSet?, defStyleAttr: Int) : super(
-        context!!, attrs, defStyleAttr
-    ) {
+    init {
         initialize()
     }
 
     private fun initialize() {
         val density = resources.displayMetrics.density
         mDragToIgnore = (MIN_DRAG_DISTANCE * density).toInt()
-
         setOnTouchListener(this)
     }
 
-    fun setConstraintChecker(checker: ConstraintChecker?) {
+    fun setConstraintChecker(checker: ConstraintChecker) {
         mConstraintChecker = checker
     }
 
-    fun setOnActionListener(listener: ActionListener?) {
+    fun setOnActionListener(listener: ActionListener) {
         mActionListener = listener
     }
 
-    fun addActionZone(id: Int, zone: Rect?) {
+    fun addActionZone(id: Int, zone: Rect) {
         if (mActionZones == null) {
             mActionZones = ArrayMap()
         }
-        mActionZones!![id] = Rect(zone)
+        mActionZones?.put(id, Rect(zone))
     }
 
     override fun onTouch(view: View, motionEvent: MotionEvent): Boolean {
@@ -88,10 +83,9 @@ class MovableActionButton1 : FloatingActionButton, OnTouchListener {
                 }
 
                 // Make sure the drag was long enough.
-                if (abs(dX.toDouble()) < mDragToIgnore && abs(dY.toDouble()) < mDragToIgnore || putBack) {
+                if (Math.abs(dX) < mDragToIgnore && Math.abs(dY) < mDragToIgnore || putBack) {
                     // Not a drag: too short. Move back and register click.
-                    view.animate().x(mRawStartX + mDiffX).y(mRawStartY + mDiffY).setDuration(0)
-                        .start()
+                    view.animate().x(mRawStartX + mDiffX).y(mRawStartY + mDiffY).setDuration(0).start()
                     return performClick()
                 }
                 // A real drag.
@@ -103,7 +97,7 @@ class MovableActionButton1 : FloatingActionButton, OnTouchListener {
 
                 // Ensure constraints.
                 if (mConstraintChecker != null) {
-                    val layoutParams = view.layoutParams as MarginLayoutParams
+                    val layoutParams = view.layoutParams as ViewGroup.MarginLayoutParams
                     val viewParent = view.parent as View
 
                     val viewRect = Rect(view.left, view.top, view.right, view.bottom)
@@ -113,10 +107,7 @@ class MovableActionButton1 : FloatingActionButton, OnTouchListener {
                         viewParent.width - layoutParams.rightMargin,
                         viewParent.height - layoutParams.bottomMargin
                     )
-                    newPos = mConstraintChecker!!.check(
-                        newPos,
-                        PointF(mRawStartX + mDiffX, mRawStartY + mDiffY), viewRect, parentRect
-                    )
+                    newPos = mConstraintChecker!!.check(newPos, PointF(mRawStartX + mDiffX, mRawStartY + mDiffY), viewRect, parentRect)
                 }
 
                 // Animate view to the new position.
@@ -129,8 +120,7 @@ class MovableActionButton1 : FloatingActionButton, OnTouchListener {
                     for ((key, value) in mActionZones!!) {
                         if (value.contains(x.toInt(), y.toInt())) {
                             if (mActionListener!!.onZoneReached(key)) {
-                                view.animate().x(mRawStartX + mDiffX).y(mRawStartY + mDiffY)
-                                    .setDuration(0).start()
+                                view.animate().x(mRawStartX + mDiffX).y(mRawStartY + mDiffY).setDuration(0).start()
                                 break
                             }
                         }
@@ -144,21 +134,19 @@ class MovableActionButton1 : FloatingActionButton, OnTouchListener {
         }
     }
 
-    class ActionListener {
-        fun onUp(dX: Float, dY: Float): Boolean {
+    open class ActionListener {
+        open fun onUp(dX: Float, dY: Float): Boolean {
             return false
         }
 
-        fun onZoneReached(id: Int): Boolean {
+        open fun onZoneReached(id: Int): Boolean {
             return false
         }
     }
 
     interface ConstraintChecker {
-        fun check(newPos: PointF?, startPos: PointF?, view: Rect?, parent: Rect?): PointF
-    }
-
-    companion object {
-        private const val MIN_DRAG_DISTANCE = 8
+        fun check(newPos: PointF, startPos: PointF, view: Rect, parent: Rect): PointF
     }
 }
+
+

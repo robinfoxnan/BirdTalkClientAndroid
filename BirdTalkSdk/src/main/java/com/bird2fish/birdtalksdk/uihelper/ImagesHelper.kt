@@ -16,11 +16,13 @@ import android.graphics.Shader
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import android.net.Uri
+import android.util.Log
 import android.util.TypedValue
 import android.view.Gravity
 import android.widget.ImageView
 import android.widget.Toast
 import androidx.core.content.ContextCompat
+import androidx.exifinterface.media.ExifInterface
 import com.bird2fish.birdtalksdk.R
 
 public object ImagesHelper {
@@ -106,6 +108,7 @@ public object ImagesHelper {
         R.drawable.icon33
     )
 
+    // 索引从1开始
     fun getIconResIndex(name :String) :Int{
         if (name.startsWith("sys:")) {
             val idStr = name.substring(4)
@@ -366,6 +369,65 @@ public object ImagesHelper {
         canvas.drawCircle(radius, radius, radius - edgeWidth / 2f, edgePaint)
 
         return output
+    }
+
+    fun scaleBitmap(bmp: Bitmap, maxWidth: Int, maxHeight: Int): Bitmap {
+        var width = bmp.width
+        var height = bmp.height
+        var factor = 1.0f
+        // Calculate scaling factor due to large linear dimensions.
+        if (width >= height) {
+            if (width > maxWidth) {
+                factor = width.toFloat() / maxWidth
+            }
+        } else {
+            if (height > maxHeight) {
+                factor = height.toFloat() / maxHeight
+            }
+        }
+        // Scale down.
+        if (factor > 1.0) {
+            height = (height / factor).toInt()
+            width = (width / factor).toInt()
+            return Bitmap.createScaledBitmap(bmp, width, height, true)
+        }
+        return bmp
+    }
+
+    // 根据exif 旋转图片
+    fun rotateBitmap(bmp: Bitmap, orientation: Int): Bitmap {
+        val matrix = Matrix()
+        when (orientation) {
+            ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> matrix.setScale(-1f, 1f)
+            ExifInterface.ORIENTATION_ROTATE_180 -> matrix.setRotate(180f)
+            ExifInterface.ORIENTATION_FLIP_VERTICAL -> {
+                matrix.setRotate(180f)
+                matrix.postScale(-1f, 1f)
+            }
+
+            ExifInterface.ORIENTATION_TRANSPOSE -> {
+                matrix.setRotate(90f)
+                matrix.postScale(-1f, 1f)
+            }
+
+            ExifInterface.ORIENTATION_ROTATE_90 -> matrix.setRotate(90f)
+            ExifInterface.ORIENTATION_TRANSVERSE -> {
+                matrix.setRotate(-90f)
+                matrix.postScale(-1f, 1f)
+            }
+
+            ExifInterface.ORIENTATION_ROTATE_270 -> matrix.setRotate(-90f)
+            ExifInterface.ORIENTATION_NORMAL -> return bmp
+            else -> return bmp
+        }
+        try {
+            val rotated = Bitmap.createBitmap(bmp, 0, 0, bmp.width, bmp.height, matrix, true)
+            bmp.recycle()
+            return rotated
+        } catch (ex: OutOfMemoryError) {
+            Log.e("translate image", "Out of memory while rotating bitmap")
+            return bmp
+        }
     }
 
 }

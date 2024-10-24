@@ -14,6 +14,8 @@ class PermissionsHelper(private val activity: Activity) {
         const val PERMISSION_REQUEST_CAMERA = 101
         const val PERMISSION_REQUEST_GALLERY = 102
         const val PERMISSION_REQUEST_LOCATION = 103
+        const val PERMISSION_REQUEST_RECORD_AUDIO = 104
+        const val PERMISSION_REQUEST_WRITE_STORAGE = 105
     }
 
     // 检查是否有相机权限
@@ -31,6 +33,20 @@ class PermissionsHelper(private val activity: Activity) {
         return ContextCompat.checkSelfPermission(activity, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
     }
 
+    // 录音
+    fun hasAudioRecordPermission(): Boolean{
+        return ContextCompat.checkSelfPermission(activity, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+    }
+
+    // 外置文件读写
+    fun hasWritePermission(): Boolean{
+        return ContextCompat.checkSelfPermission(activity, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
+    }
+
+    fun hasReadPermission(): Boolean {
+        return ContextCompat.checkSelfPermission(activity, Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
+    }
+
     // 请求相机权限
     fun requestCameraPermission() {
         ActivityCompat.requestPermissions(activity, arrayOf(Manifest.permission.CAMERA), PERMISSION_REQUEST_CAMERA)
@@ -45,6 +61,8 @@ class PermissionsHelper(private val activity: Activity) {
     fun requestLocationPermission() {
         ActivityCompat.requestPermissions(activity, arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), PERMISSION_REQUEST_LOCATION)
     }
+
+
 
 
 

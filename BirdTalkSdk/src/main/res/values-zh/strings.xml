@@ -49,4 +49,14 @@
     <string name="stop_recording_button_hint">stop recording</string>
     <string name="play_record_audio_button_hint">play record</string>
     <string name="pause_audio_button_hint">pause audio</string>
+    <string name="content_deleted">已经删除了</string>
+    <string name="action_cancel">取消操作</string>
+    <string name="canceled">已取消</string>
+    <string name="audio_recording_failed">录音错误</string>
+    <string name="image_caption_hint">image name</string>
+    <string name="file_name_label">file name</string>
+    <string name="content_type_label">content type</string>
+    <string name="image_size_label">"image size "</string>
+    <string name="accept_avatar_button_hint">"accept avatar "</string>
+    <string name="permission_missing">"permission_missing"</string>
 </resources>

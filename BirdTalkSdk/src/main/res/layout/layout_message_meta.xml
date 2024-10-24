@@ -21,11 +21,11 @@
 
         <ImageView
             android:id="@+id/icon"
-            android:visibility="gone"
             android:layout_width="18dp"
             android:layout_height="18dp"
             android:layout_gravity="center_vertical"
             android:layout_marginStart="8dp"
+            android:visibility="gone"
             app:srcCompat="@drawable/ic_block_gray"
             tools:ignore="ContentDescription" />
 
