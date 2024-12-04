@@ -20,5 +20,6 @@ class GlobalData {
 
         // 当前会话列表
         var chatSessionList :LinkedList<Topic> = LinkedList<Topic>()
+
     }
 }

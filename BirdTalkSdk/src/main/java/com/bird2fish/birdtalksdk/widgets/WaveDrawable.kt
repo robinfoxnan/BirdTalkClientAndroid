@@ -330,7 +330,7 @@ class WaveDrawable @JvmOverloads constructor(res: Resources, leftPaddingDP: Int 
         return mBars!![base.toInt() * 4] + (base - base.toInt()) * (sLineWidth + sSpacing)
     }
 
-    interface CompletionListener {
+    fun interface CompletionListener {
         fun onFinished()
     }
 

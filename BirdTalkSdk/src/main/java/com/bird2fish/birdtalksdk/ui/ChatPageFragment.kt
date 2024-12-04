@@ -3,7 +3,10 @@ package com.bird2fish.birdtalksdk.ui
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.content.ContentResolver
+import android.content.Context
 import android.content.Intent
+import android.graphics.BitmapFactory
 import android.graphics.PointF
 import android.graphics.Rect
 import android.media.AudioAttributes
@@ -21,6 +24,8 @@ import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import android.provider.MediaStore
+import android.text.Editable
+import android.text.TextWatcher
 import android.util.Log
 import android.view.GestureDetector
 import android.view.GestureDetector.SimpleOnGestureListener
@@ -34,7 +39,6 @@ import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.annotation.NonNull
 import androidx.annotation.Nullable
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.AppCompatImageButton
@@ -49,7 +53,9 @@ import androidx.recyclerview.widget.RecyclerView.Recycler
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout.OnRefreshListener
 import com.bird2fish.birdtalksdk.R
+import com.bird2fish.birdtalksdk.model.Drafty
 import com.bird2fish.birdtalksdk.model.MessageContent
+import com.bird2fish.birdtalksdk.model.MessageStatus
 import com.bird2fish.birdtalksdk.model.UserStatus
 import com.bird2fish.birdtalksdk.uihelper.PermissionsHelper
 import com.bird2fish.birdtalksdk.uihelper.TextHelper
@@ -58,11 +64,14 @@ import com.bird2fish.birdtalksdk.widgets.MovableActionButton
 import com.bird2fish.birdtalksdk.widgets.WaveDrawable
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import java.io.File
+import java.io.FileNotFoundException
 import java.io.IOException
+import java.net.URI
 import java.util.LinkedList
 
 class ChatPageFragment : Fragment() {
 
+    private var root :View? =null
     private var parentView :ChatManagerFragment? = null
     private val SUPPORTED_MIME_TYPES: Array<String> = arrayOf("image/*")
     // Number of milliseconds between audio samples for recording visualization.
@@ -70,7 +79,7 @@ class ChatPageFragment : Fragment() {
     // Minimum duration of an audio recording in milliseconds.
     private val MIN_DURATION: Int = 1000
     // Maximum duration of an audio recording in milliseconds.
-    private val MAX_DURATION: Int = 600000
+    private val MAX_DURATION: Int = 30000
 
 
     private val ZONE_CANCEL: Int = 0
@@ -125,6 +134,9 @@ class ChatPageFragment : Fragment() {
     private var mReply : MessageContent? = null
 
 
+    // 临时的一个消息列表
+    var dataList = LinkedList<MessageContent>()
+
     // 申请录音权限
     private val audioRecorderPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
@@ -169,8 +181,10 @@ class ChatPageFragment : Fragment() {
         if (result.resultCode == Activity.RESULT_OK) {
             result.data?.data?.let { uri ->
                // 结果
-                TextHelper.showToast(requireContext(), uri.toString())
 
+
+                sendLoadImage(this.requireContext(), uri)
+                TextHelper.showToast(requireContext(), uri.toString())
             }
         }
     }
@@ -241,6 +255,7 @@ class ChatPageFragment : Fragment() {
         savedInstanceState: Bundle?
     ): View? {
         val view = inflater.inflate(R.layout.fragment_chat_page, container, false)
+        this.root = view
 
         permissionsHelper = PermissionsHelper(requireActivity())
         // 一键滚动到底部的按钮
@@ -271,13 +286,16 @@ class ChatPageFragment : Fragment() {
         }
         mMessageViewLayoutManager?.setReverseLayout(true)
         ////
-        var dataList = LinkedList<MessageContent>()
 
-        val msg = MessageContent(1, 1001, "飞鸟", "sys:3", UserStatus.ONLINE, true, "昨天你去哪里了呢？")
+        // 初始化
+        val msg = MessageContent(1, 1001, "飞鸟", "sys:3", UserStatus.ONLINE, MessageStatus.OK, true,"昨天你去哪里了呢？", null)
         dataList += msg
 
-        val msg1 = MessageContent(2, 1002, "我", "sys:4", UserStatus.ONLINE, false, "西单啊，还去了奥森")
+        val msg1 = MessageContent(2, 1002, "我", "sys:4", UserStatus.ONLINE, MessageStatus.OK, false, "西单啊，还去了奥森", null)
         dataList += msg1
+
+
+
         // 建立数据列表控件
         mRecyclerView = view.findViewById(R.id.messages_container)
         mRecyclerView?.addOnScrollListener(object : RecyclerView.OnScrollListener() {
@@ -398,7 +416,45 @@ class ChatPageFragment : Fragment() {
             StickerReceiver()
         )
 
+
+        // 当编辑器被激活的时候，切换按钮
+        editor.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(charSequence: CharSequence, i: Int, i1: Int, i2: Int) {
+            }
+
+            override fun onTextChanged(
+                charSequence: CharSequence,
+                start: Int,
+                before: Int,
+                count: Int
+            ) {
+                if (count > 0 || before > 0) {
+                    //activity.sendKeyPress()
+                }
+
+                //切换按钮 [send] or [record audio] button.
+                if (charSequence.length > 0) {
+                    audio.visibility = View.INVISIBLE
+                    send.visibility = View.VISIBLE
+                } else {
+                    audio.visibility = View.VISIBLE
+                    send.visibility = View.INVISIBLE
+                }
+            }
+
+            override fun afterTextChanged(editable: Editable) {
+            }
+        })
+
         return view
+    }
+
+
+    // 这里是发送对方正在输入的消息
+    fun sendKeyPress() {
+//        if (mTopic != null && mSendTypingNotifications) {
+//            mTopic.noteKeyPress()
+//        }
     }
 
     // 最下面的输入面板是根据状态来切换的
@@ -500,18 +556,7 @@ class ChatPageFragment : Fragment() {
         mab.setOnActionListener(object : MovableActionButton.ActionListener() {
             override fun onUp(x: Float, y: Float): Boolean {
 
-                // 如果时间很短，持续按住然后发送即可
-                if (mAudioRecorder != null) {
-                    releaseAudio(true)
-                    sendAudio(activity)
-                }
-
-                mab.visibility = View.INVISIBLE
-                lockFab.visibility = View.GONE
-                deleteFab.visibility = View.GONE
-                audio.visibility = View.VISIBLE
-                // 停止按时，切换为发送
-                setSendPanelVisible(activity, R.id.sendMessagePanel)
+                onButtonUpStopRecord()
                 return true
             }
 
@@ -651,22 +696,15 @@ class ChatPageFragment : Fragment() {
             pauseButton.visibility = View.GONE
             val wd: WaveDrawable = wave.background as WaveDrawable
             wd.stop()
-            mAudioPlayer!!.pause()
+            mAudioPlayer?.pause()
         }
 
         // 停止录制按钮
         stopButton.setOnClickListener { v: View ->
-            playButton.visibility = View.VISIBLE
-            v.visibility = View.GONE
-            releaseAudio(true)
-            val wd: WaveDrawable = wave.background as WaveDrawable
-            wd.reset()
-            wd.setDuration(mAudioRecordDuration)
-            wd.put(mAudioSampler!!.obtain(96))
-            wd.seekTo(0f)
+           onClickStopAudioRecord()
         }
 
-        // 发送音频的按钮
+        // 发送音频的按钮； 在录制的过程中，其实也是可以执行发送动作的
         view.findViewById<View>(R.id.chatSendAudio).setOnClickListener { v: View? ->
             releaseAudio(true)
             sendAudio(activity)
@@ -675,6 +713,63 @@ class ChatPageFragment : Fragment() {
         }
 
         return audio
+    }
+
+    // 手动点击了停止录制按钮
+    fun onClickStopAudioRecord(){
+
+        // 锁定的面板上的播放按钮
+        val playButton = root!!.findViewById<AppCompatImageButton>(R.id.playRecording)
+
+        // 停止
+        val stopButton = root!!.findViewById<AppCompatImageButton>(R.id.stopRecording)
+        // ImageView 定制的带有波形的图片
+        val wave = root!!.findViewById<ImageView>(R.id.audioWave)
+
+        playButton.visibility = View.VISIBLE
+        stopButton.visibility = View.GONE
+        releaseAudio(true)      // 保留记录的临时文件
+        val wd: WaveDrawable = wave.background as WaveDrawable
+        wd.reset()
+        wd.setDuration(mAudioRecordDuration)
+        wd.put(mAudioSampler!!.obtain(96))
+        wd.seekTo(0f)
+    }
+
+    // 松开录制按钮的停止录制
+    fun onButtonUpStopRecord(){
+        // 如果时间很短，持续按住然后发送即可
+        if (mAudioRecorder != null) {
+            releaseAudio(true)
+            // 执行发送
+            sendAudio(requireActivity() as AppCompatActivity)
+        }
+
+        // 真正用于控制录音的浮动按钮
+        val mab: MovableActionButton = root!!.findViewById(R.id.audioRecorder)
+        // 浮动锁定
+        val lockFab = root!!.findViewById<ImageView>(R.id.lockAudioRecording)
+        // 浮动删除
+        val deleteFab = root!!.findViewById<ImageView>(R.id.deleteAudioRecording)
+        val audio = root!!.findViewById<AppCompatImageButton>(R.id.chatAudioButton)
+
+        mab.visibility = View.INVISIBLE
+        lockFab.visibility = View.GONE
+        deleteFab.visibility = View.GONE
+        audio.visibility = View.VISIBLE
+        // 停止按时，切换为发送
+        setSendPanelVisible(requireActivity(), R.id.sendMessagePanel)
+    }
+
+    // 录音最大限长被触发的时候，
+    // 长声音使用录制面板；
+    // 短声音使用短声音面板，
+    fun onMaxDurationReachedStopRecord(){
+        if (mVisibleSendPanel == R.id.recordAudioPanel) {
+            onClickStopAudioRecord()
+        } else if (mVisibleSendPanel == R.id.recordAudioShortPanel) {
+            onButtonUpStopRecord()
+        }
     }
 
 
@@ -716,10 +811,19 @@ class ChatPageFragment : Fragment() {
 
         mAudioRecorder!!.setAudioSource(MediaRecorder.AudioSource.MIC)
         mAudioRecorder!!.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
-        mAudioRecorder!!.setMaxDuration(MAX_DURATION) // 10 minutes.
         mAudioRecorder!!.setAudioEncodingBitRate(24000)
         mAudioRecorder!!.setAudioSamplingRate(16000)
         mAudioRecorder!!.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+
+        // 监听录音的状态变化，包括最大时长结束
+        mAudioRecorder!!.setMaxDuration(MAX_DURATION) // 10 minutes.
+        mAudioRecorder!!.setOnInfoListener { mr, what, _ ->
+            if (what == MediaRecorder.MEDIA_RECORDER_INFO_MAX_DURATION_REACHED) {
+                // 录音达到最大时长时的处理逻辑
+                Log.d("Recorder", "录音已达到最大时长")
+                onMaxDurationReachedStopRecord()
+            }
+        }
 
         if (AcousticEchoCanceler.isAvailable()) {
             mEchoCanceler = AcousticEchoCanceler.create(MediaRecorder.AudioSource.MIC)
@@ -761,7 +865,8 @@ class ChatPageFragment : Fragment() {
         audioManager?.let {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 // 设置模式为通话模式
-                it.mode = AudioManager.MODE_IN_CALL
+                //it.mode = AudioManager.MODE_IN_CALL
+                it.mode = AudioManager.MODE_NORMAL
 
                 // 打开扬声器
                 it.isSpeakerphoneOn = true
@@ -805,6 +910,17 @@ class ChatPageFragment : Fragment() {
 
     // 释放录音资源
     private fun releaseAudio(keepRecord: Boolean) {
+
+        val playButton = root!!.findViewById<AppCompatImageButton>(R.id.playRecording)
+        // 暂停
+        val pauseButton = root!!.findViewById<AppCompatImageButton>(R.id.pauseRecording)
+        // 停止
+        val stopButton = root!!.findViewById<AppCompatImageButton>(R.id.stopRecording)
+
+        playButton.visibility = View.GONE
+        pauseButton.visibility = View.GONE
+        stopButton.visibility = View.GONE
+
 
         if (!keepRecord && mAudioRecord != null) {
             mAudioRecord?.delete()
@@ -888,6 +1004,81 @@ class ChatPageFragment : Fragment() {
         return false
     }
 
+    /**
+     * 从 Uri 读取文件为 ByteArray
+     * @param context Android 上下文
+     * @param uri 图片的 Uri
+     * @return 文件内容的字节数组
+     * @throws IOException 如果无法读取文件
+     */
+    @Throws(IOException::class)
+    fun readUriAsByteArray(context: Context, uri: Uri): ByteArray {
+        val inputStream = context.contentResolver.openInputStream(uri)
+            ?: throw IOException("Unable to open InputStream for URI: $uri")
+
+        return inputStream.use { it.readBytes() } // 自动关闭 InputStream
+    }
+
+    // 发送浏览选择的图片
+    private fun sendLoadImage(context: Context, uri: Uri){
+
+        val contentResolver: ContentResolver = context.contentResolver
+        val details = mutableMapOf<String, Any?>()
+
+        val draft = Drafty("")
+        try {
+            // 获取 MIME 类型
+            val mimeType = contentResolver.getType(uri)
+            details["mimeType"] = "\"" +mimeType + "\""
+
+            // 获取文件大小
+            val fileSize = contentResolver.openFileDescriptor(uri, "r")?.use {
+                it.statSize
+            }
+            details["fileSize"] = fileSize // 单位：字节
+
+            // 获取宽高
+            var options : android. graphics. BitmapFactory.Options? = null
+            contentResolver.openInputStream(uri)?.use { inputStream ->
+                options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                BitmapFactory.decodeStream(inputStream, null, options)
+                details["width"] = options!!.outWidth
+                details["height"] = options!!.outHeight
+            }
+
+            var byteArray: ByteArray? = null
+            try {
+                byteArray = readUriAsByteArray(this.requireContext(), uri) // 读取为 ByteArray
+
+                Log.d("ImageBytes", "ByteArray size: ${byteArray.size}")
+                // 你可以将 byteArray 用于后续处理
+            } catch (e: IOException) {
+                Log.e("ReadError", "Failed to read file: ${e.message}")
+            }
+
+
+//            draft.insertImage(0,"image/jpeg", null, 884, 535, "",
+//                URI("\"https://mposs.bjnews.com.cn/2024/03/28/3517115569644880018_8c5effe2c2be014d59d78c855c4aa2ce.jpg?\""), 417737)
+           // draft.insertImage(0,"image/jpeg", null, options!!.outWidth, options!!.outHeight, "",  URI(uri.toString()), fileSize!!)
+            draft.insertImage(0,"image/jpeg", byteArray!!, options!!.outWidth, options!!.outHeight, "")
+
+            Log.d("文件内容", "draft: ${draft.toPlainText()}")
+            val msg2 = MessageContent(2, 1002, "我", "sys:4",
+                UserStatus.ONLINE, MessageStatus.OK, false, "", draft)
+            dataList += msg2
+
+            mMessagesAdapter?.notifyDataSetChanged()
+
+
+        } catch (e: FileNotFoundException) {
+            Log.e("ImageDetails", "File not found: $e")
+        } catch (e: Exception) {
+            Log.e("ImageDetails", "Error while fetching image details: $e")
+        }
+
+
+    }
+
     // 发送文本
     private fun sendText(activity: Activity?) {
         if (activity == null || activity.isFinishing || activity.isDestroyed) {
@@ -936,6 +1127,22 @@ class ChatPageFragment : Fragment() {
         }
 
         val preview = mAudioSampler!!.obtain(96)
+
+        // 测试添加音乐
+//        val draft = Drafty()
+//        draft.insertAudio(
+//            0,
+//            "audio/aac",
+//            ,
+//            preview,
+//            duration,
+//            fname,
+//            AttachmentHandler.wrapRefUrl(refUrl),
+//            size)
+//        val msg2 = MessageContent(2, 1002, "我", "sys:4",
+//            UserStatus.ONLINE, MessageStatus.OK, false, "", draft)
+//        dataList += msg2
+
 //        args.putByteArray(AttachmentHandler.ARG_AUDIO_PREVIEW, preview)
 //        args.putParcelable(AttachmentHandler.ARG_LOCAL_URI, Uri.fromFile(mAudioRecord))
 //        args.putString(AttachmentHandler.ARG_FILE_PATH, mAudioRecord!!.absolutePath)
@@ -1031,7 +1238,7 @@ class ChatPageFragment : Fragment() {
         override fun onReceiveContent(view: View, payload: ContentInfoCompat): ContentInfoCompat? {
             val split = payload.partition { item -> item.uri != null }
 
-            val activity = activity as? AppCompatActivity ?: return split.second
+            val activity = requireActivity() as? AppCompatActivity ?: return split.second
             if (split.first != null) {
                 // Handle posted URIs.
                 val data = split.first.clip

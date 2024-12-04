@@ -4,6 +4,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.Bitmap.CompressFormat
 import android.graphics.BitmapFactory
 import android.graphics.BitmapShader
 import android.graphics.Canvas
@@ -14,7 +15,9 @@ import android.graphics.PorterDuff
 import android.graphics.PorterDuffXfermode
 import android.graphics.Shader
 import android.graphics.drawable.BitmapDrawable
+import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.Drawable
+import android.graphics.drawable.LayerDrawable
 import android.net.Uri
 import android.util.Log
 import android.util.TypedValue
@@ -22,10 +25,184 @@ import android.view.Gravity
 import android.widget.ImageView
 import android.widget.Toast
 import androidx.core.content.ContextCompat
+import androidx.core.content.res.ResourcesCompat
 import androidx.exifinterface.media.ExifInterface
 import com.bird2fish.birdtalksdk.R
+import java.io.ByteArrayOutputStream
+import java.io.IOException
+import kotlin.math.max
+import kotlin.math.min
 
 public object ImagesHelper {
+
+    const val ACTION_UPDATE_SELF_SUB: Int = 0
+    const val ACTION_UPDATE_SUB: Int = 1
+    const val ACTION_UPDATE_AUTH: Int = 2
+    const val ACTION_UPDATE_ANON: Int = 3
+    const val PREF_TYPING_NOTIF: String = "pref_typingNotif"
+    const val PREF_READ_RCPT: String = "pref_readReceipts"
+
+    // Maximum length of user name or topic title.
+    const val MAX_TITLE_LENGTH: Int = 60
+    // Maximum length of topic description.
+    const val MAX_DESCRIPTION_LENGTH: Int = 360
+    // Length of quoted text.
+    const val QUOTED_REPLY_LENGTH: Int = 64
+
+    // Maximum linear dimensions of images.
+    const val MAX_BITMAP_SIZE: Int = 1024
+    const val AVATAR_THUMBNAIL_DIM: Int = 36 // dip
+    // Image thumbnail in quoted replies and reply/forward previews.
+    const val REPLY_THUMBNAIL_DIM: Int = 36
+    // Image preview size in messages.
+    const val IMAGE_PREVIEW_DIM: Int = 64
+    const val MIN_AVATAR_SIZE: Int = 8
+    const val MAX_AVATAR_SIZE: Int = 384
+    // Maximum byte size of avatar sent in-band.
+    const val MAX_INBAND_AVATAR_SIZE: Int = 4096
+
+    // Default tag parameters
+
+    const val DEFAULT_MIN_TAG_LENGTH: Int = 4
+
+    const val DEFAULT_MAX_TAG_LENGTH: Int = 96
+
+    const val DEFAULT_MAX_TAG_COUNT: Int = 16
+
+
+    const val COLOR_GREEN_BORDER: Int = -0xb350b0
+
+    const val COLOR_RED_BORDER: Int = -0x1a8c8d
+
+    const val COLOR_GRAY_BORDER: Int = -0x616162
+    // private static final int COLOR_BLUE_BORDER = 0xFF2196F3;
+
+    const val COLOR_YELLOW_BORDER: Int = -0x35d8
+    // Logo LayerDrawable IDs
+
+    const val LOGO_LAYER_AVATAR: Int = 0
+
+    const val LOGO_LAYER_ONLINE: Int = 1
+
+    const val LOGO_LAYER_TYPING: Int = 2
+    // If StoredMessage activity is visible, this is the current topic in that activity.
+
+    var sVisibleTopic: String? = null
+
+    // Creates LayerDrawable of the right size with gray background and 'fg' in the middle.
+    // Used in chat bubbled to generate placeholder and error images for Picasso.
+    fun getPlaceholder(
+        ctx: Context,
+        fg: Drawable,
+        bkg: Drawable?,
+        width: Int,
+        height: Int
+    ): Drawable {
+        var bkg = bkg
+        val filter: Drawable
+        if (bkg == null) {
+            // Uniformly gray background with rounded corners.
+            bkg = ResourcesCompat.getDrawable(ctx.resources, R.drawable.placeholder_image_bkg, null)
+            // Transparent filter.
+            filter = ColorDrawable(0x00000000)
+        } else {
+            // Translucent filter.
+            filter = ColorDrawable(-0x33333334)
+        }
+
+        val fgWidth = fg.intrinsicWidth
+        val fgHeight = fg.intrinsicHeight
+        val result = LayerDrawable(arrayOf(bkg, filter, fg))
+        result.setBounds(0, 0, width, height)
+        // Move foreground to the center of the drawable.
+        val dx = max(((width - fgWidth) / 2).toDouble(), 0.0).toInt()
+        val dy = max(((height - fgHeight) / 2).toDouble(), 0.0).toInt()
+        fg.setBounds(dx, dy, dx + fgWidth, dy + fgHeight)
+        return result
+    }
+
+
+    fun bitmapToBytes(bmp: Bitmap, mimeType: String): ByteArray {
+        val fmt = if ("image/jpeg" == mimeType) {
+            CompressFormat.JPEG
+        } else {
+            CompressFormat.PNG
+        }
+        val bos = ByteArrayOutputStream()
+        bmp.compress(fmt, 70, bos)
+        val bits = bos.toByteArray()
+        try {
+            bos.close()
+        } catch (ignored: IOException) {
+        }
+
+        return bits
+    }
+
+
+    /**
+     * Convert drawable to bitmap.
+     *
+     * @param drawable vector drawable to convert to bitmap
+     * @return bitmap extracted from the drawable.
+     */
+    fun bitmapFromDrawable(drawable: Drawable): Bitmap {
+        if (drawable is BitmapDrawable) {
+            return drawable.bitmap
+        }
+
+        val bitmap = Bitmap.createBitmap(
+            drawable.intrinsicWidth,
+            drawable.intrinsicHeight, Bitmap.Config.ARGB_8888
+        )
+        val canvas = Canvas(bitmap)
+        drawable.setBounds(0, 0, canvas.width, canvas.height)
+        drawable.draw(canvas)
+
+        return bitmap
+    }
+
+    /**
+     * Ensure that the bitmap is square and no larger than the given max size.
+     * @param bmp       bitmap to scale
+     * @param size   maximum linear size of the bitmap.
+     * @return scaled bitmap or original, it it does not need ot be cropped or scaled.
+     */
+    fun scaleSquareBitmap(bmp: Bitmap, size: Int): Bitmap {
+        // Sanity check
+        var bmp = bmp
+        var size = size
+        size = min(size.toDouble(), MAX_BITMAP_SIZE.toDouble()).toInt()
+
+        var width = bmp.width
+        var height = bmp.height
+
+        // Does it need to be scaled down?
+        if (width > size && height > size) {
+            // Scale down.
+            if (width > height) /* landscape */ {
+                width = width * size / height
+                height = size
+            } else  /* portrait or square */ {
+                height = height * size / width
+                width = size
+            }
+            // Scale down.
+            bmp = Bitmap.createScaledBitmap(bmp, width, height, true)
+        }
+        size = min(width.toDouble(), height.toDouble()).toInt()
+
+        if (width != height) {
+            // Bitmap is not square. Chop the square from the middle.
+            bmp = Bitmap.createBitmap(
+                bmp, (width - size) / 2, (height - size) / 2,
+                size, size
+            )
+        }
+
+        return bmp
+    }
+
 
     fun copyToClipboard(context: Context, text: String) {
         val clipboardManager = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager

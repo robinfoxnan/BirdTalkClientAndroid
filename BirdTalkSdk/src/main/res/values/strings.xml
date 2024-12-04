@@ -62,5 +62,31 @@
     <string name="accept_avatar_button_hint">"accept avatar "</string>
     <string name="permission_missing">"permission_missing"</string>
 
+    <string name="declined_call">Call declined</string>
+    <string name="missed_call">Call missed</string>
+    <string name="cancelled_call">Call cancelled</string>
+    <string name="connecting_call">Connecting call...</string>
+    <string name="in_progress_call">Call in progress...</string>
+    <string name="disconnected_call">Call disconnected</string>
+
+    <string name="audio">Call disconnected</string>
+    <string name="picture">Call disconnected</string>
+    <string name="attachment">Call disconnected</string>
+    <string name="form">Call disconnected</string>
+    <string name="incoming_call">Call disconnected</string>
+    <string name="unknown">Call disconnected</string>
+
+    <string name="outgoing_call">out going call</string>
+    <string name="unavailable">unavailable</string>
+
+    <string name="default_attachment_name">default attachment name</string>
+    <string name="download_attachment">download attachment</string>
+
+
+    <string name="processing">processing</string>
+    <string name="failed">failed</string>
+    <string name="invalid_content">invalid_content</string>
+
+
 
 </resources>

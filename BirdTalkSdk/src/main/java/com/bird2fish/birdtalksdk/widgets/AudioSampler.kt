@@ -3,19 +3,23 @@ package com.bird2fish.birdtalksdk.widgets
 import java.util.Arrays
 import kotlin.math.max
 
-// Class for generating audio preview from a stream of amplitudes of unknown length.
+// 代码定义了一个 AudioSampler 类，用于从一系列未知长度的音频幅度流中生成音频预览数据。
+// 该类的设计目的是将原始音频数据采样后处理成可用于音频可视化的格式。
+// 具体来说，AudioSampler 将音频数据分成固定数量的桶（bucket），
+// 然后将这些桶中的数据进行聚合、归一化并生成用于音频可视化的采样数据。
 
 class AudioSampler constructor() {
+    // 当采样的的缓冲区满了以后，以2:1方式平均值填充到 mScratchBuff
     private val mSamples: FloatArray
     private val mScratchBuff: FloatArray
 
-    // The index of a bucket being filled.
+    // 当前填充哪个桶.
     private var mBucketIndex = 0
 
-    // Number of samples per bucket in mScratchBuff.
+    // mScratchBuff中每个桶的采样数，目前是1
     private var mAggregate = 1
 
-    // Number of samples added the the current bucket.
+    // 当前桶中添加了多少样本
     private var mSamplesPerBucket = 0
 
     init {
@@ -23,18 +27,19 @@ class AudioSampler constructor() {
         mScratchBuff = FloatArray(VISUALIZATION_BARS)
     }
 
-    fun put(`val`: Int) {
+    fun put(data: Int) {
         // Fill out the main buffer first.
         if (mAggregate == 1) {
             if (mBucketIndex < mSamples.size) {
-                mSamples[mBucketIndex] = `val`.toFloat()
+                mSamples[mBucketIndex] = data.toFloat()
                 mBucketIndex++
                 return
             }
+            // 执行到这里的时候，第一遍填充完毕了；mAggregate 就变成2了；
             compact()
         }
 
-        // Check if the current bucket is full.
+        // 向桶i 累加完毕后，执行正则化（计算平均值）
         if (mSamplesPerBucket == mAggregate) {
             // Normalize the bucket.
             mScratchBuff[mBucketIndex] =
@@ -46,11 +51,13 @@ class AudioSampler constructor() {
         if (mBucketIndex == mScratchBuff.size) {
             compact()
         }
-        mScratchBuff[mBucketIndex] += `val`.toFloat()
+
+        // 普通情况下，向桶i 累加N个相邻数据
+        mScratchBuff[mBucketIndex] += data.toFloat()
         mSamplesPerBucket++
     }
 
-    // Get the count of available samples in the main buffer + scratch buffer.
+    // 计算所有的样本数 buffer + scratch buffer.
     private fun length(): Int {
         if (mAggregate == 1) {
             // Only the main buffer is available.
@@ -60,7 +67,7 @@ class AudioSampler constructor() {
         return mSamples.size + mBucketIndex + 1
     }
 
-    // Get bucket content at the given index from the main + scratch buffer.
+    // 获取某个桶中的数据  the main + scratch buffer.
     private fun getAt(index: Int): Float {
         // Index into the main buffer.
         var index = index
@@ -76,6 +83,8 @@ class AudioSampler constructor() {
         return mScratchBuff[index] / mSamplesPerBucket
     }
 
+    // 获取指定数量的音频采样数据，并将其归一化后转换为字节数组返回。
+    // 这个方法可以对数据进行上采样或下采样（取决于 srcCount 和 dstCount 的比例），并且对样本进行最大值归一化处理。
     fun obtain(dstCount: Int): ByteArray {
         // We can only return as many as we have.
         val dst = FloatArray(dstCount)
@@ -110,7 +119,9 @@ class AudioSampler constructor() {
         return result
     }
 
-    // Downscale the amplitudes 2x.
+    // 当临时缓冲区满了以后，该方法会对数据进行压缩处理。
+    // 它将主缓冲区中的数据进行 2 倍下采样（即两个相邻样本的平均值），
+    // 并将临时缓冲区中的数据复制到主缓冲区中。这样可以腾出更多空间以接收新的样本数据。
     private fun compact() {
         val len = VISUALIZATION_BARS / 2
         // Donwsample the main buffer: two consecutive samples make one new sample.
@@ -121,7 +132,7 @@ class AudioSampler constructor() {
         System.arraycopy(mScratchBuff, 0, mSamples, len, len)
         // Clear the scratch buffer.
         Arrays.fill(mScratchBuff, 0f)
-        // Double the number of samples per bucket.
+        // 因为这里折叠了一次，所以桶的数据等于翻倍了
         mAggregate *= 2
         // Reset scratch counters.
         mBucketIndex = 0
@@ -129,6 +140,7 @@ class AudioSampler constructor() {
     }
 
     companion object {
+//        用于可视化的柱状图数量，定义为 128。
         private const val VISUALIZATION_BARS = 128
     }
 }

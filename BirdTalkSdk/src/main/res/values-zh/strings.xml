@@ -59,4 +59,28 @@
     <string name="image_size_label">"image size "</string>
     <string name="accept_avatar_button_hint">"accept avatar "</string>
     <string name="permission_missing">"permission_missing"</string>
+
+    <string name="declined_call">通话已拒绝</string>
+    <string name="missed_call">未接来电</string>
+    <string name="cancelled_call">通话已取消</string>
+    <string name="connecting_call">正在连接通话...</string>
+    <string name="in_progress_call">通话进行中...</string>
+    <string name="disconnected_call">通话已断开</string>
+
+    <string name="audio">通话已断开</string>
+    <string name="picture">通话已断开</string>
+    <string name="attachment">通话已断开</string>
+    <string name="form">通话已断开</string>
+    <string name="incoming_call">通话已断开</string>
+    <string name="unknown">通话已断开</string>
+
+    <string name="outgoing_call">播出的电话</string>
+    <string name="unavailable">不可用</string>
+
+    <string name="default_attachment_name">附件</string>
+    <string name="download_attachment">下载附件</string>
+
+    <string name="processing">处理中</string>
+    <string name="failed">失败</string>
+    <string name="invalid_content">内容非法</string>
 </resources>
