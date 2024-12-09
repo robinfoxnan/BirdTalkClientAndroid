@@ -4,12 +4,15 @@ import android.app.Activity
 import android.media.AudioAttributes
 import android.media.AudioManager
 import android.media.MediaPlayer
+import android.net.Uri
 import android.os.Build
+import android.util.Base64
 import android.util.Log
 import android.widget.Toast
 import java.io.IOException
 import com.bird2fish.birdtalksdk.R
 import com.bird2fish.birdtalksdk.format.FullFormatter
+import com.bird2fish.birdtalksdk.uihelper.TextHelper
 
 // Actions to take in setOnPreparedListener, when the player is ready.
 enum class PlayerReadyAction {
@@ -35,6 +38,10 @@ class MediaControl {
     private var mReadyAction = PlayerReadyAction.NOOP
     private var mSeekTo = -1f
     private var mActivity: Activity? = null
+
+    fun setActivity(view:Activity){
+        this.mActivity = view
+    }
 
     @Synchronized
     @Throws(IOException::class)
@@ -99,29 +106,39 @@ class MediaControl {
                     .build()
             )
 
-            when (val valData = data["ref"] as? String ?: data["val"]) {
-                is String -> {
-//                    val tinode = Cache.getTinode()
-//                    val url = tinode.toAbsoluteURL(valData)
-//                    url?.let {
-//                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-//                            setDataSource(mActivity, Uri.parse(url.toString()), tinode.getRequestHeaders(), null)
-//                        } else {
-//                            val uri = Uri.parse(url.toString()).buildUpon()
-//                                .appendQueryParameter("apikey", tinode.apiKey)
-//                                .appendQueryParameter("auth", "token")
-//                                .appendQueryParameter("secret", tinode.authToken)
-//                                .build()
-//                            setDataSource(mActivity, uri)
-//                        }
-//                    }
+            // 提取数据
+            val valRef = data["ref"]
+            val valData = data["val"]
+            if (valRef == null){
+                if (valData == null){
+                    Log.w("MediaControl", "Unable to play audio: missing data")
                 }
-                is String -> {
-                    //val source = Base64.decode(valData, Base64.DEFAULT)
-                    //setDataSource(MemoryAudioSource(source))
+                else if (valData is String){
+                    val source = Base64.decode(valData, Base64.DEFAULT)
+                    setDataSource(MemoryAudioSource(source))
+                }else if (valData is ByteArray){
+                    setDataSource(MemoryAudioSource(valData))
                 }
-                else -> Log.w("MediaControl", "Unable to play audio: missing data")
-            }
+            }else{
+                if (valRef is String){
+
+                    //val url = tinode.toAbsoluteURL(valData)
+                    val url = valRef
+                    url?.let {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            setDataSource(mActivity!!, Uri.parse(url.toString()), TextHelper.getRequestHeaders(), null)
+                        } else {
+                            val uri = Uri.parse(url.toString()).buildUpon()
+                                //.appendQueryParameter("apikey", tinode.apiKey)
+                                .appendQueryParameter("auth", "token")
+                                //.appendQueryParameter("secret", tinode.authToken)
+                                .build()
+                            setDataSource(mActivity!!, uri)
+                        }
+                    }
+        }
+    }
+
 
             prepareAsync()
         }

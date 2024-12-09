@@ -7,6 +7,8 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
 import java.io.Serializable;
 import java.net.URI;
 import java.text.Normalizer;
@@ -23,6 +25,13 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.fasterxml.jackson.annotation.JsonInclude.Include.NON_DEFAULT;
+
+import android.content.ContentResolver;
+import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.net.Uri;
+import android.util.DisplayMetrics;
 
 
 /**
@@ -578,6 +587,75 @@ public class Drafty implements Serializable {
     @SuppressWarnings("UnusedReturnValue")
     public Drafty insertImage(int at, String mime, byte[] bits, int width, int height, String fname) {
         return insertImage(at, mime, bits, width, height, fname, null, 0);
+    }
+
+    // robin add 这里是对图片缩放后然后加在字节流中
+    public Drafty insertLocalImage(Context context, ContentResolver contentResolver, android.net.Uri uri, String fName){
+        try {
+            // 获取屏幕宽高
+            DisplayMetrics displayMetrics = context.getResources().getDisplayMetrics();
+            int screenWidth = displayMetrics.widthPixels;
+            int screenHeight = displayMetrics.heightPixels;
+
+            // 获取图片的原始宽高
+            BitmapFactory.Options options = new BitmapFactory.Options();
+            options.inJustDecodeBounds = true;
+
+            InputStream inputStream = contentResolver.openInputStream(uri);
+            if (inputStream != null) {
+                BitmapFactory.decodeStream(inputStream, null, options);
+                inputStream.close();
+            }
+
+            int originalWidth = options.outWidth;
+            int originalHeight = options.outHeight;
+
+            // 计算缩放比例
+            float widthRatio = (float) originalWidth / screenWidth;
+            float heightRatio = (float) originalHeight / screenHeight;
+            float scaleFactor = Math.max(widthRatio, heightRatio);
+            scaleFactor = scaleFactor > 1 ? scaleFactor : 1; // 确保仅缩小图片，不放大
+
+            // 按比例缩放图片
+            options.inJustDecodeBounds = false;
+            options.inSampleSize = (int) scaleFactor;
+
+            InputStream scaledInputStream = contentResolver.openInputStream(uri);
+            Bitmap scaledBitmap = BitmapFactory.decodeStream(scaledInputStream, null, options);
+            if (scaledInputStream != null) {
+                scaledInputStream.close();
+            }
+
+            // 精确缩放
+            Bitmap finalBitmap = Bitmap.createScaledBitmap(
+                    scaledBitmap,
+                    (int) (originalWidth / scaleFactor),
+                    (int) (originalHeight / scaleFactor),
+                    true
+            );
+
+            // 释放原始缩放 Bitmap 内存
+            if (scaledBitmap != finalBitmap) {
+                scaledBitmap.recycle();
+            }
+
+            // 转换 Bitmap 为 ByteArray
+            ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+            finalBitmap.compress(Bitmap.CompressFormat.JPEG, 85, byteArrayOutputStream); // 压缩质量 85%
+            byte[] byteArray = byteArrayOutputStream.toByteArray();
+
+            byteArrayOutputStream.close();
+            finalBitmap.recycle(); // 释放最终 Bitmap 内存
+
+            //
+            return insertImage(0, "image/jpeg", byteArray, (int) (originalWidth / scaleFactor),
+                    (int) (originalHeight / scaleFactor), fName, null, 0);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+
     }
 
     /**

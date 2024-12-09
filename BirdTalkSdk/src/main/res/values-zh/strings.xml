@@ -82,5 +82,10 @@
 
     <string name="processing">处理中</string>
     <string name="failed">失败</string>
-    <string name="invalid_content">内容非法</string>
+    <string name="invalid_content">内容格式错</string>
+
+    <string name="unable_to_play_audio">无法播放音频</string>
+
+    <string name="action_reply">应答</string>
+    <string name="action_forward">转发</string>
 </resources>

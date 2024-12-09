@@ -87,6 +87,11 @@
     <string name="failed">failed</string>
     <string name="invalid_content">invalid_content</string>
 
+    <string name="unable_to_play_audio">unable to play audio</string>
+
+
+    <string name="action_reply">reply</string>
+    <string name="action_forward">forward</string>
 
 
 </resources>

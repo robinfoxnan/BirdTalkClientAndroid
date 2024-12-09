@@ -28,6 +28,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.res.ResourcesCompat
 import androidx.exifinterface.media.ExifInterface
 import com.bird2fish.birdtalksdk.R
+import com.bird2fish.birdtalksdk.model.MessageStatus
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import kotlin.math.max
@@ -88,6 +89,23 @@ public object ImagesHelper {
     // If StoredMessage activity is visible, this is the current topic in that activity.
 
     var sVisibleTopic: String? = null
+
+
+    fun setMessageStatusIcon(holder: ImageView, status: MessageStatus, read: Boolean, recv:Boolean) {
+        if (status == MessageStatus.UPLOADING || status == MessageStatus.SENDING || status == MessageStatus.DOWNLOADING) {
+            holder.setImageResource(R.drawable.ic_schedule)
+        } else if (status == MessageStatus.FAIL) {
+            holder.setImageResource(R.drawable.ic_warning)
+        } else {
+            if (read) {
+                holder.setImageResource(R.drawable.ic_done_all2)
+            } else if (recv) {
+                holder.setImageResource(R.drawable.ic_done_all)
+            } else {
+                holder.setImageResource(R.drawable.ic_done)
+            }
+        }
+    }
 
     // Creates LayerDrawable of the right size with gray background and 'fg' in the middle.
     // Used in chat bubbled to generate placeholder and error images for Picasso.

@@ -1,23 +1,28 @@
 package com.bird2fish.birdtalksdk.ui
 
+import FullscreenImageDialog
+import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
-import android.content.Intent
+import android.content.res.ColorStateList
 import android.graphics.Color
+import android.graphics.Point
 import android.graphics.Typeface
-import android.net.Uri
 import android.os.Bundle
 import android.text.SpannableString
 import android.text.Spanned
 import android.text.TextUtils
+import android.text.method.LinkMovementMethod
 import android.text.style.ForegroundColorSpan
 import android.text.style.IconMarginSpan
 import android.text.style.StyleSpan
-import android.util.Base64
 import android.util.Log
+import android.util.SparseBooleanArray
 import android.view.GestureDetector
 import android.view.GestureDetector.SimpleOnGestureListener
 import android.view.LayoutInflater
+import android.view.Menu
+import android.view.MenuItem
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
@@ -26,23 +31,25 @@ import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.content.res.AppCompatResources
+import androidx.appcompat.view.ActionMode
 import androidx.appcompat.widget.AppCompatImageButton
 import androidx.appcompat.widget.AppCompatImageView
 import androidx.recyclerview.widget.RecyclerView
-import com.bird2fish.birdtalksdk.R
 import com.bird2fish.birdtalksdk.format.FullFormatter
 import com.bird2fish.birdtalksdk.format.QuoteFormatter
 import com.bird2fish.birdtalksdk.model.MessageContent
 import com.bird2fish.birdtalksdk.model.MessageStatus
 import com.bird2fish.birdtalksdk.uihelper.ImagesHelper
+import com.bird2fish.birdtalksdk.uihelper.TextHelper
+import com.bird2fish.birdtalksdk.widgets.MediaControl
 import java.io.IOException
 import java.net.MalformedURLException
 import java.net.URL
+import com.bird2fish.birdtalksdk.R
 
 
 // 每个消息条目的内容布局部分
-class ChatPageViewHolder internal constructor(itemView: View, val mViewType: Int) :
-    RecyclerView.ViewHolder(itemView) {
+class ChatPageViewHolder  constructor(itemView: View, val mViewType: Int) : RecyclerView.ViewHolder(itemView) {
     val mIcon: ImageView? = itemView.findViewById(R.id.icon)                                 // meta才有图标
     val mAvatar: ImageView? = itemView.findViewById(R.id.avatar)                             // 对方消息不一定有图标
     val mMessageBubble: View = itemView.findViewById(R.id.messageBubble)                     // 消息主题，这个都有
@@ -58,17 +65,28 @@ class ChatPageViewHolder internal constructor(itemView: View, val mViewType: Int
     val mCancelProgress: AppCompatImageButton? = itemView.findViewById(R.id.attachmentProgressCancel)// 右侧才有的取消发送按钮
     val mProgress: View? = itemView.findViewById(R.id.progressPanel)                           // 右侧的才有进度条容器页面，根节点
     val mProgressResult: View? = itemView.findViewById(R.id.progressResult)                    // 右侧才有的进度结果
+    var seqId: Int = 0
+
+
+    // 关于每个条目的手势识别
     val mGestureDetector: GestureDetector = GestureDetector(itemView.context, object : SimpleOnGestureListener() {
             override fun onLongPress(ev: MotionEvent) {
                 itemView.performLongClick()
             }
 
             override fun onSingleTapConfirmed(ev: MotionEvent): Boolean {
+                //TextHelper.showToast(itemView.context, "click", Toast.LENGTH_SHORT)
                 itemView.performClick()
-                return super.onSingleTapConfirmed(ev)
+               super.onSingleTapConfirmed(ev)
+                return false
             }
 
-           // 通过叠加一层，方便显示按的效果
+
+            override  fun onSingleTapUp(ev: MotionEvent): Boolean{
+                //TextHelper.showToast(itemView.context, "touch up", Toast.LENGTH_SHORT)
+                return false
+            }
+        // 通过叠加一层，方便显示按的效果
             override fun onShowPress(ev: MotionEvent) {
                 if (mRippleOverlay != null) {
                     mRippleOverlay.isPressed = true
@@ -77,21 +95,29 @@ class ChatPageViewHolder internal constructor(itemView: View, val mViewType: Int
             }
 
             override fun onDown(ev: MotionEvent): Boolean {
+
                 // Convert click coordinates in itemView to TexView.
+                //TextHelper.showToast(itemView.context, "touch down", Toast.LENGTH_SHORT)
                 val item = IntArray(2)
                 val text = IntArray(2)
                 itemView.getLocationOnScreen(item)
                 mText.getLocationOnScreen(text)
 
-                val x = ev.x.toInt()
-                val y = ev.y.toInt()
+
+                // Convert ev.getX() and ev.getY() to screen coordinates.
+                val x = (ev.x + item[0]).toInt()
+                val y = (ev.y + item[1]).toInt()
+
 
                 // Make click position available to spannable.
-               // mText.setTag(R.id.click_coordinates, Point(x, y))
-                return super.onDown(ev)
+                mText.setTag(com.bird2fish.birdtalksdk.R.id.click_coordinates, Point(x, y))
+                //itemView.performClick()
+                Log.d("TouchEvent", "gesture  ACTION_DOWN")
+                return true
+
             }
         })
-    var seqId: Int = 0
+
 }
 class ChatPageAdapter(private val dataList: List<MessageContent>) : RecyclerView.Adapter<ChatPageViewHolder>() {
 
@@ -105,10 +131,80 @@ class ChatPageAdapter(private val dataList: List<MessageContent>) : RecyclerView
         const val VIEW_TYPE_INVALID     = 0b000000
     }
     private var fragment : ChatPageFragment? = null
+    private val mMediaControl: MediaControl = MediaControl()
+
+    private var mSelectedItems: SparseBooleanArray? = null
+    private var mSelectionMode: ActionMode? = null
+
+    private val MESSAGE_BUBBLE_ANIMATION_SHORT: Int = 150
+    private val MESSAGE_BUBBLE_ANIMATION_LONG: Int = 600
+
+    private val mSelectionModeCallback: ActionMode.Callback = object : ActionMode.Callback {
+            override fun onPrepareActionMode(actionMode: ActionMode, menu: Menu): Boolean {
+                if (mSelectedItems == null) {
+                    mSelectedItems = SparseBooleanArray()
+                }
+                val selected = if (mSelectedItems != null) mSelectedItems!!.size() else 0
+                //menu.findItem(R.id.action_reply).setVisible(selected <= 1)
+                //menu.findItem(R.id.action_forward).setVisible(selected <= 1)
+                return true
+            }
+
+            @SuppressLint("NotifyDataSetChanged")
+            override fun onDestroyActionMode(actionMode: ActionMode) {
+                val arr = mSelectedItems!!
+                mSelectedItems = null
+                if (arr.size() < 6) {
+                    for (i in 0 until arr.size()) {
+                        notifyItemChanged(arr.keyAt(i))
+                    }
+                } else {
+                    notifyDataSetChanged()
+                }
+            }
+
+            override fun onCreateActionMode(actionMode: ActionMode, menu: Menu): Boolean {
+                //fragment!!.requireActivity().getMenuInflater().inflate(R.menu.menu_message_selected, menu)
+                //menu.findItem(R.id.action_delete).setVisible(!ComTopic.isChannel(mTopicName))
+                return true
+            }
+
+            override fun onActionItemClicked(actionMode: ActionMode, menuItem: MenuItem): Boolean {
+                // Don't convert to switch: Android does not like it.
+                val id = menuItem.itemId
+//                if (id == R.id.action_delete) {
+//                    sendDeleteMessages(getSelectedArray())
+//                    return true
+//                } else if (id == R.id.action_copy) {
+//                    copyMessageText(getSelectedArray())
+//                    return true
+//                } else if (id == R.id.action_send_now) {
+//                    // FIXME: implement resending now.
+//                    Log.d(co.tinode.tindroid.MessagesAdapter.TAG, "Try re-sending selected item")
+//                    return true
+//                } else if (id == R.id.action_reply) {
+//                    val selected: IntArray = getSelectedArray()
+//                    if (selected != null) {
+//                        showReplyPreview(selected[0])
+//                    }
+//                    return true
+//                } else if (id == R.id.action_forward) {
+//                    val selected: IntArray = getSelectedArray()
+//                    if (selected != null) {
+//                        showMessageForwardSelector(selected[0])
+//                    }
+//                    return true
+//                }
+
+                return false
+            }
+        }
+
 
 
     fun setView(view : ChatPageFragment?){
         this.fragment = view
+        this.mMediaControl.setActivity(this.fragment!!.requireActivity())
     }
 
 
@@ -152,16 +248,7 @@ class ChatPageAdapter(private val dataList: List<MessageContent>) : RecyclerView
     }
 
 
-    @SuppressLint("ClickableViewAccessibility")
-    override fun onBindViewHolder(holder: ChatPageViewHolder, position: Int, payload: List<Any>) {
-        if (payload.isNotEmpty()) {
-            val progress = payload[0] as Float
-            holder.mProgressBar?.progress = (progress * 100).toInt()
-            return
-        }
 
-        onBindViewHolder(holder, position)
-    }
 
 
     // 计算展示条目的类型
@@ -176,6 +263,17 @@ class ChatPageAdapter(private val dataList: List<MessageContent>) : RecyclerView
             val result = VIEW_TYPE_AVATAR  or VIEW_TYPE_TIP or VIEW_TYPE_SIDE_RIGHT
             return result
         }
+    }
+
+    @SuppressLint("ClickableViewAccessibility")
+    override fun onBindViewHolder(holder: ChatPageViewHolder, position: Int, payload: List<Any>) {
+        if (payload.isNotEmpty()) {
+            val progress = payload[0] as Float
+            holder.mProgressBar?.progress = (progress * 100).toInt()
+            return
+        }
+
+        onBindViewHolder(holder, position)
     }
 
     // 绑定数据到 ViewHolder
@@ -204,6 +302,7 @@ class ChatPageAdapter(private val dataList: List<MessageContent>) : RecyclerView
             holder.mDateDivider?.text = "2024 10 21"
         }
 
+        //holder.mRippleOverlay?.visibility = View.GONE
 
         holder.mMeta.text = "19:36"
 
@@ -220,7 +319,7 @@ class ChatPageAdapter(private val dataList: List<MessageContent>) : RecyclerView
             // Disable clicker while message is processed.
             val formatter: FullFormatter = FullFormatter(
                 holder.mText,
-                if (uploadingAttachment) null else SpanClicker()
+                SpanClicker()
             )
             formatter.setQuoteFormatter(QuoteFormatter(holder.mText, holder.mText.textSize))
             var text  = item.content.format(formatter) as Spanned
@@ -249,6 +348,186 @@ class ChatPageAdapter(private val dataList: List<MessageContent>) : RecyclerView
             holder.mText.text = text
         }
 
+
+        // 声音，按钮，链接，提及，TAG，图片，设置点击的事件转发
+        if (item.content != null && item.content.hasEntities(
+                mutableListOf(
+                    "AU",
+                    "BN",
+                    "LN",
+                    "MN",
+                    "HT",
+                    "IM",
+                    "EX"
+                )
+            )
+        ) {
+
+            //TextHelper.showToast(this@ChatPageAdapter.fragment!!.requireContext(), "find clickable", Toast.LENGTH_SHORT)
+            // Some spans are clickable.
+            holder.mText.setOnTouchListener { v: View?, ev: MotionEvent? ->
+
+                when (ev?.action) {
+                    MotionEvent.ACTION_DOWN -> {
+                        Log.d("TouchEvent", "ACTION_DOWN")
+                        //holder.mText.callOnClick()
+                        // 这里是没有办法的办法，调试时候可以，在运行时候总是得到一个cancel，估计是小米的BUG
+                        Thread.sleep(100)
+                    }
+                    MotionEvent.ACTION_UP -> Log.d("TouchEvent", "ACTION_UP")
+                    MotionEvent.ACTION_MOVE -> Log.d("TouchEvent", "ACTION_MOVE")
+                    MotionEvent.ACTION_CANCEL -> {
+                        Log.d("TouchEvent", "ACTION_CANCEL")
+                        //Thread.dumpStack()
+
+                    }
+                }
+                holder.mGestureDetector.onTouchEvent(ev)
+                false
+            }
+            holder.mText.movementMethod = LinkMovementMethod.getInstance()
+            holder.mText.linksClickable = true
+            holder.mText.isFocusable = true
+            holder.mText.isClickable = true
+        } else {
+            holder.mText.setOnTouchListener(null)
+            holder.mText.movementMethod = null
+            holder.mText.linksClickable = false
+            holder.mText.isFocusable = false
+            holder.mText.isClickable = false
+            holder.mText.autoLinkMask = 0
+        }
+
+
+        // 发送成功图标
+        if (holder.mDeliveredIcon != null) {
+            if ((holder.mViewType and VIEW_TYPE_SIDE_RIGHT) != 0) {
+                ImagesHelper.setMessageStatusIcon(
+                    holder.mDeliveredIcon, item.msgStatus,
+                    item.bRead, item.bRecv
+                )
+            }
+        }
+
+
+
+
+
+        // 设置条目的事件处理
+        holder.itemView.setOnLongClickListener { v: View? ->
+            val pos: Int = holder.getBindingAdapterPosition()
+            if (mSelectedItems == null) {
+                //mSelectionMode = fragment!!.startSupportActionMode(mSelectionModeCallback)
+            }
+
+            toggleSelectionAt(pos)
+            notifyItemChanged(pos)
+            updateSelectionMode()
+            true
+        }
+
+
+
+        holder.itemView.setOnClickListener { v: View? ->
+            if (mSelectedItems != null) {
+                val pos: Int = holder.getBindingAdapterPosition()
+                toggleSelectionAt(pos)
+                notifyItemChanged(pos)
+                updateSelectionMode()
+            } else {
+                animateMessageBubble(holder, item.inOut, true)
+//                val replySeq: Int = UiUtils.parseSeqReference(m.getStringHeader("reply"))
+//                if (replySeq > 0) {
+//                    // A reply message was clicked. Scroll original into view and animate.
+//                    val pos: Int =
+//                        co.tinode.tindroid.MessagesAdapter.findInCursor(mCursor, replySeq)
+//                    if (pos >= 0) {
+//                        val mm: StoredMessage = getMessage(pos)
+//                        if (mm != null) {
+//                            val lm =
+//                                mRecyclerView.getLayoutManager() as LinearLayoutManager
+//                            if (lm != null && pos >= lm.findFirstCompletelyVisibleItemPosition() && pos <= lm.findLastCompletelyVisibleItemPosition()
+//                            ) {
+//                                // Completely visible, animate now.
+//                                animateMessageBubble(
+//                                    mRecyclerView.findViewHolderForAdapterPosition(pos) as co.tinode.tindroid.MessagesAdapter.ViewHolder,
+//                                    mm.isMine(), false
+//                                )
+//                            } else {
+//                                // Scroll then animate.
+//                                mRecyclerView.clearOnScrollListeners()
+//                                mRecyclerView.addOnScrollListener(object :
+//                                    RecyclerView.OnScrollListener() {
+//                                    override fun onScrollStateChanged(
+//                                        recyclerView: RecyclerView,
+//                                        newState: Int
+//                                    ) {
+//                                        super.onScrollStateChanged(recyclerView, newState)
+//                                        if (newState == RecyclerView.SCROLL_STATE_IDLE) {
+//                                            recyclerView.removeOnScrollListener(this)
+//                                            animateMessageBubble(
+//                                                mRecyclerView.findViewHolderForAdapterPosition(pos) as co.tinode.tindroid.MessagesAdapter.ViewHolder,
+//                                                mm.isMine(), false
+//                                            )
+//                                        }
+//                                    }
+//                                })
+//                                mRecyclerView.smoothScrollToPosition(pos)
+//                            }
+//                        }
+//                    }
+//                }
+            }
+        } //end
+//
+
+    }
+
+
+    private fun toggleSelectionAt(pos: Int) {
+        if (mSelectedItems!![pos]) {
+            mSelectedItems!!.delete(pos)
+        } else {
+            mSelectedItems!!.put(pos, true)
+        }
+    }
+
+    private fun updateSelectionMode() {
+        if (mSelectionMode != null) {
+            val selected = mSelectedItems!!.size()
+            if (selected == 0) {
+                mSelectionMode?.finish()
+                mSelectionMode = null
+            } else {
+                mSelectionMode?.setTitle(selected.toString())
+                val menu: Menu = mSelectionMode!!.getMenu()
+               // menu.findItem(R.id.action_reply).setVisible(selected == 1)
+                //menu.findItem(R.id.action_forward).setVisible(selected == 1)
+            }
+        }
+    }
+
+    // 动画显示消息气泡
+    private fun animateMessageBubble(vh: ChatPageViewHolder?, isMine: Boolean, light: Boolean) {
+        if (vh == null) {
+            return
+        }
+        val from: Int = vh.mMessageBubble.getResources().getColor(
+            if (isMine) R.color.colorMessageBubbleMine else R.color.colorMessageBubbleOther,
+            null
+        )
+        val to: Int = vh.mMessageBubble.getResources().getColor(
+            if (isMine) (if (light) R.color.colorMessageBubbleMineFlashingLight else R.color.colorMessageBubbleMineFlashing) else (if (light) R.color.colorMessageBubbleOtherFlashingLight else R.color.colorMessageBubbleOtherFlashing),
+            null
+        )
+        val colorAnimation = ValueAnimator.ofArgb(from, to, from)
+        colorAnimation.setDuration((if (light) MESSAGE_BUBBLE_ANIMATION_SHORT else MESSAGE_BUBBLE_ANIMATION_LONG).toLong())
+        colorAnimation.addUpdateListener { animator: ValueAnimator ->
+            vh.mMessageBubble.setBackgroundTintList(
+                ColorStateList.valueOf(animator.animatedValue as Int)
+            )
+        }
+        colorAnimation.start()
     }
 
     // 返回数据项数量
@@ -279,7 +558,7 @@ class ChatPageAdapter(private val dataList: List<MessageContent>) : RecyclerView
     }
 
 
-    class SpanClicker internal constructor() : FullFormatter.ClickListener {
+    inner class SpanClicker internal constructor() : FullFormatter.ClickListener {
         override fun onClick(type: String?, data: Map<String, Any>?, params: Any?): Boolean {
 //            if (mSelectedItems != null) {
 //                return false
@@ -338,29 +617,32 @@ class ChatPageAdapter(private val dataList: List<MessageContent>) : RecyclerView
         }
 
         // Audio play/pause.
+        // 这里是条目中的那个音频播放的点击事件
         private fun clickAudio(data: Map<String, Any>?, params: Any): Boolean {
+
             if (data == null) {
                 return false
             }
 
-//            try {
-//                val aca: AudioClickAction = params as AudioClickAction
-//                if (aca.action === FullFormatter.AudioClickAction.Action.PLAY) {
-//                    mMediaControl.ensurePlayerReady(mSeqId, data, aca.control)
-//                    mMediaControl.playWhenReady()
-//                } else if (aca.action === FullFormatter.AudioClickAction.Action.PAUSE) {
-//                    mMediaControl.pause()
-//                } else if (aca.seekTo != null) {
-//                    mMediaControl.ensurePlayerReady(mSeqId, data, aca.control)
-//                    mMediaControl.seekToWhenReady(aca.seekTo)
-//                }
-//            } catch (ignored: IOException) {
-//                Toast.makeText(mActivity, R.string.unable_to_play_audio, Toast.LENGTH_SHORT).show()
-//                return false
-//            } catch (ignored: ClassCastException) {
-//                Toast.makeText(mActivity, R.string.unable_to_play_audio, Toast.LENGTH_SHORT).show()
-//                return false
-//            }
+            val mSeqId = 1
+            try {
+                val aca: FullFormatter.AudioClickAction = params as FullFormatter.AudioClickAction
+                if (aca.action === FullFormatter.AudioClickAction.Action.PLAY) {
+                    this@ChatPageAdapter.mMediaControl.ensurePlayerReady(mSeqId, data, aca.control!!)
+                    this@ChatPageAdapter.mMediaControl.playWhenReady()
+                } else if (aca.action === FullFormatter.AudioClickAction.Action.PAUSE) {
+                    mMediaControl.pause()
+                } else if (aca.seekTo != null) {
+                    mMediaControl.ensurePlayerReady(mSeqId, data, aca.control!!)
+                    mMediaControl.seekToWhenReady(aca.seekTo!!)
+                }
+            } catch (ignored: IOException) {
+                Toast.makeText(this@ChatPageAdapter.fragment!!.requireContext(), R.string.unable_to_play_audio, Toast.LENGTH_SHORT).show()
+                return false
+            } catch (ignored: ClassCastException) {
+                Toast.makeText(this@ChatPageAdapter.fragment!!.requireContext(), R.string.unable_to_play_audio, Toast.LENGTH_SHORT).show()
+                return false
+            }
 
             return true
         }
@@ -442,20 +724,21 @@ class ChatPageAdapter(private val dataList: List<MessageContent>) : RecyclerView
             return true
         }
 
+        // 点击图片时候，显示一个对话框
         private fun clickImage(data: Map<String, Any>?): Boolean {
             if (data == null) {
                 return false
             }
-            var args: Bundle? = null
-            var `val`: Any?
-//            if (data["ref"].also { `val` = it } is String) {
-//                val url: URL = Cache.getTinode().toAbsoluteURL(`val` as String?)
-//                // URL is null when the image is not sent yet.
-//                if (url != null) {
-//                    args = Bundle()
-//                    args.putParcelable(AttachmentHandler.ARG_REMOTE_URI, Uri.parse(url.toString()))
-//                }
-//            }
+
+            //Toast.makeText(this@ChatPageAdapter.fragment!!.requireContext(), "image click", Toast.LENGTH_SHORT).show()
+
+            val ref = data["ref"]
+            val url = TextHelper.toAbsoluteURL(ref as String)
+
+            val dialog = FullscreenImageDialog(this@ChatPageAdapter.fragment!!.requireContext(), null, url)
+            dialog.show()
+
+
 //
 //            if (args == null && (data["val"].also { `val` = it }) != null) {
 //                val bytes = if (`val` is String) Base64.decode(
@@ -467,33 +750,7 @@ class ChatPageAdapter(private val dataList: List<MessageContent>) : RecyclerView
 //                    args.putByteArray(AttachmentHandler.ARG_SRC_BYTES, bytes)
 //                }
 //            }
-//
-//            if (args != null) {
-//                try {
-//                    args.putString(AttachmentHandler.ARG_MIME_TYPE, data["mime"] as String?)
-//                    args.putString(AttachmentHandler.ARG_FILE_NAME, data["name"] as String?)
-//                    args.putInt(AttachmentHandler.ARG_IMAGE_WIDTH, data["width"] as Int)
-//                    args.putInt(AttachmentHandler.ARG_IMAGE_HEIGHT, data["height"] as Int)
-//                } catch (ex: NullPointerException) {
-//                    Log.w(
-//                        co.tinode.tindroid.MessagesAdapter.TAG,
-//                        "Invalid type of image parameters",
-//                        ex
-//                    )
-//                } catch (ex: ClassCastException) {
-//                    Log.w(
-//                        co.tinode.tindroid.MessagesAdapter.TAG,
-//                        "Invalid type of image parameters",
-//                        ex
-//                    )
-//                }
-//            }
-//
-//            if (args != null) {
-//                mActivity.showFragment(MessageActivity.FRAGMENT_VIEW_IMAGE, args, true)
-//            } else {
-//                Toast.makeText(mActivity, R.string.broken_image, Toast.LENGTH_SHORT).show()
-//            }
+
 
             return true
         }

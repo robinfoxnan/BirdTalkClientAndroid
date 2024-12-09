@@ -48,7 +48,7 @@ class RemoteImageSpan(
         }
     }
 
-    override fun onBitmapFailed(e: Exception, errorDrawable: Drawable) {
+    override fun onBitmapFailed(e: Exception, errorDrawable: Drawable?) {
         Log.w(TAG, "Failed to get image: " + e.message + " (" + mSource + ")")
         val parent = mParentRef.get()
         if (parent != null) {
@@ -57,7 +57,7 @@ class RemoteImageSpan(
         }
     }
 
-    override fun onPrepareLoad(placeHolderDrawable: Drawable) {
+    override fun onPrepareLoad(placeHolderDrawable: Drawable?) {
     }
 
     override fun getSize(

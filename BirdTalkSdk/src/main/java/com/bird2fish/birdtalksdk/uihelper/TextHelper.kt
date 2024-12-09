@@ -1,15 +1,36 @@
 package com.bird2fish.birdtalksdk.uihelper
 
 import android.content.Context
+import android.net.Uri
 import android.widget.Toast
 import java.net.MalformedURLException
 import java.net.URL
 import java.text.DecimalFormat
+import java.util.Locale
 import kotlin.math.floor
 import kotlin.math.pow
 
 object  TextHelper {
 
+    private val mAppName: String? = "BirdTalk"
+    private val mOsVersion:String? = "6.0"
+
+    fun getRequestHeaders(): Map<String, String> {
+        val headers = HashMap<String, String>()
+//        if (mApiKey != null) {
+//            headers["X-Tinode-APIKey"] = mApiKey
+//        }
+//        if (mAuthToken != null) {
+//            headers["X-Tinode-Auth"] = "Token $mAuthToken"
+//        }
+        headers["User-Agent"] = makeUserAgent()
+        return headers
+    }
+
+    private fun makeUserAgent(): String {
+        return (mAppName + " (Android " + mOsVersion + "; "
+                + Locale.getDefault() + "); " + "bird_talk_sdk")
+    }
 
     // 显示简单的 Toast 消息
     fun showToast(context: Context, message: String, duration: Int = Toast.LENGTH_SHORT) {
@@ -54,6 +75,17 @@ object  TextHelper {
 
     // 拼接服务器的基础地址和给出的部分字符串，如果出错了，给出一个默认的地址
     fun toAbsoluteURL(value:String) : URL {
+        val uri = Uri.parse(value)
+        if (uri.isAbsolute){
+
+            try {
+                return URL(value) // 使用 Uri 的字符串表示创建 URL
+            } catch (ignored: MalformedURLException) {
+                return URL("https://127.0.0.1")
+            }
+
+        }
+
         var url: URL? = null
         try {
             url = URL(URL("https://127.0.0.1"), value)
@@ -61,5 +93,10 @@ object  TextHelper {
             return URL("https://127.0.0.1")
         }
         return url!!
+    }
+
+    fun isUriAbsolute(uriString: String): Boolean {
+        val uri = Uri.parse(uriString)
+        return uri.isAbsolute // 或者手动检查 scheme 是否为空： uri.scheme != null
     }
 }

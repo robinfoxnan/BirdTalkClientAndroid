@@ -174,10 +174,12 @@ class FullFormatter(private val mContainer: TextView, private val mClicker: Clic
         }
 
         // Initialize and insert waveform drawable.
-        val `val` = data["preview"]
+        val value = data["preview"]
         var preview: ByteArray? = null
-        if (`val` is String) {
-            preview = Base64.decode(`val` as String?, Base64.DEFAULT)
+        if (value is String) {
+            preview = Base64.decode(value as String?, Base64.DEFAULT)
+        }else if (value is ByteArray){
+            preview = value
         }
 
         if (preview != null && preview.size > MIN_AUDIO_PREVIEW_LENGTH) {
@@ -385,7 +387,7 @@ class FullFormatter(private val mContainer: TextView, private val mClicker: Clic
         if (span == null && data["ref"].also { value = it } is String) {
             val ref = value as String?
             val url: URL = TextHelper.toAbsoluteURL(ref!!)
-            if (scale > 0 && url != null) {
+            if (url != null) {
                 var fg: Drawable?
                 var bg: Drawable? = null
 
@@ -406,6 +408,23 @@ class FullFormatter(private val mContainer: TextView, private val mClicker: Clic
                 val onError: Drawable =
                     ImagesHelper.getPlaceholder(ctx, fg!!, bg, scaledWidth, scaledHeight)
 
+                // robin add
+                // 如果宽高为 0，动态计算
+                if (width == 0 || height == 0) {
+                    val metrics = ctx!!.resources.displayMetrics
+                    val screenWidth = metrics.widthPixels
+                    val screenHeight = metrics.heightPixels
+
+                    // 默认比例 (16:9)
+                    val aspectRatio = 16f / 9f
+                    val calculatedWidth = screenWidth
+                    val calculatedHeight = (calculatedWidth / aspectRatio).toInt()
+
+                    // 限制高度，避免超出屏幕
+                    val maxAllowedHeight = (screenHeight * 0.75).toInt()
+                    scaledWidth = calculatedWidth
+                    scaledHeight = minOf(calculatedHeight, maxAllowedHeight)
+                }
                 // 自动加载远端图片的控件
                 span = RemoteImageSpan(
                     mContainer,
@@ -418,6 +437,8 @@ class FullFormatter(private val mContainer: TextView, private val mClicker: Clic
                 span.load(url)
             }
         }
+
+
 
         if (span == null) {
             // If the image cannot be decoded for whatever reason, show a 'broken image' icon.

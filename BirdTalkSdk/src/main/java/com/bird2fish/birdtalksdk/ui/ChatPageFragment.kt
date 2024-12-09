@@ -184,7 +184,7 @@ class ChatPageFragment : Fragment() {
 
 
                 sendLoadImage(this.requireContext(), uri)
-                TextHelper.showToast(requireContext(), uri.toString())
+                //TextHelper.showToast(requireContext(), uri.toString())
             }
         }
     }
@@ -288,11 +288,21 @@ class ChatPageFragment : Fragment() {
         ////
 
         // 初始化
-        val msg = MessageContent(1, 1001, "飞鸟", "sys:3", UserStatus.ONLINE, MessageStatus.OK, true,"昨天你去哪里了呢？", null)
+        val msg = MessageContent(1, 1001, "飞鸟", "sys:3", UserStatus.ONLINE, MessageStatus.OK, true,
+            true, true, "昨天你去哪里了呢？", null)
         dataList += msg
 
-        val msg1 = MessageContent(2, 1002, "我", "sys:4", UserStatus.ONLINE, MessageStatus.OK, false, "西单啊，还去了奥森", null)
+        val msg1 = MessageContent(2, 1002, "我", "sys:4", UserStatus.ONLINE, MessageStatus.OK, false,
+            false, true, "西单啊，还去了奥森", null)
         dataList += msg1
+
+        val msg2 = MessageContent(3, 1002, "我", "sys:4", UserStatus.ONLINE, MessageStatus.OK, false,
+            true, true, "今天真冷", null)
+        dataList += msg2
+
+        val msg3 = MessageContent(4, 1002, "我", "sys:4", UserStatus.OFFLINE, MessageStatus.FAIL, false,
+            false, false, "今天真冷", null)
+        dataList += msg3
 
 
 
@@ -328,7 +338,9 @@ class ChatPageFragment : Fragment() {
 
 
 
-        mRefresher?.setOnRefreshListener(OnRefreshListener {
+
+ //       mRefresher?.setOnRefreshListener(OnRefreshListener {
+//            mRefresher?.setRefreshing(false)
 //            if (!mMessagesAdapter.loadNextPage() && !StoredTopic.isAllDataLoaded(mTopic)) {
 //                try {
 //                    mTopic.getMeta(
@@ -356,7 +368,115 @@ class ChatPageFragment : Fragment() {
 //            } else {
 //                mRefresher?.setRefreshing(false)
 //            }
-        })
+ //       })
+
+//        mRefresher?.setOnTouchListener { _, event ->
+//            when (event.action) {
+//                MotionEvent.ACTION_DOWN -> {
+//                    // 禁用下拉刷新手势
+//                    mRefresher?.isEnabled = false
+//                }
+//                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+//                    // 恢复刷新手势
+//                    mRefresher?.isEnabled = true
+//                }
+//            }
+//            false // 返回 false 以继续处理其他事件
+//        }
+//
+//        mRefresher?.isEnabled = false
+
+
+//        mRecyclerView!!.setOnTouchListener { _, event ->
+//            if (event.action == MotionEvent.ACTION_DOWN) {
+//                mRecyclerView!!.parent?.requestDisallowInterceptTouchEvent(true)
+//            }
+//            false
+//        }
+
+
+
+//        val gestureDetector = GestureDetector(mRecyclerView!!.context, object : GestureDetector.SimpleOnGestureListener() {
+//            override fun onSingleTapUp(e: MotionEvent): Boolean {
+//                Log.d("TouchEvent", "SingleTapUp detected")
+//                return false
+//            }
+//
+//            override fun onDown(e: MotionEvent): Boolean {
+//                Log.d("TouchEvent", "onDown detected")
+//                return false
+//            }
+//
+//            override fun onLongPress(e: MotionEvent) {
+//                Log.d("TouchEvent", "LongPress detected")
+//                Thread.dumpStack()
+//            }
+//        })
+//        gestureDetector.setIsLongpressEnabled(false)
+
+//        mRecyclerView!!.requestDisallowInterceptTouchEvent(true)
+//        mRecyclerView!!.parent?.requestDisallowInterceptTouchEvent(true)
+//        mRecyclerView!!.parent?.parent?.requestDisallowInterceptTouchEvent(true)
+//        // 新添加的
+//        mRecyclerView!!.addOnItemTouchListener(object : RecyclerView.OnItemTouchListener {
+//            override fun onInterceptTouchEvent(rv: RecyclerView, e: MotionEvent): Boolean {
+//                // 禁止父视图拦截触摸事件
+//                //rv.requestDisallowInterceptTouchEvent(true)
+//                 //rv.parent?.requestDisallowInterceptTouchEvent(true)
+//
+//                when (e?.action) {
+//                    MotionEvent.ACTION_DOWN -> Log.d("TouchEvent", "ACTION_DOWN1")
+//                    MotionEvent.ACTION_UP -> Log.d("TouchEvent", "ACTION_UP1")
+//                    MotionEvent.ACTION_MOVE -> Log.d("TouchEvent", "ACTION_MOVE1")
+//                    MotionEvent.ACTION_CANCEL -> Log.d("TouchEven", "ACTION_CANCEL1")
+//                }
+//                return gestureDetector.onTouchEvent(e)
+//
+//            }
+//
+//            override fun onTouchEvent(rv: RecyclerView, e: MotionEvent) {
+//                //rv.requestDisallowInterceptTouchEvent(true)
+//                //rv.parent?.requestDisallowInterceptTouchEvent(true)
+//                when (e?.action) {
+//                    MotionEvent.ACTION_DOWN -> Log.d("TouchEvent", "ACTION_DOWN2")
+//                    MotionEvent.ACTION_UP -> Log.d("TouchEvent", "ACTION_UP2")
+//                    MotionEvent.ACTION_MOVE -> Log.d("TouchEvent", "ACTION_MOVE2")
+//                    MotionEvent.ACTION_CANCEL -> Log.d("TouchEvent", "ACTION_CANCEL2")
+//                }
+//            }
+//
+//            override fun onRequestDisallowInterceptTouchEvent(disallowIntercept: Boolean) {}
+//        })
+
+        // 新添加的
+//        mRefresher!!.add(object : RecyclerView.OnItemTouchListener {
+//
+//
+//            override fun onInterceptTouchEvent(rv: RecyclerView, e: MotionEvent): Boolean {
+//                // 禁止父视图拦截触摸事件
+//                rv.parent?.requestDisallowInterceptTouchEvent(true)
+//
+//                when (e?.action) {
+//                    MotionEvent.ACTION_DOWN -> Log.d("TouchEvent", "ACTION_DOWN1")
+//                    MotionEvent.ACTION_UP -> Log.d("TouchEvent", "ACTION_UP1")
+//                    MotionEvent.ACTION_MOVE -> Log.d("TouchEvent", "ACTION_MOVE1")
+//                    MotionEvent.ACTION_CANCEL -> Log.d("TouchEven", "ACTION_CANCEL1")
+//                }
+//                return gestureDetector.onTouchEvent(e)
+//            }
+//
+//            override fun onTouchEvent(rv: RecyclerView, e: MotionEvent) {
+//                when (e?.action) {
+//                    MotionEvent.ACTION_DOWN -> Log.d("TouchEvent", "ACTION_DOWN2")
+//                    MotionEvent.ACTION_UP -> Log.d("TouchEvent", "ACTION_UP2")
+//                    MotionEvent.ACTION_MOVE -> Log.d("TouchEvent", "ACTION_MOVE2")
+//                    MotionEvent.ACTION_CANCEL -> Log.d("TouchEvent", "ACTION_CANCEL2")
+//                }
+//            }
+//
+//            override fun onRequestDisallowInterceptTouchEvent(disallowIntercept: Boolean) {}
+//        })
+
 
         //mFailureListener = ToastFailureListener(activity)
 
@@ -726,14 +846,17 @@ class ChatPageFragment : Fragment() {
         // ImageView 定制的带有波形的图片
         val wave = root!!.findViewById<ImageView>(R.id.audioWave)
 
-        playButton.visibility = View.VISIBLE
-        stopButton.visibility = View.GONE
+
         releaseAudio(true)      // 保留记录的临时文件
         val wd: WaveDrawable = wave.background as WaveDrawable
         wd.reset()
         wd.setDuration(mAudioRecordDuration)
         wd.put(mAudioSampler!!.obtain(96))
         wd.seekTo(0f)
+
+        // 重新设置按钮
+        stopButton.visibility = View.GONE
+        playButton.visibility = View.VISIBLE
     }
 
     // 松开录制按钮的停止录制
@@ -1027,44 +1150,23 @@ class ChatPageFragment : Fragment() {
 
         val draft = Drafty("")
         try {
-            // 获取 MIME 类型
-            val mimeType = contentResolver.getType(uri)
-            details["mimeType"] = "\"" +mimeType + "\""
 
-            // 获取文件大小
-            val fileSize = contentResolver.openFileDescriptor(uri, "r")?.use {
-                it.statSize
-            }
-            details["fileSize"] = fileSize // 单位：字节
+            val url = "https://bkimg.cdn.bcebos.com/pic/adaf2edda3cc7cd98d1032641457363fb80e7bec3b4a?x-bce-process=image/format,f_auto/watermark,image_d2F0ZXIvYmFpa2UyNzI,g_7,xp_5,yp_5,P_20/resize,m_lfit,limit_1,h_1080"
+            // 网络的
+            //draft.insertImage(0,"image/jpeg", null, 884, 535, "",
+            draft.insertImage(0,"image/jpeg", null, 0, 0, "",
+                URI(url), 417737)
 
-            // 获取宽高
-            var options : android. graphics. BitmapFactory.Options? = null
-            contentResolver.openInputStream(uri)?.use { inputStream ->
-                options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-                BitmapFactory.decodeStream(inputStream, null, options)
-                details["width"] = options!!.outWidth
-                details["height"] = options!!.outHeight
-            }
+            //二进制方式
 
-            var byteArray: ByteArray? = null
-            try {
-                byteArray = readUriAsByteArray(this.requireContext(), uri) // 读取为 ByteArray
-
-                Log.d("ImageBytes", "ByteArray size: ${byteArray.size}")
-                // 你可以将 byteArray 用于后续处理
-            } catch (e: IOException) {
-                Log.e("ReadError", "Failed to read file: ${e.message}")
-            }
-
-
-//            draft.insertImage(0,"image/jpeg", null, 884, 535, "",
-//                URI("\"https://mposs.bjnews.com.cn/2024/03/28/3517115569644880018_8c5effe2c2be014d59d78c855c4aa2ce.jpg?\""), 417737)
-           // draft.insertImage(0,"image/jpeg", null, options!!.outWidth, options!!.outHeight, "",  URI(uri.toString()), fileSize!!)
-            draft.insertImage(0,"image/jpeg", byteArray!!, options!!.outWidth, options!!.outHeight, "")
+            //val t = draft.insertLocalImage(this.requireContext(),contentResolver, uri, "测试.jpg")
+//            if (t == null){
+//                return;
+//            }
 
             Log.d("文件内容", "draft: ${draft.toPlainText()}")
             val msg2 = MessageContent(2, 1002, "我", "sys:4",
-                UserStatus.ONLINE, MessageStatus.OK, false, "", draft)
+                UserStatus.ONLINE, MessageStatus.UPLOADING, false, false, false, "", draft)
             dataList += msg2
 
             mMessagesAdapter?.notifyDataSetChanged()
@@ -1128,20 +1230,32 @@ class ChatPageFragment : Fragment() {
 
         val preview = mAudioSampler!!.obtain(96)
 
+
+        val bits = mAudioRecord?.readBytes()
+        var sz = 0
+        if (bits ==null)
+        {
+            sz = 0
+        }
+        else{
+            sz = bits.size
+        }
         // 测试添加音乐
-//        val draft = Drafty()
-//        draft.insertAudio(
-//            0,
-//            "audio/aac",
-//            ,
-//            preview,
-//            duration,
-//            fname,
-//            AttachmentHandler.wrapRefUrl(refUrl),
-//            size)
-//        val msg2 = MessageContent(2, 1002, "我", "sys:4",
-//            UserStatus.ONLINE, MessageStatus.OK, false, "", draft)
-//        dataList += msg2
+       val draft = Drafty()
+        draft.insertAudio(
+            0,
+            "audio/aac",
+            bits,
+            preview,
+            mAudioRecordDuration,
+            "",
+            null, // URI("https://lx-sycdn.kuwo.cn/c7aff93e02882b90b34e8f45387b4436/6755728e/resource/n2/3/57/2049851017.mp3?")
+            sz.toLong())
+        val msg2 = MessageContent(2, 1002, "我", "sys:4",
+            UserStatus.ONLINE, MessageStatus.OK,false, true, false, "", draft)
+        dataList += msg2
+
+        this.mMessagesAdapter?.notifyDataSetChanged()
 
 //        args.putByteArray(AttachmentHandler.ARG_AUDIO_PREVIEW, preview)
 //        args.putParcelable(AttachmentHandler.ARG_LOCAL_URI, Uri.fromFile(mAudioRecord))

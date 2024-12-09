@@ -9,6 +9,8 @@ class MessageContent(
     val userStatus: UserStatus,      // 用户的状态，枚举类型
     val msgStatus: MessageStatus,
     val inOut :Boolean,
+    var bRead :Boolean,
+    var bRecv:Boolean,
 
     val text :String,
     val content :Drafty?
@@ -17,6 +19,14 @@ class MessageContent(
 
     // 是否在处理
     fun isPending(): Boolean {
+        if (msgStatus == MessageStatus.UPLOADING) {
+            return true
+        }
+
+        if (msgStatus == MessageStatus.DOWNLOADING) {
+            return true
+        }
+
         return false
     }
 }
