@@ -1,6 +1,7 @@
 plugins {
     id 'com.android.library'
     id 'org.jetbrains.kotlin.android'
+    id 'com.google.protobuf' version '0.9.4'
 }
 
 android {
@@ -27,6 +28,13 @@ android {
     }
 }
 
+protobuf {
+    protoc {
+        artifact = 'com.google.protobuf:protoc:3.23.0' // Protobuf 编译器
+    }
+
+}
+
 dependencies {
 
     implementation 'androidx.core:core-ktx:1.7.0'
@@ -45,6 +53,8 @@ dependencies {
     implementation 'com.github.yalantis:ucrop:2.2.8' //- lightweight general solution
     //implementation 'com.github.yalantis:ucrop:2.2.8-native' //- get power of the native code to preserve image quality (+ about 1.5 MB to an apk size)
 
+    // 说是更快，替代picasso2.8
+    implementation 'com.github.bumptech.glide:glide:4.15.0'
 
     // ViewPager2
     implementation 'androidx.viewpager2:viewpager2:1.0.0'
@@ -56,5 +66,13 @@ dependencies {
     implementation 'com.fasterxml.jackson.core:jackson-databind:2.13.4'
     implementation 'com.fasterxml.jackson.core:jackson-core:2.13.4'
     implementation 'com.fasterxml.jackson.core:jackson-annotations:2.13.4'
+
+//    implementation("com.google.protobuf:protobuf-kotlin:3.23.0") // 替换为你需要的版本
+//    implementation 'io.iohk:pbandk-runtime-jvm:0.20.7'
+
+    implementation 'com.google.protobuf:protobuf-java:3.21.9'  // 应该对应合适的3.20 protoc.exe
+    implementation 'javax.websocket:javax.websocket-api:1.1'
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.2"
+    implementation 'com.squareup.okhttp3:okhttp:4.10.0'
 
 }

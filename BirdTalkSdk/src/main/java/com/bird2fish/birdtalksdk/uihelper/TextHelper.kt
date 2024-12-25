@@ -3,6 +3,9 @@ package com.bird2fish.birdtalksdk.uihelper
 import android.content.Context
 import android.net.Uri
 import android.widget.Toast
+import androidx.core.net.toFile
+import androidx.core.net.toUri
+import java.io.File
 import java.net.MalformedURLException
 import java.net.URL
 import java.text.DecimalFormat
@@ -14,6 +17,34 @@ object  TextHelper {
 
     private val mAppName: String? = "BirdTalk"
     private val mOsVersion:String? = "6.0"
+
+    // 写入二进制文件
+    fun writeToBinaryFile(context: Context, data: ByteArray, fileName: String):Int {
+        try {
+            val uri = File(context.getExternalFilesDir(null), fileName).toUri()
+            val file: File = uri.toFile()
+            //file.writeText(text)
+            return file.writeBytes(data) as Int
+
+        } catch (e: Exception) {
+            e.printStackTrace()
+            //throw RuntimeException("Failed to write to file: $fileName", e)
+            return 0
+        }
+    }
+
+    // 从二进制文件读取
+    fun readFromBinaryFile(context: Context, fileName: String): ByteArray? {
+        return try {
+            val uri = File(context.getExternalFilesDir(null), fileName).toUri()
+            val file: File = uri.toFile()
+            if (file.exists()) file.readBytes() else null
+        } catch (e: Exception) {
+            e.printStackTrace()
+            //throw RuntimeException("Failed to read from file: $fileName", e)
+            return null
+        }
+    }
 
     fun getRequestHeaders(): Map<String, String> {
         val headers = HashMap<String, String>()
