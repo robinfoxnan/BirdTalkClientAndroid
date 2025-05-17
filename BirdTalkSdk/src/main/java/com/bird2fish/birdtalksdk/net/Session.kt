@@ -1,5 +1,8 @@
 package com.bird2fish.birdtalksdk.net
 
+import android.util.Log
+import com.bird2fish.birdtalksdk.MsgEventType
+import com.bird2fish.birdtalksdk.SdkGlobalData
 import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass.Msg
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -15,6 +18,7 @@ object Session  {
         HELLO,
         KEY_EXCHANGE_1,
         KEY_EXCHANGE_3,
+        WAIT,
         LOGGING_IN,
         REGISTERING,
         READY,
@@ -64,24 +68,41 @@ object Session  {
 
     // Method to dispatch messages
     fun dispatchMsg(bytes: ByteString?) {
-        // Implement message dispatch logic here
+        try {
+            // 将 Okio ByteString 转换
+            val inputStream = bytes!!.toByteArray()
+            val msg = Msg.parseFrom(inputStream)
+
+            MsgEncocder.onMsg(msg)
+
+        }catch (e:Exception){
+            // 解析消息出错了，需要通知界面
+            Log.e("Session class", e.toString())
+        }
+
+
     }
 
     ///////////////////////////////////////////////////////////////////////////
     // 注册
-    fun startRegister(): Boolean {
+    fun startRegister(mode:String, uid:String, email:String, pwd:String): Boolean {
         Session.updateState(SessionState.REGISTERING)
+        MsgEncocder.sendRegister(uid, pwd, email, mode)
         return true
+    }
+
+    fun sendRegisterCode(mode:String, uid:String, code:String){
+        MsgEncocder.sendCodeMessage(mode, uid, code)
     }
 
     fun startLogin(mode :String, id:String, pwd:String): Boolean {
         Session.updateState(Session.SessionState.LOGGING_IN)
-        MsgEncocder.createLogin(mode, id, pwd)
+        MsgEncocder.sendLogin(mode, id, pwd)
         return true
     }
 
-    fun sendCode(code:String){
-
+    fun sendLoginCode(mode:String, uid:String, code:String){
+        MsgEncocder.sendCodeMessage(mode, uid, code)
     }
 
     fun queryFriendInfo(id: Long): Boolean {
@@ -103,6 +124,25 @@ object Session  {
 
     // 加载某个会话的消息列表，这里应该是历史消息列表
     fun loadChatMessages(id: String?) {
+    }
+
+    // Explicit getInstance function
+    fun getInstance(): Session {
+        return this
+    }
+
+    fun loginOk(){
+        // sdk内部需要与服务器同步数据，然后通知界面跳转并刷新
+        SdkGlobalData.userCallBack?.onEvent(MsgEventType.LOGIN_OK, 0,0L, 0L)
+        updateState(Session.SessionState.READY)
+    }
+
+    fun loginFail(uid:String, detail:String){
+
+    }
+
+    fun loginNotifyCode(){
+
     }
 
 }

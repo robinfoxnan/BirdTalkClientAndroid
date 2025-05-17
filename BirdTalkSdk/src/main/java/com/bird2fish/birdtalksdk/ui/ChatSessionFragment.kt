@@ -9,8 +9,8 @@ import android.widget.ImageView
 import android.widget.TextView
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.bird2fish.birdtalksdk.GlobalData
 import com.bird2fish.birdtalksdk.R
+import com.bird2fish.birdtalksdk.SdkGlobalData
 import com.bird2fish.birdtalksdk.model.Topic
 import com.bird2fish.birdtalksdk.model.User
 import com.bird2fish.birdtalksdk.uihelper.ImagesHelper
@@ -41,15 +41,15 @@ class ChatSessionFragment : Fragment() {
         var topic = Topic()
         topic.title = "群聊2"
         topic.icon = "sys:11"
-        GlobalData.chatSessionList += topic
+        SdkGlobalData.chatSessionList += topic
 
         topic = Topic()
         topic.title = "会话1"
         topic.icon = "sys:10"
-        GlobalData.chatSessionList += topic
+        SdkGlobalData.chatSessionList += topic
 
         // 初始化适配器
-        val adapter = ChatSessionAdapter(GlobalData.chatSessionList)
+        val adapter = ChatSessionAdapter(SdkGlobalData.chatSessionList)
         adapter.setView(this)
 
         // 配置 RecyclerView

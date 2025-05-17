@@ -1,5 +1,6 @@
 package com.bird2fish.birdtalksdk.net
 
+import android.content.Context
 import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass.Msg
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -17,16 +18,24 @@ private constructor() {
 
     private var listener: ClientWebSocketListener? = null
     private val isRunning = AtomicBoolean(false)
+    private val hasBackendThread = AtomicBoolean(false)   // 后台的线程
 
     private val sendQueue: SendQueue = SendQueue.getInstance()
-    private val sendExecutor: ExecutorService = Executors.newSingleThreadExecutor()
+    private val threadExecutor: ExecutorService = Executors.newSingleThreadExecutor()
     private var serverPath: String = "wss://192.168.1.2:7817/ws?"
 
-    private var RECONNECT_DELAY_SECONDS = 5 // 重连延迟秒数
+    private var RECONNECT_DELAY_SECONDS = 10 // 重连延迟秒数
+
+    // 这个函数必须要调用，读文件时候需要这个
+    fun setContext(context : Context?){
+        MsgEncocder.setContext(context)
+    }
 
     fun setReconnectDelay(t: Int){
         if (t > 5)
             this.RECONNECT_DELAY_SECONDS = t
+        else
+            this.RECONNECT_DELAY_SECONDS = 5
     }
 
     fun setDomain(domain:String ){
@@ -35,7 +44,8 @@ private constructor() {
         if (!serverPath.equals(formattedUrl)){
             this.serverPath = formattedUrl
 
-            this.attemptReconnect()
+            // 使用的中途如果重置了这个，需要重连
+            //this.attemptReconnect()
         }
     }
 
@@ -45,12 +55,17 @@ private constructor() {
 
     fun setNotRunning() {
         isRunning.set(false)
-        Session.getInstance().currentState = Session.SessionState.DISCONNECTED
+        Session.updateState( Session.SessionState.DISCONNECTED)
     }
 
     // 启动异步发送任务
     private fun startSendTask() {
-        sendExecutor.submit {
+
+        if (hasBackendThread.get()){
+            return
+        }
+        threadExecutor.submit {
+            // 这个循环就是发送消息的协程循环
             while (isRunning.get()) {
                 try {
                     val msg = sendQueue.dequeue()
@@ -61,6 +76,7 @@ private constructor() {
                     sendMsg(msg.toByteArray())
                 } catch (e: InterruptedException) {
                     Thread.currentThread().interrupt()
+                    hasBackendThread.set(false)
                     break
                 }
             }
@@ -75,8 +91,8 @@ private constructor() {
         if (isRunning.get()) {
             return
         }
-        shutdown()
-        Session.getInstance().currentState = Session.SessionState.CONNECTING
+        shutdownSock()
+        Session.updateState(Session.SessionState.CONNECTING)
 
         // 初始化 OkHttpClient 和 WebSocket
         if (this.client == null) {
@@ -98,39 +114,45 @@ private constructor() {
 
     // shutdown 方法修改为同步，确保线程安全
     @Synchronized
-    fun shutdown() {
+    fun shutdownSock() {
+        // 这里仅仅是设置变量，通知线程自己停止
         setNotRunning()
-        if (!(sendExecutor.isShutdown || sendExecutor.isTerminated)) {
+        // 安全地关闭 WebSocket 和客户端
+        if (socket != null) {
+            socket!!.close(1000, "Goodbye!")
+            socket = null
+        }
+    }
+
+    // 停止线程池子，
+    fun shutdownThreadPool(){
+        if (!(threadExecutor.isShutdown || threadExecutor.isTerminated)) {
             // 停止发送线程
-            sendExecutor.shutdownNow()
+            threadExecutor.shutdownNow()
             try {
-                // 如果一定时间后（比如设置超时时间）线程池还未关闭，可以再调用sendExecutor.shutdownNow()来强制关闭。
-                if (!sendExecutor.awaitTermination(5, TimeUnit.SECONDS)) {
+                // 如果一定时间后（比如设置超时时间）线程池还未关闭，可以再调用threadExecutor.shutdownNow()来强制关闭。
+                if (!threadExecutor.awaitTermination(5, TimeUnit.SECONDS)) {
                     // 如果超时还未关闭，再强制关闭
-                    sendExecutor.shutdownNow()
+                    threadExecutor.shutdownNow()
                 }
             } catch (e: InterruptedException) {
                 Thread.currentThread().interrupt()
                 // 重新尝试强制关闭
-                sendExecutor.shutdownNow()
+                threadExecutor.shutdownNow()
             }
 
-            // 安全地关闭 WebSocket 和客户端
-            if (socket != null) {
-                socket!!.close(1000, "Goodbye!")
-                socket = null
-            }
         }
     }
 
     // 清理资源
     fun clean() {
-        this.shutdown()
 
         if (client != null) {
             client!!.dispatcher.executorService.shutdown()
             client = null
         }
+
+        this.shutdownSock()
     }
 
     // 添加消息到发送队列的方法

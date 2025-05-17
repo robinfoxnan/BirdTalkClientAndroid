@@ -30,7 +30,7 @@ class SortableMap {
         synchronized(this) {
             for ((id, message) in messageMap) {
                 // 执行消息超时检查
-                Session.getInstance().checkMsgTimeout(id, message)
+                Session.checkMsgTimeout(id, message)
             }
         }
     }

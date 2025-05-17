@@ -1,15 +1,18 @@
 package com.bird2fish.birdtalksdk.net
 import android.content.Context
-import android.os.Build
-import android.provider.Settings
+import com.bird2fish.birdtalksdk.MsgEventType
+import com.bird2fish.birdtalksdk.SdkGlobalData
 import com.bird2fish.birdtalksdk.pbmodel.*
 import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass.*
+import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass.ComMsgType.*
+import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass.ErrorMsgType.*
+import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass.ErrorMsgType.UNRECOGNIZED
 import com.bird2fish.birdtalksdk.pbmodel.User.FriendOpReq
 import com.bird2fish.birdtalksdk.pbmodel.User.GroupInfo
 import com.bird2fish.birdtalksdk.pbmodel.User.UserInfo
 import com.bird2fish.birdtalksdk.pbmodel.User.UserOpReq
-import com.bird2fish.birdtalksdk.uihelper.TextHelper.readFromBinaryFile
-import com.bird2fish.birdtalksdk.uihelper.TextHelper.writeToBinaryFile
+import com.bird2fish.birdtalksdk.pbmodel.User.UserOperationType.*
+import com.bird2fish.birdtalksdk.uihelper.TextHelper
 import com.google.protobuf.ByteString
 
 // 按照格式编码，用于产生各种消息
@@ -20,9 +23,12 @@ class MsgEncocder {
         // 读写文件的默认路径（可根据实际需求调整路径）
         private const val KEYPRINT_FILE_NAME = "keyPrint.bin"
         private const val SHAREKEY_FILE_NAME = "shareKey.bin"
-        private  val context: Context? =null
+        private  var context: Context? =null
         private  val keyExchange  =  ECDHKeyExchange()
 
+        fun setContext(ctx: Context?){
+            context = ctx
+        }
         fun longToByteArray(value: Long): ByteArray {
             val byteArray = ByteArray(Long.SIZE_BYTES) // Long.SIZE_BYTES = 8
             for (i in byteArray.indices) {
@@ -45,27 +51,32 @@ class MsgEncocder {
         fun saveKeyPrint( keyPrint: Long) {
 
             val data = longToByteArray(keyPrint)
-            writeToBinaryFile(context!!, data, KEYPRINT_FILE_NAME)
+            TextHelper.writeToBinaryFile(context!!, data, KEYPRINT_FILE_NAME)
         }
 
         // 读取 keyPrint
         fun loadKeyPrint(): Long {
-            val data = readFromBinaryFile(context!!, KEYPRINT_FILE_NAME) ?: return 0
+            val data = TextHelper.readFromBinaryFile(context!!, KEYPRINT_FILE_NAME) ?: return 0
             return byteArrayToLong(data)
+        }
+
+        fun deleteKeyFiles() {
+            TextHelper.deleteBinaryFile(context!!, KEYPRINT_FILE_NAME)
+            TextHelper.deleteBinaryFile(context!!, SHAREKEY_FILE_NAME)
         }
 
         // 写入 shareKey
         fun saveShareKey(shareKey: ByteArray) {
-            writeToBinaryFile(context!!, shareKey, SHAREKEY_FILE_NAME)
+            TextHelper.writeToBinaryFile(context!!, shareKey, SHAREKEY_FILE_NAME)
         }
 
         // 读取 shareKey
         fun loadShareKey(): ByteArray? {
-            return readFromBinaryFile(context!!, SHAREKEY_FILE_NAME)
+            return TextHelper.readFromBinaryFile(context!!, SHAREKEY_FILE_NAME)
         }
 
         // 最外层的封装
-        fun wrapMsg(plainMsg:  MsgOuterClass. MsgPlain. Builder, tm :Long, t: ComMsgType):MsgOuterClass.Msg{
+        fun wrapMsg(plainMsg: MsgOuterClass.MsgPlain. Builder, tm :Long, t: ComMsgType):MsgOuterClass.Msg{
             val msg = Msg.newBuilder().setMsgType(t)
                 .setPlainMsg(plainMsg)
                 .setVersion(1)
@@ -79,49 +90,238 @@ class MsgEncocder {
         fun onMsg(msg: MsgOuterClass.Msg){
             when (msg.msgType) {
 
-                ComMsgType.MsgTHello -> {
+                // 初次应答，可能是秘钥交换
+                MsgTHello -> {
                     onHello(msg.plainMsg.hello)
                 }
 
-                ComMsgType.MsgTUnused -> TODO()
-                ComMsgType.MsgTHeartBeat -> TODO()
-                ComMsgType.MsgTError -> TODO()
-                ComMsgType.MsgTKeyExchange -> TODO()
-                ComMsgType.MsgTChatMsg -> TODO()
-                ComMsgType.MsgTChatReply -> TODO()
-                ComMsgType.MsgTQuery -> TODO()
-                ComMsgType.MsgTQueryResult -> TODO()
-                ComMsgType.MsgTUpload -> TODO()
-                ComMsgType.MsgTDownload -> TODO()
-                ComMsgType.MsgTUploadReply -> TODO()
-                ComMsgType.MsgTDownloadReply -> TODO()
-                ComMsgType.MsgTUserOp -> TODO()
-                ComMsgType.MsgTUserOpRet -> TODO()
-                ComMsgType.MsgTFriendOp -> TODO()
-                ComMsgType.MsgTFriendOpRet -> TODO()
-                ComMsgType.MsgTGroupOp -> TODO()
-                ComMsgType.MsgTGroupOpRet -> TODO()
-                ComMsgType.MsgTOther -> TODO()
-                ComMsgType.UNRECOGNIZED -> TODO()
+                MsgTError -> {
+                    onError(msg)
+                }
+                MsgTKeyExchange -> {
+                    onExchangeMsg(msg)
+                }
+                MsgTChatMsg -> doNothing()
+                MsgTChatReply -> doNothing()
+
+                MsgTQueryResult -> doNothing()
+
+                MsgTUploadReply -> doNothing()
+                MsgTDownloadReply -> doNothing()
+
+                MsgTUserOpRet -> onUserRet(msg)
+                MsgTFriendOp -> doNothing()
+                MsgTFriendOpRet -> doNothing()
+                MsgTGroupOp -> doNothing()
+                MsgTGroupOpRet -> doNothing()
+
+                MsgTOther -> doNothing()
+                ComMsgType.UNRECOGNIZED -> doNothing()
+                MsgTQuery -> doNothing()
+                MsgTUpload -> doNothing()
+                MsgTDownload -> doNothing()
+                MsgTUserOp -> doNothing()
+                MsgTUnused -> doNothing()
+                MsgTHeartBeat -> doNothing()
             }
+        }
+
+        fun doNothing(){
+
+        }
+
+        // 处理错误
+        fun onError(msg: MsgOuterClass.Msg) {
+            when (msg.plainMsg.errorMsg.code) {
+                ErrTNone.number -> {
+                    // 无错误，通常不需要处理
+                }
+                ErrTVersion.number -> {
+                    onVersionError()
+                }
+                ErrTKeyPrint.number -> {
+                    onKeyPrintError()
+                }
+                ErrTRedirect.number -> {
+                    //onRedirectError()
+                }
+                ErrTWrongPwd.number -> {
+                    onWrongPasswordError()
+                }
+                ErrTWrongCode.number -> {
+                    //onWrongVerificationCodeError()
+                }
+                ErrTRsaPrint.number -> {
+                    //onRsaKeyError()
+                }
+                ErrTTempKey.number -> {
+                    //onTemporaryKeyError()
+                }
+                ErrTEncType.number -> {
+                    // onEncryptionTypeNotSupportedError()
+                }
+                ErrTServerInside.number -> {
+                    //onServerInternalError()
+                }
+                ErrTStage.number -> {
+                    // onStageFieldError()
+                }
+                ErrTPublicKey.number -> {
+                    // onPublicKeyError()
+                }
+                ErrTKeyConflict.number -> {
+                    //onKeyConflictError()
+                }
+                ErrTCheckData.number -> {
+                    //onVerificationDataError()
+                }
+                ErrTMsgContent.number -> {
+                    //onMessageContentError()
+                }
+                ErrTNotLogin.number -> {
+                    //onNotLoggedInError()
+                }
+                ErrTNotPermission.number -> {
+                    //onPermissionDeniedError()
+                }
+                ErrTDisabled.number -> {
+                    //onUserOrPostDisabledError()
+                }
+                ErrTDeleted.number -> {
+                    //onUserOrMessageDeletedError()
+                }
+                ErrTEmail.number -> {
+                    // onEmailVerificationError()
+                }
+                ErrTPhone.number -> {
+                    // onPhoneVerificationError()
+                }
+                ErrTNotFriend.number -> {
+                    //onNotFriendError()
+                }
+                UNRECOGNIZED.number -> {
+                //onUnrecognizedError()
+                }
+                else->{
+
+                }
+            }
+        }
+
+        // 示例错误处理函数（你需要根据实际需求实现这些函数）
+        private fun onVersionError() {
+            // 处理版本不兼容错误
+        }
+
+        private fun onWrongPasswordError() {
+            // 处理密码错误
+        }
+
+        // 先删除秘钥文件，然后重新发送hello
+        fun onKeyPrintError(){
+            deleteKeyFiles()
+            createHelloMsg()
         }
 
         // 关于hello消息应答的效果
         fun onHello(hello: MsgHello) {
             when (hello.stage) {
-                "waitlogin" -> {  //  执行密钥交换
-
+                "waitlogin" -> {  //  目前的服务端实现是要求必须执行密钥交换
+                    createKeyExchange1Msg()
                 }
-                "needlogin"-> {  //  注册或者登录
-
+                "needlogin"-> {  //  秘钥交换完成了，但是需要注册或者登录
+                    // 这里界面不需要做啥
+                    Session.updateState(Session.SessionState.WAIT)
                 }
                 "waitdata"->{    // 秘钥登录完毕，等待数据发送
+
+                    Session.loginOk()
 
                 }
                 else->{
 
                 }
             }
+        }
+
+
+        // 用户操作的服务器返回
+        fun onUserRet(msg: MsgOuterClass.Msg){
+            val opcode = msg.plainMsg.userOpRet.operation
+            val result = msg.plainMsg.userOpRet.result
+            var status = ""
+            status = msg.plainMsg.userOpRet.getParamsOrDefault("status", "")
+
+            if (msg.plainMsg.userOpRet.usersList.size <1){
+                return
+            }
+
+            val user = msg.plainMsg.userOpRet.getUsers(0)
+            when (opcode){
+                Login -> {
+                    if (result == "ok"){
+                        Session.loginOk()
+                    }else {
+                        Session.loginFail("", "")
+                    }
+                }
+
+                UserNoneAction -> doNothing()
+                RegisterUser -> {
+                    if (result == "ok" || status == "waitcode"){
+                        Session.loginNotifyCode()
+                    }
+                }
+                UnregisterUser -> {
+
+                }
+                DisableUser -> {
+
+                }
+                RecoverUser -> {
+
+                }
+                SetUserInfo -> {
+
+                }
+                RealNameVerification -> {
+
+                }
+                Logout -> {
+
+                }
+                FindUser -> {
+
+                }
+                AddFriend -> {
+
+                }
+                ApproveFriend -> {
+
+                }
+                RemoveFriend -> {
+
+                }
+                BlockFriend -> {
+
+                }
+                UnBlockFriend -> {
+
+                }
+                SetFriendPermission -> {
+
+                }
+                SetFriendMemo -> {
+
+                }
+                ListFriends -> {
+
+                }
+                User.UserOperationType.UNRECOGNIZED -> {
+
+                }
+            }
+
         }
 
 
@@ -145,7 +345,7 @@ class MsgEncocder {
             val plainMsg = MsgPlain.newBuilder().setErrorMsg(errMsg)
 
             val timestamp = System.currentTimeMillis()
-            return wrapMsg(plainMsg, timestamp, ComMsgType.MsgTError)
+            return wrapMsg(plainMsg, timestamp, MsgTError)
         }
 
 
@@ -163,7 +363,7 @@ class MsgEncocder {
 
 
         // hello 或者直接秘钥快速登录
-        private  fun createHello1(clientId: String, version: String, platform: String, aesFingerPrint: String, tm:Long): MsgHello {
+        private  fun createHelloData(clientId: String, version: String, platform: String, aesFingerPrint: String, tm:Long): MsgHello {
 
             var keyPrint = loadKeyPrint()
             var keyShare = loadShareKey()
@@ -186,6 +386,7 @@ class MsgEncocder {
                 builder.putParams("checkTokenData", checkData)
 
             }else{
+                this.keyExchange.clear()
                 keyPrint = 0
                 keyShare = null
             }
@@ -210,7 +411,10 @@ class MsgEncocder {
             val plainMsg = MsgPlain.newBuilder().setKeyEx(exMsg)
 
             val timestamp = System.currentTimeMillis()
-            return wrapMsg(plainMsg, timestamp, ComMsgType.MsgTKeyExchange)
+            val msg = wrapMsg(plainMsg, timestamp, MsgTKeyExchange)
+            sendMsg(msg)
+            Session.updateState(Session.SessionState.KEY_EXCHANGE_1)
+            return msg
         }
 
         // 阶段3的握手数据
@@ -233,7 +437,11 @@ class MsgEncocder {
 
             val plainMsg = MsgPlain.newBuilder().setKeyEx(exMsg)
 
-            return wrapMsg(plainMsg, timestamp, ComMsgType.MsgTKeyExchange)
+            val msg = wrapMsg(plainMsg, timestamp, MsgTKeyExchange)
+            sendMsg(msg)
+
+            Session.updateState(Session.SessionState.KEY_EXCHANGE_3)
+            return msg
         }
 
         // 收到服务端的秘钥交换消息
@@ -245,7 +453,7 @@ class MsgEncocder {
                 onExchangeMsg4(exMsg, msg.tm)
             }else{
                 // 消息错误
-              sendBackErr(ErrorMsgType.ErrTWrongCode, "exchagne stage is error")
+              sendBackErr(ErrTWrongCode, "exchagne stage is error")
             }
         }
 
@@ -254,13 +462,13 @@ class MsgEncocder {
             val remoteKeyPrint = exMsg.keyPrint
             val remotePubKeyData = exMsg.pubKey
             val remotePubKey = this.keyExchange.importPublicKeyFromPem(remotePubKeyData.toByteArray())
-            val tempKey = exMsg.tempKey
+            val tempKey = exMsg.tempKey   // 这里是验证双方加密算法是否一致的测试数据，
 
             // 开始交换
             val ret = this.keyExchange.exchangeKeys(remotePubKey)
             if (!ret){
                 // 秘钥交换错误
-                sendBackErr(ErrorMsgType.ErrTMsgContent, "exchange data is error")
+                sendBackErr(ErrTMsgContent, "exchange data error")
                 return
             }
 
@@ -268,15 +476,19 @@ class MsgEncocder {
             val keyPrint = this.keyExchange.calculateKeyPrint()
             if (keyPrint != remoteKeyPrint){
                 // 秘钥的指纹错误
-                sendBackErr(ErrorMsgType.ErrTKeyPrint, "exchange key is error")
+                sendBackErr(ErrTKeyPrint, "exchange key error")
                 return
             }
-            // 测试一下解密
+            // 秘钥签名一致了，使用小端编码，测试一下解密
             val tmStr = tm.toString()
-            val calTmStr = this.keyExchange.decryptAESCTR(tempKey.toByteArray()).toString()
+            //val localTmStr = this.keyExchange.encryptAESCTR(tmStr.toByteArray())
+
+            val tempKeyData = tempKey.toByteArray()
+            val plain = this.keyExchange.decryptAESCTR(tempKeyData)
+            val calTmStr  = String(plain, Charsets.UTF_8)
             if (tmStr != calTmStr){
                 // 测试密文解密遇到错误
-                sendBackErr(ErrorMsgType.ErrTKeyPrint, "exchange key, decrypt temp data is error")
+                sendBackErr(ErrTKeyPrint, "exchange key, decrypt temp data error")
                 return
             }
 
@@ -294,6 +506,8 @@ class MsgEncocder {
                 // 保存key
                 this.saveKeyPrint(this.keyExchange.getKeyPrint())
                 this.saveShareKey(this.keyExchange.getSharedKey()!!)
+                // 这里可以跳转了
+
             }else if (exMsg.status == "needlogin"){  // 注册或者登录
                 // 保存key
                 this.saveKeyPrint(this.keyExchange.getKeyPrint())
@@ -301,117 +515,47 @@ class MsgEncocder {
 
 
             }else{
-                sendBackErr(ErrorMsgType.ErrTMsgContent, "exchange4 status is error")
+                sendBackErr(ErrTMsgContent, "exchange4 status is error")
                 return
             }
 
         }
 
-        fun getDeviceFingerprint(): String {
-            val deviceInfo = StringBuilder()
 
-            // 提取设备的硬件特征码
-            //deviceInfo.append("Brand: ${Build.BRAND}, ")
-            //deviceInfo.append("Model: ${Build.MODEL}, ")
-            deviceInfo.append("Manufacturer: ${Build.MANUFACTURER}, ")
-            deviceInfo.append("Device: ${Build.DEVICE}, ")
-            //deviceInfo.append("Product: ${Build.PRODUCT}, ")
-            //deviceInfo.append("Board: ${Build.BOARD}, ")
-            //deviceInfo.append("Version: ${VERSION.RELEASE}, ")
-            //deviceInfo.append("SDK: ${VERSION.SDK_INT}, ")
-            //deviceInfo.append("Fingerprint: ${Build.FINGERPRINT}")
-
-            return deviceInfo.toString()
-        }
-
-        fun generateUniqueDeviceId(): String {
-            // 获取设备的唯一信息
-            val deviceInfo = StringBuilder()
-
-            // 添加设备信息
-            deviceInfo.append("Manufacturer: ${Build.MANUFACTURER}, ")
-            deviceInfo.append("Model: ${Build.MODEL}, ")
-            deviceInfo.append("Fingerprint: ${Build.FINGERPRINT}, ")
-
-
-
-            // 获取 Android ID
-            val androidId = Settings.Secure.getString(context!!.contentResolver, Settings.Secure.ANDROID_ID)
-
-            // 操作系统版本
-            deviceInfo.append("OS Version: ${Build.VERSION.RELEASE}, ")
-            deviceInfo.append("SDK Version: ${Build.VERSION.SDK_INT}, ")
-
-            // 使用 CRC64 计算设备的唯一 ID
-            val deviceInfoBytes = deviceInfo.toString().toByteArray()
-            val crc64Value = CRC64.crc64(deviceInfoBytes)
-
-            // 将 CRC64 值转为十六进制字符串
-            return crc64ToHex(crc64Value)
-        }
-
-        fun crc64ToHex(crc64Value: Long): String {
-            return String.format("%016X", crc64Value)
-        }
-
-        // OS Version: 10, SDK Version: 29, OS Code Name: Q, OS: google, Build ID: QKQ1.190828.002, Security Patch Level: 2020-10-05
-        fun getOSInfo(): String {
-            val osInfo = StringBuilder()
-
-            // Android 版本
-            osInfo.append("OS Version: ${Build.VERSION.RELEASE}, ")
-
-            // SDK 版本
-            osInfo.append("SDK Version: ${Build.VERSION.SDK_INT}, ")
-
-            // 系统版本号
-            osInfo.append("OS Code Name: ${Build.VERSION.CODENAME}, ")
-
-            // 操作系统类型（比如 `android`）
-            osInfo.append("OS: ${Build.BRAND}, ")
-
-            // 系统构建版本
-            osInfo.append("Build ID: ${Build.ID}, ")
-
-            // 系统版本的安全补丁等级
-            osInfo.append("Security Patch Level: ${Build.VERSION.SECURITY_PATCH}")
-
-            return osInfo.toString()
-        }
 
         fun createHelloMsg() {
 
             // todo:这里可以使用一个UUID，执行本地存储，每次都带着，用于服务端区分设备
-            val clientId = generateUniqueDeviceId()
-            val version = "1.0.0"
-            val platform = getOSInfo()
+            val clientId = SdkGlobalData.basicInfo.deviceId
+            val version = SdkGlobalData.basicInfo.sdkVersion
+            val platform = SdkGlobalData.basicInfo.platform
             val aesFingerPrint = ""
 
             val timestamp = System.currentTimeMillis()
             // 创建 MsgHello 消息
-            val helloMessage = createHello1(clientId, version, platform, aesFingerPrint, timestamp)
+            val helloMessage = createHelloData(clientId!!, version, platform!!, aesFingerPrint, timestamp)
 
             // 如果 sharedKeyPrint 存在，则执行相应的操作
             val plainMsg = MsgPlain.newBuilder().setHello(helloMessage)
 
-            val msg = wrapMsg(plainMsg, timestamp, ComMsgType.MsgTHello)
+            val msg = wrapMsg(plainMsg, timestamp, MsgTHello)
             sendMsg(msg)
         }
 
         // 心跳的消息
-        fun createHeartBeat(){
+        fun sendHeartBeat(){
             val timestamp = System.currentTimeMillis()
 
             val heart = MsgHeartBeat.newBuilder().setTm(timestamp).setUserId(0)
 
             val plainMsg = MsgPlain.newBuilder().setHeartBeat(heart)
-            val msg = wrapMsg(plainMsg, timestamp, ComMsgType.MsgTHeartBeat)
+            val msg = wrapMsg(plainMsg, timestamp, MsgTHeartBeat)
             sendMsg(msg)
         }
 
 
         // 发出注册申请
-        fun createRegister(name:String, pwd:String, email:String, mode :String){
+        fun sendRegister(name:String, pwd:String, email:String, mode :String){
 
             val timestamp = System.currentTimeMillis()
 
@@ -423,18 +567,18 @@ class MsgEncocder {
 
 
             val regOpReq = UserOpReq.newBuilder()
-                .setOperation(User.UserOperationType.RegisterUser)
+                .setOperation(RegisterUser)
                 .setUser(userInfo)
                 .putParams("regmode", mode)
 
             // 如果 sharedKeyPrint 存在，则执行相应的操作
             val plainMsg = MsgPlain.newBuilder().setUserOp(regOpReq)
-            val msg = wrapMsg(plainMsg, timestamp, ComMsgType.MsgTUserOp)
+            val msg = wrapMsg(plainMsg, timestamp, MsgTUserOp)
             sendMsg(msg)
         }
 
         // 发出
-        fun createLogin(mode :String, id:String, pwd:String){
+        fun sendLogin(mode :String, id:String, pwd:String){
 
             val timestamp = System.currentTimeMillis()
             val userInfo = UserInfo.newBuilder()
@@ -448,13 +592,13 @@ class MsgEncocder {
             }
 
             val regOpReq = UserOpReq.newBuilder()
-                .setOperation(User.UserOperationType.Login)
+                .setOperation(Login)
                 .setUser(userInfo)
                 .putParams("loginmode", mode)
 
             // 如果 sharedKeyPrint 存在，则执行相应的操作
             val plainMsg = MsgPlain.newBuilder().setUserOp(regOpReq)
-            val msg = wrapMsg(plainMsg, timestamp, ComMsgType.MsgTUserOp)
+            val msg = wrapMsg(plainMsg, timestamp, MsgTUserOp)
             sendMsg(msg)
         }
 
@@ -473,14 +617,14 @@ class MsgEncocder {
 
 
             val regOpReq = UserOpReq.newBuilder()
-                .setOperation(User.UserOperationType.RealNameVerification)
+                .setOperation(RealNameVerification)
                 .setUser(userInfo)
                 .putParams("regmode", mode)
                 .putParams("code", code)
 
             // 如果 sharedKeyPrint 存在，则执行相应的操作
             val plainMsg = MsgPlain.newBuilder().setUserOp(regOpReq)
-            val msg = wrapMsg(plainMsg, timestamp, ComMsgType.MsgTUserOp)
+            val msg = wrapMsg(plainMsg, timestamp, MsgTUserOp)
             sendMsg(msg)
         }
 
@@ -502,13 +646,13 @@ class MsgEncocder {
             userInfo.setUserId(id)
 
             val regOpReq = UserOpReq.newBuilder()
-                .setOperation(User.UserOperationType.SetUserInfo)
+                .setOperation(SetUserInfo)
                 .setUser(userInfo)
 
             regOpReq.putAllParams(data)
 
             val plainMsg = MsgPlain.newBuilder().setUserOp(regOpReq)
-            val msg = wrapMsg(plainMsg, timestamp, ComMsgType.MsgTUserOp)
+            val msg = wrapMsg(plainMsg, timestamp, MsgTUserOp)
             sendMsg(msg)
         }
 
@@ -520,13 +664,13 @@ class MsgEncocder {
             userInfo.setUserId(id)
 
             val regOpReq = UserOpReq.newBuilder()
-                .setOperation(User.UserOperationType.RealNameVerification)
+                .setOperation(RealNameVerification)
                 .setUser(userInfo)
                 .putParams("code", code)
 
             // 如果 sharedKeyPrint 存在，则执行相应的操作
             val plainMsg = MsgPlain.newBuilder().setUserOp(regOpReq)
-            val msg = wrapMsg(plainMsg, timestamp, ComMsgType.MsgTUserOp)
+            val msg = wrapMsg(plainMsg, timestamp, MsgTUserOp)
             sendMsg(msg)
         }
 
@@ -539,13 +683,13 @@ class MsgEncocder {
             userInfo.setUserId(id)
 
             val regOpReq = UserOpReq.newBuilder()
-                .setOperation(User.UserOperationType.UnregisterUser)
+                .setOperation(UnregisterUser)
                 .setUser(userInfo)
 
 
             // 如果 sharedKeyPrint 存在，则执行相应的操作
             val plainMsg = MsgPlain.newBuilder().setUserOp(regOpReq)
-            val msg = wrapMsg(plainMsg, timestamp, ComMsgType.MsgTUserOp)
+            val msg = wrapMsg(plainMsg, timestamp, MsgTUserOp)
             sendMsg(msg)
         }
 
@@ -556,13 +700,13 @@ class MsgEncocder {
             userInfo.setUserId(id)
 
             val regOpReq = UserOpReq.newBuilder()
-                .setOperation(User.UserOperationType.Logout)
+                .setOperation(Logout)
                 .setUser(userInfo)
 
 
             // 如果 sharedKeyPrint 存在，则执行相应的操作
             val plainMsg = MsgPlain.newBuilder().setUserOp(regOpReq)
-            val msg = wrapMsg(plainMsg, timestamp, ComMsgType.MsgTUserOp)
+            val msg = wrapMsg(plainMsg, timestamp, MsgTUserOp)
             sendMsg(msg)
         }
 
@@ -572,7 +716,7 @@ class MsgEncocder {
             val userInfo = UserInfo.newBuilder()
 
             val regOpReq = FriendOpReq.newBuilder()
-                .setOperation(User.UserOperationType.FindUser)
+                .setOperation(FindUser)
                 .setUser(userInfo)
                 .putParams("mode", mode)
                 .putParams("value", key)
@@ -580,7 +724,7 @@ class MsgEncocder {
 
             // 如果 sharedKeyPrint 存在，则执行相应的操作
             val plainMsg = MsgPlain.newBuilder().setFriendOp(regOpReq)
-            val msg = wrapMsg(plainMsg, timestamp, ComMsgType.MsgTFriendOp)
+            val msg = wrapMsg(plainMsg, timestamp, MsgTFriendOp)
             sendMsg(msg)
         }
 
@@ -591,12 +735,12 @@ class MsgEncocder {
             userInfo.setUserId(fid)
 
             val regOpReq = FriendOpReq.newBuilder()
-                .setOperation(User.UserOperationType.AddFriend)
+                .setOperation(AddFriend)
                 .setUser(userInfo)
 
             // 如果 sharedKeyPrint 存在，则执行相应的操作
             val plainMsg = MsgPlain.newBuilder().setFriendOp(regOpReq)
-            val msg = wrapMsg(plainMsg, timestamp, ComMsgType.MsgTFriendOp)
+            val msg = wrapMsg(plainMsg, timestamp, MsgTFriendOp)
             sendMsg(msg)
         }
 
@@ -609,12 +753,12 @@ class MsgEncocder {
             userInfo.setUserId(fid)
 
             val regOpReq = FriendOpReq.newBuilder()
-                .setOperation(User.UserOperationType.RemoveFriend)
+                .setOperation(RemoveFriend)
                 .setUser(userInfo)
 
             // 如果 sharedKeyPrint 存在，则执行相应的操作
             val plainMsg = MsgPlain.newBuilder().setFriendOp(regOpReq)
-            val msg = wrapMsg(plainMsg, timestamp, ComMsgType.MsgTFriendOp)
+            val msg = wrapMsg(plainMsg, timestamp, MsgTFriendOp)
             sendMsg(msg)
         }
 
@@ -625,12 +769,12 @@ class MsgEncocder {
             userInfo.setUserId(fid)
 
             val regOpReq = FriendOpReq.newBuilder()
-                .setOperation(User.UserOperationType.BlockFriend)
+                .setOperation(BlockFriend)
                 .setUser(userInfo)
 
             // 如果 sharedKeyPrint 存在，则执行相应的操作
             val plainMsg = MsgPlain.newBuilder().setFriendOp(regOpReq)
-            val msg = wrapMsg(plainMsg, timestamp, ComMsgType.MsgTFriendOp)
+            val msg = wrapMsg(plainMsg, timestamp, MsgTFriendOp)
             sendMsg(msg)
         }
 
@@ -641,12 +785,12 @@ class MsgEncocder {
             userInfo.setUserId(fid)
 
             val regOpReq = FriendOpReq.newBuilder()
-                .setOperation(User.UserOperationType.UnBlockFriend)
+                .setOperation(UnBlockFriend)
                 .setUser(userInfo)
 
             // 如果 sharedKeyPrint 存在，则执行相应的操作
             val plainMsg = MsgPlain.newBuilder().setFriendOp(regOpReq)
-            val msg = wrapMsg(plainMsg, timestamp, ComMsgType.MsgTFriendOp)
+            val msg = wrapMsg(plainMsg, timestamp, MsgTFriendOp)
             sendMsg(msg)
         }
 
@@ -657,13 +801,13 @@ class MsgEncocder {
             userInfo.setUserId(fid)
 
             val regOpReq = FriendOpReq.newBuilder()
-                .setOperation(User.UserOperationType.SetFriendPermission)
+                .setOperation(SetFriendPermission)
                 .setUser(userInfo)
                 .putParams("permission", mask)
 
             // 如果 sharedKeyPrint 存在，则执行相应的操作
             val plainMsg = MsgPlain.newBuilder().setFriendOp(regOpReq)
-            val msg = wrapMsg(plainMsg, timestamp, ComMsgType.MsgTFriendOp)
+            val msg = wrapMsg(plainMsg, timestamp, MsgTFriendOp)
             sendMsg(msg)
         }
 
@@ -676,13 +820,13 @@ class MsgEncocder {
             userInfo.setNickName(nick)
 
             val regOpReq = FriendOpReq.newBuilder()
-                .setOperation(User.UserOperationType.SetFriendMemo)
+                .setOperation(SetFriendMemo)
                 .setUser(userInfo)
                 .putParams("mode", mode)
 
             // 如果 sharedKeyPrint 存在，则执行相应的操作
             val plainMsg = MsgPlain.newBuilder().setFriendOp(regOpReq)
-            val msg = wrapMsg(plainMsg, timestamp, ComMsgType.MsgTFriendOp)
+            val msg = wrapMsg(plainMsg, timestamp, MsgTFriendOp)
             sendMsg(msg)
         }
 
@@ -691,13 +835,13 @@ class MsgEncocder {
             val timestamp = System.currentTimeMillis()
 
             val regOpReq = FriendOpReq.newBuilder()
-                .setOperation(User.UserOperationType.ListFriends)
+                .setOperation(ListFriends)
                 //.setUser(userInfo)
                 .putParams("mode", mode)
 
             // 如果 sharedKeyPrint 存在，则执行相应的操作
             val plainMsg = MsgPlain.newBuilder().setFriendOp(regOpReq)
-            val msg = wrapMsg(plainMsg, timestamp, ComMsgType.MsgTFriendOp)
+            val msg = wrapMsg(plainMsg, timestamp, MsgTFriendOp)
             sendMsg(msg)
         }
 
@@ -716,7 +860,7 @@ class MsgEncocder {
             opReq.setGroup(group)
 
             val plainMsg = MsgPlain.newBuilder().setGroupOp(opReq)
-            val msg = wrapMsg(plainMsg, timestamp, ComMsgType.MsgTGroupOp)
+            val msg = wrapMsg(plainMsg, timestamp, MsgTGroupOp)
             sendMsg(msg)
 
         }
@@ -733,7 +877,7 @@ class MsgEncocder {
             opReq.putParams("keyword", keyword)
 
             val plainMsg = MsgPlain.newBuilder().setGroupOp(opReq)
-            val msg = wrapMsg(plainMsg, timestamp, ComMsgType.MsgTGroupOp)
+            val msg = wrapMsg(plainMsg, timestamp, MsgTGroupOp)
             sendMsg(msg)
         }
 
@@ -760,7 +904,7 @@ class MsgEncocder {
             opReq.setGroup(group)
 
             val plainMsg = MsgPlain.newBuilder().setGroupOp(opReq)
-            val msg = wrapMsg(plainMsg, timestamp, ComMsgType.MsgTGroupOp)
+            val msg = wrapMsg(plainMsg, timestamp, MsgTGroupOp)
             sendMsg(msg)
         }
 

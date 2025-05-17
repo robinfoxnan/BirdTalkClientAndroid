@@ -8,14 +8,14 @@
     <string name="login_name">邮箱或者账户ID</string>
     <string name="login_pwd">密码</string>
     <string name="login_btn">登录</string>
-    <string name="reg_name">邮箱或者用户名</string>
+    <string name="reg_name">用户名</string>
     <string name="reg_pwd">密码</string>
     <string name="reg_confirm_pwd">确认密码</string>
     <string name="reg_btn">注册</string>
     <string name="login_with_code">验证码登录</string>
     <string name="login_setting">设置服务器</string>
     <string name="reg_login">登录（如果没有账户则自动注册）</string>
-    <string name="login_send_code">发送验证码</string>
+    <string name="login_send_code">获取验证码</string>
     <string name="login_email">邮箱地址</string>
     <string name="login_fill_code">输入验证码</string>
     <string name="login_submit_code">提交验证码</string>
@@ -88,4 +88,9 @@
 
     <string name="action_reply">应答</string>
     <string name="action_forward">转发</string>
+
+    <string name="network_not_ready">网络链接错误，等待或者检查域名</string>
+    <string name="user_id_error">输入错误：重输号码、邮箱或手机</string>
+    <string name="login_error">"无法登录该账户： %s"</string>
+    <string name="pwd_not_same">两次口令应该一样</string>
 </resources>

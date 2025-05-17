@@ -9,7 +9,7 @@ import android.widget.ImageView
 import android.widget.TextView
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.bird2fish.birdtalksdk.GlobalData
+import com.bird2fish.birdtalksdk.SdkGlobalData
 import com.bird2fish.birdtalksdk.R
 import com.bird2fish.birdtalksdk.model.User
 import com.bird2fish.birdtalksdk.uihelper.ImagesHelper
@@ -40,17 +40,17 @@ class FansFragment : Fragment() {
         user.nick = "赵四"
         user.icon = "sys:5"
         user.region = "这是一个作者的简介……"
-        GlobalData.fanList += user
+        SdkGlobalData.fanList += user
 
         user = User()
         user.nick = "钱五"
         user.icon = "sys:6"
         user.region = "人生弱智如初见，何时秋风悲画扇"
-        GlobalData.fanList += user
+        SdkGlobalData.fanList += user
 
 
 
-        val adapter = FansItemAdapter(GlobalData.fanList)
+        val adapter = FansItemAdapter(SdkGlobalData.fanList)
         adapter.setView(this)
         // 第三步：给listview设置适配器（view）
 

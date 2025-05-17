@@ -26,6 +26,10 @@ android {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
     }
+    buildFeatures {
+        // 确保启用 View Binding 或 Data Binding 等需要的功能
+        viewBinding true
+    }
 }
 
 protobuf {
@@ -36,7 +40,6 @@ protobuf {
 }
 
 dependencies {
-
     implementation 'androidx.core:core-ktx:1.7.0'
     implementation 'androidx.appcompat:appcompat:1.5.1'
     implementation 'com.google.android.material:material:1.7.0'
@@ -74,5 +77,8 @@ dependencies {
     implementation 'javax.websocket:javax.websocket-api:1.1'
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.2"
     implementation 'com.squareup.okhttp3:okhttp:4.10.0'
+
+    // 手机号检测
+    implementation 'com.googlecode.libphonenumber:libphonenumber:8.13.10'
 
 }

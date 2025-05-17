@@ -9,17 +9,27 @@ import javax.crypto.spec.SecretKeySpec
 import java.io.File
 import kotlin.experimental.and
 import android.util.Base64
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 
 class ECDHKeyExchange {
     private var privateKey: PrivateKey? = null
     private var publicKey: PublicKey? = null
     private var sharedKey: ByteArray? = null
+    //private var sharedKeyHash : ByteArray? = null   // 共享密钥通过SHA256得到一个哈希，用于对称秘钥
     private var keyPrint: Long = 0L
 
     // 如果本地有KEY，则使用旧的
     fun setLocalShare(keyPrint:Long, key:ByteArray){
         this.keyPrint = keyPrint
         this.sharedKey = key
+    }
+
+    fun clear(){
+        this.keyPrint = 0L
+        this.sharedKey = null
+        privateKey = null
+        publicKey = null
     }
 
     fun generateKeyPair() {
@@ -101,7 +111,7 @@ class ECDHKeyExchange {
         requireNotNull(sharedKey) { "Shared key not generated yet." }
         val iv = ByteArray(16).apply { SecureRandom().nextBytes(this) }
         val cipher = Cipher.getInstance("AES/CTR/NoPadding")
-        val secretKey = SecretKeySpec(sharedKey!!.copyOf(16), "AES")
+        val secretKey = SecretKeySpec(sharedKey!!, "AES")
         cipher.init(Cipher.ENCRYPT_MODE, secretKey, IvParameterSpec(iv))
         return iv + cipher.doFinal(plaintext)
     }
@@ -113,7 +123,7 @@ class ECDHKeyExchange {
 
         // 加密后将结果拼接 IV 和密文，并进行 Base64 编码
         val ciphertext = encryptAESCTR(plaintext)
-        return Base64.encode(ciphertext, Base64.DEFAULT).toString()
+        return Base64.encodeToString(ciphertext, Base64.NO_WRAP)
     }
 
     // 使用 AES CTR 模式解密 Base64 格式的密文为字符串
@@ -136,17 +146,30 @@ class ECDHKeyExchange {
         val encryptedData = ciphertext.copyOfRange(16, ciphertext.size)
         val cipher = Cipher.getInstance("AES/CTR/NoPadding")
 
-        val secretKey = SecretKeySpec(sharedKey!!.copyOf(16), "AES")
+        val secretKey = SecretKeySpec(sharedKey!!, "AES")
         cipher.init(Cipher.DECRYPT_MODE, secretKey, IvParameterSpec(iv))
-        return cipher.doFinal(encryptedData)
+        val plain = cipher.doFinal(encryptedData)
+       // val txt = String(plain, Charsets.UTF_8)
+        return plain
+    }
+
+    fun bytesToInt64Little(data: ByteArray): Long {
+        if (data.size < 8) {
+           // throw IllegalArgumentException("Insufficient bytes to convert to Long (requires 8 bytes)")
+            return -1
+        }
+
+        // 使用 ByteBuffer 处理小端字节序
+        return ByteBuffer.wrap(data, 0, 8)
+            .order(ByteOrder.LITTLE_ENDIAN)
+            .long
     }
 
     // 计算那个key，取低8字节
     fun calculateKeyPrint(): Long {
         requireNotNull(sharedKey) { "Shared key not generated yet." }
-        keyPrint = sharedKey!!.take(8).fold(0L) { acc, byte ->
-            (acc shl 8) or (byte and 0xFF.toByte()).toLong()
-        }
+
+        this.keyPrint= bytesToInt64Little(sharedKey!!)
         return keyPrint
     }
 

@@ -14,13 +14,14 @@ public class ClientWebSocketListener extends WebSocketListener {
     public ClientWebSocketListener(WebSocketClient client){
         super();
         this.ws = client;
-        Session.getInstance().startHello();
+
     }
     @Override
     public void onOpen(WebSocket webSocket, okhttp3.Response response) {
         //LogHelper.d("open websocket");
         Log.d("net", "open websocket");
-        Session.getInstance().setCurrentState(Session.SessionState.CONNECTED);
+        Session.INSTANCE.updateState(Session.SessionState.CONNECTED);
+        Session.INSTANCE.startHello();
     }
 
     @Override
@@ -32,7 +33,7 @@ public class ClientWebSocketListener extends WebSocketListener {
     public void onMessage(WebSocket webSocket, ByteString bytes) {
 
         //LogHelper.d( "Received message: {0}", bytes.hex());
-        Session.getInstance().dispatchMsg(bytes);
+        Session.INSTANCE.dispatchMsg(bytes);
     }
 
     @Override
@@ -48,7 +49,8 @@ public class ClientWebSocketListener extends WebSocketListener {
     @Override
     public void onFailure(WebSocket webSocket, Throwable t, okhttp3.Response response) {
         //LogHelper.d( "WebSocket error: ", t);
-        this.ws.setNotRunning();
-        this.ws.attemptReconnect();
+        System.out.println("WebSocket error: " + t);
+        //this.ws.setNotRunning();
+        //this.ws.attemptReconnect();
     }
 }

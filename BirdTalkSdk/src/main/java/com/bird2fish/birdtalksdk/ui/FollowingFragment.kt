@@ -9,7 +9,7 @@ import android.widget.ImageView
 import android.widget.TextView
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.bird2fish.birdtalksdk.GlobalData
+import com.bird2fish.birdtalksdk.SdkGlobalData
 import com.bird2fish.birdtalksdk.model.User
 import com.bird2fish.birdtalksdk.R
 import com.bird2fish.birdtalksdk.uihelper.ImagesHelper
@@ -40,17 +40,17 @@ class FollowingFragment : Fragment() {
         user.nick = "张三"
         user.icon = "sys:3"
         user.region = "这是一个作者的简介……"
-        GlobalData.followingList += user
+        SdkGlobalData.followingList += user
 
         user = User()
         user.nick = "李四"
         user.icon = "sys:24"
         user.region = "人生弱智如初见，何时秋风悲画扇"
-        GlobalData.followingList += user
+        SdkGlobalData.followingList += user
 
 
 
-        val adapter = FollowingItemAdapter(GlobalData.followingList)
+        val adapter = FollowingItemAdapter(SdkGlobalData.followingList)
         adapter.setView(this)
         // 第三步：给listview设置适配器（view）
 

@@ -8,14 +8,14 @@
     <string name="login_name">Email or ID</string>
     <string name="login_pwd">Password</string>
     <string name="login_btn">Login</string>
-    <string name="reg_name">Email or name</string>
+    <string name="reg_name">Name</string>
     <string name="reg_pwd">Password</string>
     <string name="reg_confirm_pwd">Confirm Password</string>
     <string name="reg_btn">Register</string>
     <string name="login_with_code">login in with code</string>
     <string name="login_setting">setting of server hostname</string>
     <string name="reg_login"><![CDATA[register & login]]></string>
-    <string name="login_send_code">send code</string>
+    <string name="login_send_code">send me code</string>
     <string name="login_email">email | phone</string>
     <string name="login_fill_code">fill code here</string>
     <string name="login_submit_code">Submit Verification Code</string>
@@ -93,5 +93,10 @@
     <string name="action_reply">reply</string>
     <string name="action_forward">forward</string>
 
+
+    <string name="network_not_ready">network is not ready, wait</string>
+    <string name="user_id_error">user id input error</string>
+    <string name="login_error">"can not Logging in with %s"</string>
+    <string name="pwd_not_same">password should be same</string>
 
 </resources>

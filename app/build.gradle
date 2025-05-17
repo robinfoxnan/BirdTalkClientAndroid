@@ -5,7 +5,7 @@ plugins {
 
 android {
     namespace 'com.bird2fish.birdtalkclient'
-    compileSdk 32
+    compileSdk 33
 
     defaultConfig {
         applicationId "com.bird2fish.birdtalkclient"
@@ -47,6 +47,7 @@ dependencies {
     implementation 'androidx.legacy:legacy-support-v4:1.0.0'
     implementation 'androidx.preference:preference:1.2.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.x.x'
+    implementation 'androidx.activity:activity:1.7.0'
 
     // Kotlin
     def coroutinesVersion = "1.5.2"

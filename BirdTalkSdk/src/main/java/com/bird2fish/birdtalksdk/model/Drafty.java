@@ -158,12 +158,12 @@ public class Drafty implements Serializable {
             }
     };
 
-    public String txt;
+    public String txt = "";
     public Style[] fmt;
     public Entity[] ent;
 
     public Drafty() {
-        txt = null;
+        txt = "";
         fmt = null;
         ent = null;
     }
@@ -543,7 +543,11 @@ public class Drafty implements Serializable {
             throw new IndexOutOfBoundsException("Invalid insertion position");
         }
 
-        int addedLength = text != null ? text.length() : 0;
+        int addedLength = 0;
+        if ( text != null )
+        {
+            addedLength =  text.length();
+        }
         if (addedLength > 0) {
             if (fmt != null) {
                 // Shift all existing styles by inserted length.
@@ -1214,7 +1218,7 @@ public class Drafty implements Serializable {
 
     // Convert Drafty document to a tree of formatted nodes.
     protected Node toTree() {
-        CharSequence text = txt == null ? "" : txt;
+        CharSequence text = (txt == null ? "" : txt);
 
         int entCount = ent != null ? ent.length : 0;
 
@@ -1468,6 +1472,7 @@ public class Drafty implements Serializable {
         tree = treeTopDown(tree, new Transformer() {
             @Override
             public Node transform(Node node) {
+
                 if (node.isStyle("MN")) {
                     if (node.text != null &&
                             node.text.length() > 0 &&
@@ -1544,10 +1549,15 @@ public class Drafty implements Serializable {
         tree = treeTopDown(tree, new Transformer() {
             @Override
             public @Nullable Node transform(Node node) {
+                if (node == null || node.text == null){
+                    return null;
+                }
+
                 if (node.isStyle("QQ")) {
                     return null;
-                } else if (node.isStyle("MN")) {
-                    if (node.text != null && node.text.charAt(0) == '➦' &&
+                }
+                else if (node.isStyle("MN")) {
+                    if (node.text != null && node.text.length() > 0 && node.text.charAt(0) == '➦' &&
                             (node.parent == null || node.parent.isUnstyled())) {
                         node.text = new StringBuilder("➦");
                         node.children = null;
@@ -1569,6 +1579,10 @@ public class Drafty implements Serializable {
         tree = treeTopDown(tree, new Transformer() {
             @Override
             public Node transform(Node node) {
+                if (node == null) {
+                    return null; // 如果 node 为 null，直接返回 null
+                }
+
                 node.data = copyEntData(node.data, MAX_PREVIEW_DATA_SIZE, node.isStyle("IM") ? allow : null);
                 return node;
             }
@@ -1876,6 +1890,9 @@ public class Drafty implements Serializable {
         }
 
         public boolean isStyle(@NotNull String style) {
+            if (style == null){
+                return false;
+            }
             return style.equals(tp);
         }
 
@@ -2008,7 +2025,7 @@ public class Drafty implements Serializable {
     // Internal classes
 
     private static class Block {
-        String txt;
+        String txt = "";
         List<Style> fmt;
 
         Block(String txt) {
@@ -2037,7 +2054,7 @@ public class Drafty implements Serializable {
         int start;
         int end;
         int key;
-        String text;
+        String text ="";
         String type;
         Map<String,Object> data;
         List<Span> children;

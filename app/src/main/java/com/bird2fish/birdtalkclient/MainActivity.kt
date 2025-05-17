@@ -1,6 +1,7 @@
 package com.bird2fish.birdtalkclient
 
 import android.app.Activity
+import android.app.Application
 import android.content.Intent
 import android.os.Bundle
 import android.view.View
@@ -76,6 +77,9 @@ class MainActivity : AppCompatActivity() {
         setupClickHandler<TextView>(AppPageCode.CONTACT_SDK, R.id.b_tab_btn_friends)
         setupClickHandler<TextView>(AppPageCode.CHAT_SDK, R.id.b_tab_btn_msg)
         setupClickHandler<TextView>(AppPageCode.PROFILE_SDK, R.id.b_tab_btn_me)
+
+        // 初始化网络连接
+        //GlobalData.init(this)
 
     }
 
