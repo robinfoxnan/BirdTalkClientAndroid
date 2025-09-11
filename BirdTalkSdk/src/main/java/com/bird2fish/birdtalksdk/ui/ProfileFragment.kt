@@ -17,7 +17,10 @@ import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Button
+import android.widget.EditText
 import android.widget.ImageView
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
@@ -25,9 +28,18 @@ import androidx.appcompat.app.AlertDialog
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
+import androidx.lifecycle.LiveData
+import androidx.lifecycle.MutableLiveData
+import com.bird2fish.birdtalksdk.InterErrorType
+import com.bird2fish.birdtalksdk.MsgEventType
 import java.io.File
 import com.yalantis.ucrop.UCrop
 import com.bird2fish.birdtalksdk.R
+import com.bird2fish.birdtalksdk.SdkGlobalData
+import com.bird2fish.birdtalksdk.StatusCallback
+import com.bird2fish.birdtalksdk.net.ImageDownloader
+import com.bird2fish.birdtalksdk.net.MsgEncocder
+import com.bird2fish.birdtalksdk.net.Session
 import com.bird2fish.birdtalksdk.uihelper.ImagesHelper
 import com.bird2fish.birdtalksdk.uihelper.PermissionsHelper
 import com.bird2fish.birdtalksdk.uihelper.TextHelper
@@ -36,7 +48,7 @@ import java.util.Date
 import java.util.Locale
 
 
-class ProfileFragment : Fragment() {
+class ProfileFragment : Fragment(), StatusCallback {
 
 
     private lateinit var profileImageView: ImageView
@@ -50,6 +62,75 @@ class ProfileFragment : Fragment() {
     //private val REQUEST_IMAGE_CAPTURE = 1
     private var photoUri: Uri? = null
 
+    private  lateinit var tvId : TextView
+    private  lateinit var tvName : TextView
+    private  lateinit var tvNick : EditText
+    private  lateinit var tvAge : EditText
+    private  lateinit var tvGender : EditText
+    private  lateinit var tvEmail : EditText
+    private  lateinit var tvPhone : EditText
+    private  lateinit var tvIntro : EditText
+    private lateinit var  tvPwd :EditText
+
+    private  lateinit var btnSave :Button
+
+    private var localImageName : String? = ""
+    private var localUploadName : String? = ""    //上传
+
+    private val _uuidImageName = MutableLiveData<String?>("")
+    val uuidImageName: LiveData<String?> = _uuidImageName
+
+    override fun onError(code : InterErrorType, lastAction:String, errType:String, detail:String){
+
+    }
+
+    // 在界面中显示提示信息
+    fun showDialogInCallback(context: Context, message: String) {
+        // 假设这是你的回调
+        (context as? Activity)?.runOnUiThread {
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+
+    // 上传或下载事件
+    // 这里是回调函数，无法操作界面
+    override fun onEvent(eventType: MsgEventType, msgType:Int, msgId:Long, fid:Long, params:Map<String, String>){
+        if (eventType == MsgEventType.MSG_UPLOAD_OK){
+            params.get("uuidName")?.let {
+                this._uuidImageName.postValue(it)
+                SdkGlobalData.selfUserinfo.icon = it
+                // 这里应该发送消息，重新设置头像
+                saveUserAvatar(it)
+            }
+
+        }else if (eventType == MsgEventType.MSG_UPLOAD_FAIL){
+            showDialogInCallback(this.requireContext(), "上传头像失败")
+        }else if (eventType == MsgEventType.USR_UPDATEINFO_OK){
+            showDialogInCallback(this.requireContext(), "保存信息完毕")
+        }else if (eventType == MsgEventType.USR_UPDATEINFO_FAIL){
+            showDialogInCallback(this.requireContext(), "更新失败")
+        }
+    }
+
+    // js:
+    // paramsMap.set("UserName", "Robin.fox");
+    //        paramsMap.set("NickName", "飞鸟真人");
+    //        paramsMap.set("Age", "35");
+    //        paramsMap.set("Intro", "我是一个爱运动的博主>_<...");
+    //        paramsMap.set("Gender", "男");
+    //        paramsMap.set("Region", "北京");
+    //        paramsMap.set("Icon", "飞鸟真人");
+    //        paramsMap.set("Params.title", "经理")
+    private fun saveUserAvatar(newIcon:String){
+
+        val data = mapOf(
+            "Icon" to newIcon,
+            "Params.title" to "setting"
+        )
+        System.out.println("change avatar "+ newIcon)
+        MsgEncocder.setUserInfo(SdkGlobalData.selfUserinfo.getId(), data)
+    }
 
     private fun getFilePathFromUri(uri: Uri): String? {
         var path: String? = null
@@ -69,6 +150,7 @@ class ProfileFragment : Fragment() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
 
         // Register the launcher for picking an image
         pickImageLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -111,17 +193,37 @@ class ProfileFragment : Fragment() {
             if (result.resultCode == Activity.RESULT_OK) {
                 val resultUri = UCrop.getOutput(result.data!!)
                 resultUri?.let {
+                    // 设置图片
                     //profileImageView.setImageURI(it)
                     val bitmap = ImagesHelper.loadRoundAvatar(it, this.requireContext())
                     profileImageView.setImageBitmap(bitmap)
-                    TextHelper.showToast(this.requireContext(), "裁剪成功: ${it.toString()}")
+                    //TextHelper.showToast(this.requireContext(), "裁剪成功: ${it.toString()}")
+                    photoUri = resultUri
+
+                    // 尝试上传
+
+                    this.photoUri?.let{
+                        this.localUploadName = TextHelper.getFileNameFromUri(requireContext(), this.photoUri)
+                        Session.uploadSmallFile(requireContext(), it)
+                    }
                 }
             } else if (result.resultCode == UCrop.RESULT_ERROR) {
+                photoUri = null
                 val error = UCrop.getError(result.data!!)
                 error?.let {
                     TextHelper.showToast(this.requireContext(), "裁剪出错: ${it.message}")
                 }
             }
+        }
+
+        // 上传成功了，需要在界面线程中操作
+        this.uuidImageName.observe(this) { newValue ->
+            // 处理变化
+            if (newValue != ""){
+                //TextHelper.showToast(requireContext(), "上传头像完毕，重新加载：" + newValue)
+                loadImage(newValue!!)
+            }
+
         }
     }
 
@@ -132,12 +234,105 @@ class ProfileFragment : Fragment() {
         // Inflate the layout for this fragment
         val view = inflater.inflate(R.layout.fragment_profile, container, false)
 
+
+        // 初始化控件
+        tvId = view.findViewById(R.id.tvID)
+        tvName = view.findViewById(R.id.tvName)
+
+        tvNick = view.findViewById(R.id.tv_nick)
+        tvGender = view.findViewById(R.id.tvGender)
+        tvAge = view.findViewById(R.id.tvAge)
+        tvEmail = view.findViewById(R.id.tvEmail)
+        tvPhone = view.findViewById(R.id.tvPhone)
+        tvIntro = view.findViewById(R.id.tvDes)
+        tvPwd = view.findViewById(R.id.tvPass)
+
+        // 手动保存按钮
+        btnSave = view.findViewById(R.id.btnSave)
+        btnSave.setOnClickListener{
+            onSave()
+        }
+        // 头像
         profileImageView = view.findViewById(R.id.imageViewIcon)
-        profileImageView.setImageResource(R.drawable.icon4)
+        //profileImageView.setImageResource(R.drawable.icon4)
+        loadLocalAvatar(SdkGlobalData.selfUserinfo.icon)
         profileImageView.setOnClickListener { showImagePickerDialog() }
 
+        // 获取权限来加载相册
         permissionsHelper = PermissionsHelper(this.requireActivity())
         return view
+    }
+
+    // 保存个人信息
+    fun onSave(){
+        // 2. 创建可变 Map（可动态添加/修改元素）
+        val data = mutableMapOf<String, String>()
+
+        // 添加键值对
+        data["UserName"] = "user"+ SdkGlobalData.selfUserinfo.id.toString()
+        val nick = tvNick.text?.toString()?.takeIf { it.isNotEmpty() } ?: "momo"
+        data["NickName"] = nick
+        val age = tvAge.text?.toString()?.takeIf { it.isNotEmpty() } ?: "0"
+        data["Age"] = age
+        val gender = tvGender.text?.toString()?.takeIf { it.isNotEmpty() } ?: "-"
+        data["Gender"] = gender
+        val pwd =  tvPwd.text?.toString()?.takeIf { it.isNotEmpty() } ?: "-"
+        if (pwd != null && pwd.isNotEmpty()) {
+            data["Pwd"] =pwd
+        }
+
+        //data["Phone"] = tvPhone.text?.toString()?.takeIf { it.isNotEmpty() } ?: "-"
+        //data["Email"] = tvEmail.text?.toString()?.takeIf { it.isNotEmpty() } ?: "-"
+        data["Intro"] = tvIntro.text?.toString()?.takeIf { it.isNotEmpty() } ?: "-"
+        data["Params.Title"] = "先生"
+
+        MsgEncocder.setUserInfo(SdkGlobalData.selfUserinfo.id, data)
+    }
+
+    // 刷新的时候需要更新个人信息
+    override fun onResume() {
+        super.onResume()
+        // Fragment 可见且可交互时执行
+        tvId.text = SdkGlobalData.selfUserinfo.id.toString()
+        tvName.text = SdkGlobalData.selfUserinfo.name
+        SdkGlobalData.selfUserinfo.nick?.let { tvNick.setText(it) } ?: tvNick.setText("")
+        tvAge.setText(SdkGlobalData.selfUserinfo.age.toString())
+        tvGender.setText(SdkGlobalData.selfUserinfo.gender)
+        tvEmail.setText(SdkGlobalData.selfUserinfo.email)
+        tvPhone.setText(SdkGlobalData.selfUserinfo.phone)
+        tvIntro.setText(SdkGlobalData.selfUserinfo.introduction)
+
+        // 头像
+
+        //this._uuidImageName.postValue(SdkGlobalData.selfUserinfo.icon)
+        //loadImage(SdkGlobalData.selfUserinfo.icon)
+        // 关注消息
+        SdkGlobalData.userCallBackManager.addCallback(this)
+    }
+
+    // 加载远程的图片，先检查本地是否存在
+    // /storage/emulated/0/Android/data/com.bird2fish.birdtalkclient/files/avatar
+    private  fun loadLocalAvatar(iconName:String){
+        val bitmap = ImagesHelper.loadBitmapFromAppDir(requireContext(), "avatar", iconName)
+        if (bitmap != null) {
+            val bitmapRound = ImagesHelper.getRoundAvatar(bitmap, requireContext())
+            profileImageView.setImageBitmap(bitmapRound )
+            return
+        }
+    }
+
+    // 使用pissaco直接从远程获取文件
+    private  fun loadImage(remoteName:String) {
+
+        // 从远程加载
+        val downloader = ImageDownloader()
+        downloader.downloadAndSaveImage(requireContext(), remoteName, "avatar", this.profileImageView, R.drawable.icon19)
+    }
+
+    override fun onPause() {
+        super.onPause()
+        // 取消关注消息
+        SdkGlobalData.userCallBackManager.removeCallback(this)
     }
 
     private fun showImagePickerDialog() {

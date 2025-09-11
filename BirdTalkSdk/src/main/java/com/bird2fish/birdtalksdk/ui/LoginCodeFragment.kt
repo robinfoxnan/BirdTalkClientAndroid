@@ -90,7 +90,7 @@ class LoginCodeFragment : Fragment() {
     // 发送邮件，申请验证码
     fun handleRequstCode(){
         // 检查网络状态
-        if (Session.sessionState.value != Session.SessionState.WAIT){
+        if (Session.sessionState.value  <  Session.SessionState.WAIT){
             Toast.makeText(requireActivity(), requireContext().resources.getString(R.string.network_not_ready),
                 Toast.LENGTH_SHORT).show()
             return
@@ -115,7 +115,7 @@ class LoginCodeFragment : Fragment() {
     // 提交验证码
     fun handleSubmitCode(){
         // 检查网络状态
-        if (Session.sessionState.value != Session.SessionState.WAIT){
+        if (Session.sessionState.value < Session.SessionState.WAIT){
             Toast.makeText(requireActivity(), requireContext().resources.getString(R.string.network_not_ready),
                 Toast.LENGTH_SHORT).show()
             return

@@ -23,6 +23,7 @@ private constructor() {
     private val sendQueue: SendQueue = SendQueue.getInstance()
     private val threadExecutor: ExecutorService = Executors.newSingleThreadExecutor()
     private var serverPath: String = "wss://192.168.1.2:7817/ws?"
+    private val fileServerPath :String = "https://192.168.1.2:7817"
 
     private var RECONNECT_DELAY_SECONDS = 10 // 重连延迟秒数
 
@@ -110,6 +111,16 @@ private constructor() {
         startSendTask()
 
         isRunning.set(true)
+    }
+
+    // https://127.0.0.1:7817/filestore/384255o2s7nu.jpg
+    fun getRemoteFilePath(remote: String): String{
+
+        // 基础拼接
+        val baseUrl = if (fileServerPath.startsWith("https")) fileServerPath else "https://$fileServerPath"
+        val fullUrl = "$baseUrl/filestore/${remote.trimStart('/')}"
+
+        return fullUrl
     }
 
     // shutdown 方法修改为同步，确保线程安全

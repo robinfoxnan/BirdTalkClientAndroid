@@ -79,7 +79,7 @@ class MainActivity : AppCompatActivity() {
         setupClickHandler<TextView>(AppPageCode.PROFILE_SDK, R.id.b_tab_btn_me)
 
         // 初始化网络连接
-        //GlobalData.init(this)
+        //GlobalData.init(getApplicationContext())
 
     }
 

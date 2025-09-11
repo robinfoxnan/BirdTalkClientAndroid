@@ -1,10 +1,15 @@
 package com.bird2fish.birdtalksdk
 
+import android.content.Context
 import android.os.Build
 import com.bird2fish.birdtalksdk.model.User
 import com.bird2fish.birdtalksdk.model.Topic
 import com.bird2fish.birdtalksdk.net.CRC64
+import com.bird2fish.birdtalksdk.net.UnsafeOkHttpClient
+import com.squareup.picasso.OkHttp3Downloader
+import com.squareup.picasso.Picasso
 import java.util.LinkedList
+import java.util.concurrent.atomic.AtomicLong
 
 
 data class PlatformInfo(
@@ -20,15 +25,20 @@ data class PlatformInfo(
     var sdkVersion :String = "1.0"
 )
 
+
+
+
 class SdkGlobalData {
 
     companion object{
 
-        var userCallBack : StatusCallback? = null
+        // 个人信息
+        val selfUserinfo :com.bird2fish.birdtalksdk.model.User = User()
+        private val msgId  = AtomicLong(1)
 
-//        fun setUserCallBack(cb : StatusCallback?){
-//            this.userCallBack = cb
-//        }
+        // 这里是一个回调的列表
+        var userCallBackManager = CallbackManager()
+
         // 互相关注
         var followedList : LinkedList<User> = LinkedList<User>()
         // 关注
@@ -56,10 +66,33 @@ class SdkGlobalData {
 
         )
 
+        // 添加事件的跟踪器
+        fun addCallback(callback: StatusCallback) {
+            userCallBackManager.addCallback(callback)
+        }
+
+        // 删除事件的跟踪器
+        fun removeCallback(callback: StatusCallback) {
+            userCallBackManager.removeCallback(callback)
+        }
+
         // 初始化
-        fun init(){
+        fun init(context:Context){
             basicInfo.deviceId = generateUniqueDeviceId()
             basicInfo.osInfo = getOSInfo()
+
+            val client = UnsafeOkHttpClient.getUnsafeOkHttpClient()
+
+            // 配置 Picasso 使用自定义 OkHttpClient
+            val builder = Picasso.Builder(context)
+            builder.downloader(OkHttp3Downloader(client))
+            val picasso = builder.build()
+            Picasso.setSingletonInstance(picasso)
+        }
+
+        fun nextId():Long{
+
+            return msgId.addAndGet(1)
         }
 
         // TODO: 设备唯一编码，用于同一个账户的不同终端

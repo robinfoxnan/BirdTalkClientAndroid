@@ -8,6 +8,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.ViewModelProvider
 import com.bird2fish.birdtalksdk.ui.LoginCodeFragment
 import com.bird2fish.birdtalksdk.ui.LoginFragment
 
@@ -50,17 +51,31 @@ class LoinActivity : AppCompatActivity() {
 
         switchFragment(AppLoginPageCode.LOGIN_PAGE)
 
-        // 设置调佣关系
-        GlobalData.loginActivity = this
-        // 观察LiveData
+        //this.viewModel = ViewModelProvider(this).get(LoginViewMode::class.java)
+        viewModel.sendMessage("init")
+
+        // 观察LiveData，这里登录成功后需要跳转到主页面
         viewModel.message.observe(this) { message ->
             if (message == "loginok") {
                 startActivity(Intent(this, MainActivity::class.java))
             }
         }
 
+        // 设置调佣关系
+        GlobalData.loginActivity = this
+
         // 初始化网络连接
-        GlobalData.init(this)
+        GlobalData.init(applicationContext)
+    }
+
+    override fun onPostCreate(savedInstanceState: Bundle?) {
+        super.onPostCreate(savedInstanceState)
+        // 配置 ActionBar 选项
+        supportActionBar!!.setDisplayHomeAsUpEnabled(true)
+
+
+
+
     }
 
     // 用于切换 Fragment 的方法

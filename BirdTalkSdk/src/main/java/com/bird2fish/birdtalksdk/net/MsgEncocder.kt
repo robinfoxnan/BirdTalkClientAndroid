@@ -1,5 +1,6 @@
 package com.bird2fish.birdtalksdk.net
 import android.content.Context
+import android.telephony.mbms.FileInfo
 import com.bird2fish.birdtalksdk.MsgEventType
 import com.bird2fish.birdtalksdk.SdkGlobalData
 import com.bird2fish.birdtalksdk.pbmodel.*
@@ -106,7 +107,7 @@ class MsgEncocder {
 
                 MsgTQueryResult -> doNothing()
 
-                MsgTUploadReply -> doNothing()
+                MsgTUploadReply -> onUploadReply(msg)
                 MsgTDownloadReply -> doNothing()
 
                 MsgTUserOpRet -> onUserRet(msg)
@@ -208,6 +209,32 @@ class MsgEncocder {
             }
         }
 
+        // 应答了上传的文件的结果
+        private fun onUploadReply(msg: MsgOuterClass.Msg){
+            val plain = msg.plainMsg
+            val ret = msg.plainMsg.uploadReply
+            if (ret == null){
+                return
+            }
+
+            val uploadResult = ret.result
+            val fileName = ret.fileName
+            val uuidName = ret.uuidName
+            val detail = ret.detail
+
+            val resultMap = mapOf(
+                "uploadResult" to uploadResult.toString(),
+                "fileName" to fileName,
+                "uuidName" to uuidName,
+                "detail" to detail
+            )
+
+            val msgType = ChatMsgType.IMAGE_VALUE
+            SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(MsgEventType.MSG_UPLOAD_OK,
+                msgType, ret.sendId, 0L, resultMap)
+
+        }
+
         // 示例错误处理函数（你需要根据实际需求实现这些函数）
         private fun onVersionError() {
             // 处理版本不兼容错误
@@ -244,6 +271,21 @@ class MsgEncocder {
             }
         }
 
+        // 登录成功后返回的数据，解析自己的个人信息
+        fun UserInfo2DbUser(ui: User.UserInfo) : com.bird2fish.birdtalksdk.model.User{
+
+            SdkGlobalData.selfUserinfo.id = ui.userId
+            SdkGlobalData.selfUserinfo.name = ui.userName
+            SdkGlobalData.selfUserinfo.nick = ui.nickName
+            SdkGlobalData.selfUserinfo.icon = ui.icon
+            SdkGlobalData.selfUserinfo.age = ui.age
+
+            SdkGlobalData.selfUserinfo.email = ui.email
+            SdkGlobalData.selfUserinfo.phone = ui.phone
+            SdkGlobalData.selfUserinfo.gender = ui.gender
+            SdkGlobalData.selfUserinfo.introduction = ui.intro
+            return SdkGlobalData.selfUserinfo
+        }
 
         // 用户操作的服务器返回
         fun onUserRet(msg: MsgOuterClass.Msg){
@@ -260,6 +302,9 @@ class MsgEncocder {
             when (opcode){
                 Login -> {
                     if (result == "ok"){
+                        // 解析自己的个人信息
+                        UserInfo2DbUser(user)
+                        // 设置状态，并跳转
                         Session.loginOk()
                     }else {
                         Session.loginFail("", "")
@@ -282,6 +327,14 @@ class MsgEncocder {
 
                 }
                 SetUserInfo -> {
+                    // 设置个人信息完毕
+                    if (result == "ok"){
+                        SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(MsgEventType.USR_UPDATEINFO_OK,
+                            0, 0, 0L, mapOf("status" to status ) )
+                    }else{
+                        SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(MsgEventType.USR_UPDATEINFO_FAIL,
+                            0, 0, 0L, mapOf("status" to status ) )
+                    }
 
                 }
                 RealNameVerification -> {
@@ -908,6 +961,30 @@ class MsgEncocder {
             sendMsg(msg)
         }
 
+
+        // 上传文件
+        fun sendFileChunk(name:String, sz:Long, index:Int, chunkSz:Int, chunkCount:Int, hash:String, data:ByteArray, fileType:String?){
+            val timestamp = System.currentTimeMillis()
+            val upload = MsgUploadReq.newBuilder()
+
+            upload.setGroupId(0)
+            upload.setFileName(name)
+            upload.setChunkIndex(index)
+            upload.setChunkSize(chunkSz)
+            upload.setFileSize(sz)
+            upload.setChunkCount(chunkCount)
+
+            upload.setHashType("md5")
+            upload.setHashCode(hash)
+            upload.setSendId(SdkGlobalData.nextId())
+            upload.setFileData(ByteString.copyFrom(data))
+            upload.setFileType(fileType ?:"file")
+
+
+            val plainMsg = MsgPlain.newBuilder().setUploadReq(upload)
+            val msg = wrapMsg(plainMsg, timestamp, MsgTUpload)
+            sendMsg(msg)
+        }
 
 
     }

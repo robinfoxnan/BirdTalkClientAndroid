@@ -30,6 +30,7 @@ import androidx.exifinterface.media.ExifInterface
 import com.bird2fish.birdtalksdk.R
 import com.bird2fish.birdtalksdk.model.MessageStatus
 import java.io.ByteArrayOutputStream
+import java.io.File
 import java.io.IOException
 import kotlin.math.max
 import kotlin.math.min
@@ -90,6 +91,57 @@ public object ImagesHelper {
 
     var sVisibleTopic: String? = null
 
+
+    // 加载保存的图片文件
+    fun loadBitmapFromAppDir(
+        context: Context,
+        dirName: String,
+        fileName: String
+    ): Bitmap? {
+        return try {
+            // 构建文件路径（与保存时的路径规则一致）
+            val dir = File(context.getExternalFilesDir(null), dirName)
+            val file = File(dir, fileName)
+
+            // 检查文件是否存在
+            if (!file.exists()) {
+                return null // 文件不存在
+            }
+
+            // 加载并返回Bitmap
+            BitmapFactory.decodeFile(file.absolutePath)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
+    fun loadLocalImage(context:Context, fileName: String): Bitmap? {
+
+
+        val mediaDir = File(context.getExternalFilesDir(null), "avatar")
+
+        // 检查目录是否存在
+        if (!mediaDir.exists() || !mediaDir.isDirectory) {
+            return null
+        }
+
+        val imageFile = File(mediaDir, fileName)
+
+        // 检查文件是否存在
+        if (!imageFile.exists() || !imageFile.isFile) {
+            return null
+        }
+
+        return try {
+            // 解码文件为 Bitmap
+            BitmapFactory.decodeFile(imageFile.absolutePath)
+        } catch (e: Exception) {
+            // 处理解码异常
+            e.printStackTrace()
+            null
+        }
+    }
 
     fun setMessageStatusIcon(holder: ImageView, status: MessageStatus, read: Boolean, recv:Boolean) {
         if (status == MessageStatus.UPLOADING || status == MessageStatus.SENDING || status == MessageStatus.DOWNLOADING) {
@@ -512,6 +564,10 @@ public object ImagesHelper {
         return null
     }
 
+    // 将加载的图片做成圆形的
+    fun getRoundAvatar(image:Bitmap, context: Context): Bitmap?{
+        return getCircularBitmapWithTransparentEdge(image, 3)
+    }
     // 加载圆形的图标
     fun loadRoundAvatar(uri: Uri, context: Context): Bitmap? {
         val bitmap = getBitmapFromUri(uri, context) ?: return null

@@ -7,6 +7,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.ViewModelProvider
 import com.bird2fish.birdtalksdk.InterErrorType
 import com.bird2fish.birdtalksdk.MsgEventType
+import com.bird2fish.birdtalksdk.MsgEventType.*
 import com.bird2fish.birdtalksdk.SdkGlobalData
 import com.bird2fish.birdtalksdk.StatusCallback
 import com.bird2fish.birdtalksdk.net.CRC64
@@ -25,8 +26,8 @@ class GlobalData  {
 
         fun init(ctx: Context){
             // 设置与sdk的通知接口
-            SdkGlobalData.userCallBack = eventListener
-            SdkGlobalData.init()
+            SdkGlobalData.addCallback(eventListener)
+            SdkGlobalData.init(ctx)
             client.setDomain("192.168.1.2:7817")
             client.setContext(ctx)
             client.connect()
@@ -45,13 +46,16 @@ class ActionListener :StatusCallback{
         // 可以添加其他错误处理逻辑，如通知UI
     }
 
-    override fun onEvent(eventType: MsgEventType, msgType: Int, msgId: Long, fid: Long) {
+    override fun onEvent(eventType: MsgEventType, msgType: Int, msgId: Long, fid: Long, params:Map<String, String>) {
         // 处理事件逻辑
         Log.d("GlobalData", "Event: $eventType, MsgType: $msgType, MsgId: $msgId, Fid: $fid")
+
+
+
         // 可以添加其他事件处理逻辑，如更新UI或发送通知
         when (eventType){
             // 跳转，加载用户信息，然后跳转到主界面
-            MsgEventType.LOGIN_OK->{
+            LOGIN_OK ->{
                 // 在后台组件中获取ViewModel实例并发送消息
                 if (GlobalData.loginActivity != null){
                     val viewModel = ViewModelProvider(GlobalData.loginActivity!!).get(LoginViewMode::class.java)
@@ -60,43 +64,60 @@ class ActionListener :StatusCallback{
             }
 
             // 有好友申请，包括关注和
-            MsgEventType.FRIEND_REQUEST ->{
+            FRIEND_REQUEST ->{
+                if (GlobalData.mainActivity != null){
+                    val  mainViewModel = ViewModelProvider(GlobalData.mainActivity!!).get(mainViewModel::class.java)
+                }
+            }
+            FRIEND_REQ_REPLY ->{
 
             }
-            MsgEventType.FRIEND_REQ_REPLY ->{
+            FRIEND_ONLINE ->{
 
             }
-            MsgEventType.FRIEND_ONLINE->{
+            FRIEND_OFFLINE ->{
 
             }
-            MsgEventType.FRIEND_OFFLINE->{
-
-            }
-            MsgEventType.FRIEND_UPDATE->{
-
-            }
-
-
-            MsgEventType.MSG_COMING->{
-
-            }
-            MsgEventType.MSG_DOWNLOAD_ERROR->{
+            FRIEND_UPDATE ->{
 
             }
 
-            MsgEventType.MSG_SEND_ERROR->{
+
+            MSG_COMING ->{
 
             }
-            MsgEventType.MSG_SEND_OK->{
+            MSG_DOWNLOAD_ERROR ->{
 
             }
-            MsgEventType.MSG_RECV_OK->{
+
+            MSG_SEND_ERROR ->{
 
             }
-            MsgEventType.MSG_READ_OK->{
+            MSG_SEND_OK ->{
+
+            }
+            MSG_RECV_OK ->{
+
+            }
+            MSG_READ_OK ->{
 
             }
             // end items
+            MSG_DOWNLOAD_OK -> {
+
+            }
+            MSG_UPLOAD_OK -> {
+
+            }
+            MSG_UPLOAD_FAIL -> {
+
+            }
+            USR_UPDATEINFO_OK->{
+
+            }
+            USR_UPDATEINFO_FAIL->{
+
+            }
         }
     }
 }
