@@ -1,18 +1,17 @@
 package com.bird2fish.birdtalksdk.ui
-
 import android.os.Bundle
-import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.TextView
+import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.bird2fish.birdtalksdk.R
 import com.bird2fish.birdtalksdk.SdkGlobalData
 import com.bird2fish.birdtalksdk.model.Topic
-import com.bird2fish.birdtalksdk.model.User
 import com.bird2fish.birdtalksdk.uihelper.ImagesHelper
 
 
@@ -55,6 +54,11 @@ class ChatSessionFragment : Fragment() {
         // 配置 RecyclerView
         recyclerView.layoutManager = LinearLayoutManager(context)
         recyclerView.adapter = adapter
+
+
+        // 搜索按钮点击事件
+        val searchButton: ImageButton = view.findViewById<ImageButton>(com.bird2fish.birdtalksdk.R.id.btn_search)
+        searchButton.setOnClickListener { v: View? -> }
 
         return view
     }

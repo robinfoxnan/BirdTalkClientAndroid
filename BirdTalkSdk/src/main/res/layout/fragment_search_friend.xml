@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+        xmlns:tools="http://schemas.android.com/tools"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        tools:context=".ui.SearchFriendFragment">
+
+
+
+    <!-- 搜索输入框 -->
+    <!-- 搜索输入框（降低高度并添加两侧空白） -->
+    <EditText
+        android:id="@+id/et_search_keyword"
+        android:layout_width="match_parent"
+        android:layout_height="36dp"
+        android:layout_marginLeft="16dp"
+        android:layout_marginRight="16dp"
+        android:hint="请输入搜索关键字..."
+        android:inputType="text"
+        android:paddingHorizontal="12dp"
+        android:paddingVertical="4dp"
+        android:background="@drawable/search_edittext_bg"
+        android:drawableStart="@android:drawable/ic_menu_search"
+        android:drawablePadding="8dp"
+        android:maxLines="1"
+        android:imeOptions="actionSearch"
+        android:textSize="14sp"/>
+
+    <!-- 按钮容器 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:gravity="center"
+        android:orientation="horizontal">
+
+        <!-- 搜索用户按钮 -->
+        <ImageButton
+            android:id="@+id/btn_search_user"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/user_find"
+            android:contentDescription="搜索用户"
+            android:padding="12dp"/>
+
+        <!-- 按钮之间的空隙 -->
+        <Space
+            android:layout_width="32dp"
+            android:layout_height="match_parent"/>
+
+        <!-- 搜索群按钮 -->
+        <ImageButton
+            android:id="@+id/btn_search_group"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/group_find"
+            android:contentDescription="搜索群"
+            android:padding="12dp"/>
+    </LinearLayout>
+
+    <!-- 搜索结果列表 -->
+
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recycler_view_friends"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:padding="3dp"
+        android:clipToPadding="false"/>
+
+</LinearLayout>

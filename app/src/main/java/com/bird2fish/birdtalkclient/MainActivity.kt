@@ -3,12 +3,14 @@ package com.bird2fish.birdtalkclient
 import android.app.Activity
 import android.app.Application
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.view.View
 import android.widget.TextView
 import android.widget.Toast
 import androidx.annotation.IdRes
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import com.bird2fish.birdtalkclient.databinding.ActivityMainBinding
 import com.bird2fish.birdtalksdk.ui.ChatManagerFragment
@@ -47,6 +49,16 @@ class MainActivity : AppCompatActivity() {
 
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        // 设置状态栏颜色
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            getWindow().setStatusBarColor(ContextCompat.getColor(this, android.R.color.white));
+        }
+
+        // 设置状态栏文字为深色（API 23及以上支持）
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
+        }
 
         // 初始化页面
         if (savedInstanceState == null) {

@@ -23,6 +23,7 @@
     <string name="contact_recommend">recommended</string>
     <string name="contact_followed">followed</string>
     <string name="contact_following">following</string>
+    <string name="contact_search">search</string>
     <string name="contact_fans">fans</string>
     <string name="send_msg">send</string>
     <string name="nick_name">nick</string>
