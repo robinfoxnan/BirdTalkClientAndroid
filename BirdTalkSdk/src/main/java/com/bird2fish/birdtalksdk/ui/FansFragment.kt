@@ -1,21 +1,28 @@
 package com.bird2fish.birdtalksdk.ui
 
+import android.app.Activity
 import android.os.Bundle
 import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Button
 import android.widget.ImageView
 import android.widget.TextView
+import android.widget.Toast
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.bird2fish.birdtalksdk.InterErrorType
+import com.bird2fish.birdtalksdk.MsgEventType
 import com.bird2fish.birdtalksdk.SdkGlobalData
-import com.bird2fish.birdtalksdk.R
+
+import com.bird2fish.birdtalksdk.StatusCallback
 import com.bird2fish.birdtalksdk.model.User
+import com.bird2fish.birdtalksdk.uihelper.AvatarHelper
 import com.bird2fish.birdtalksdk.uihelper.ImagesHelper
+import com.bird2fish.birdtalksdk.R
 
-
-class FansFragment : Fragment() {
+class FansFragment : Fragment() , StatusCallback {
 
     private var friendList: RecyclerView? = null
 
@@ -36,21 +43,21 @@ class FansFragment : Fragment() {
         // 获取列表控件
         friendList = view.findViewById<RecyclerView>(R.id.friend_list)
 
-        var user = User()
-        user.nick = "赵四"
-        user.icon = "sys:5"
-        user.region = "这是一个作者的简介……"
-        SdkGlobalData.fanList += user
+//        var user = User()
+//        user.nick = "赵四"
+//        user.icon = "sys:5"
+//        user.region = "这是一个作者的简介……"
+//        SdkGlobalData.fanList += user
+//
+//        user = User()
+//        user.nick = "钱五"
+//        user.icon = "sys:6"
+//        user.region = "人生弱智如初见，何时秋风悲画扇"
+//        SdkGlobalData.fanList += user
 
-        user = User()
-        user.nick = "钱五"
-        user.icon = "sys:6"
-        user.region = "人生弱智如初见，何时秋风悲画扇"
-        SdkGlobalData.fanList += user
 
 
-
-        val adapter = FansItemAdapter(SdkGlobalData.fanList)
+        val adapter = FansItemAdapter(SdkGlobalData.getFanList())
         adapter.setView(this)
         // 第三步：给listview设置适配器（view）
 
@@ -76,6 +83,39 @@ class FansFragment : Fragment() {
 
     fun onClickItem(index: Int){
 
+    }
+
+    override fun onError(code : InterErrorType, lastAction:String, errType:String, detail:String){
+
+    }
+    // 上传或下载事件
+    // 这里是回调函数，无法操作界面
+    override fun onEvent(eventType: MsgEventType, msgType:Int, msgId:Long, fid:Long, params:Map<String, String>){
+        if (eventType == MsgEventType.FRIEND_LIST_FAN){
+
+            (context as? Activity)?.runOnUiThread {
+
+
+                val lst = SdkGlobalData.getFanList()
+                val adapter = FansItemAdapter(lst)
+                adapter.setView(this)
+                friendList?.layoutManager = LinearLayoutManager(context)
+                friendList?.setAdapter(adapter);
+            }
+
+        }
+    }
+    // 刷新的时候需要更新个人信息
+    override fun onResume() {
+        super.onResume()
+        // 关注消息
+        SdkGlobalData.userCallBackManager.addCallback(this)
+    }
+
+    override fun onPause() {
+        super.onPause()
+        // 取消关注消息
+        SdkGlobalData.userCallBackManager.removeCallback(this)
     }
 
 }
@@ -104,7 +144,7 @@ class FansItemAdapter(private val dataList: List<User>) : RecyclerView.Adapter<F
         //val tvDelete : TextView = itemView.findViewById(R.id.tv_fav_share)
         var index: Int = 0
         var selectedPosition = RecyclerView.NO_POSITION
-
+        var btnFollow : Button = itemView.findViewById(R.id.btn_follow)
         init {
             // 在构造函数中为整个 ViewHolder 的根视图设置点击事件
             itemView.setOnClickListener {
@@ -129,10 +169,12 @@ class FansItemAdapter(private val dataList: List<User>) : RecyclerView.Adapter<F
         val item = dataList[position]
         holder.index = position
 
-        val id = ImagesHelper.getIconResId(item!!.icon)
-        holder.imgIcon.setImageResource(id)
-        holder.tvNick.setText(item!!.nick)
-        holder.tvDes.setText(item!!.region)
+//        val id = ImagesHelper.getIconResId(item!!.icon)
+//        holder.imgIcon.setImageResource(id)
+        AvatarHelper.tryLoadAvatar(fragment!!.requireContext(), item!!.icon, holder.imgIcon, item!!.gender)
+        val formattedName = "${item!!.nick}(${item!!.id})"
+        holder.tvNick.setText(formattedName)
+        holder.tvDes.setText(item!!.introduction)
 
         // 可以添加其他逻辑...
 //        holder.tvDelete.setOnClickListener{
@@ -140,6 +182,16 @@ class FansItemAdapter(private val dataList: List<User>) : RecyclerView.Adapter<F
 //                fragment!!.onClickItemShare(holder.tvDelete.tag as Int)
 //            }
 //        }
+
+        if (SdkGlobalData.isMutualfollowing(item!!.id)){
+            val stringFromRes = fragment!!.getString(R.string.mutual_following)
+            holder.btnFollow.text = stringFromRes
+            holder.btnFollow.isEnabled = false
+        }else{
+            val stringFromRes = fragment!!.getString(R.string.follow_back)
+            holder.btnFollow.text = stringFromRes
+            holder.btnFollow.isEnabled = true
+        }
 
         // 根据选中状态更新背景
         holder.itemView.isSelected = (position == holder.selectedPosition)

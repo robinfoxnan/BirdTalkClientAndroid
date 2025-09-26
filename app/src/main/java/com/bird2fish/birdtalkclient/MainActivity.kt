@@ -27,6 +27,7 @@ import com.yalantis.ucrop.UCrop
 enum class AppPageCode {
     HOME,
     CONTACTS,
+    CHAT_SESSION,
     CHAT,
     PROFILE,
     TEST,
@@ -64,13 +65,13 @@ class MainActivity : AppCompatActivity() {
         if (savedInstanceState == null) {
             // 初始化 Fragment 实例并存储到 Map 中
             fragmentMap[AppPageCode.HOME] = FragmentArticles()
+            fragmentMap[AppPageCode.CONTACT_SDK] = ContactFragment()
+            fragmentMap[AppPageCode.CHAT_SESSION] = ChatSessionFragment() // FragmentTest()
+            fragmentMap[AppPageCode.CHAT_SDK] = ChatManagerFragment()
+            fragmentMap[AppPageCode.PROFILE] = FragmentMe()
 
             //fragmentMap[AppPageCode.CONTACTS] = FragmentContact()
-            fragmentMap[AppPageCode.CHAT] = FragmentChat()
-            fragmentMap[AppPageCode.PROFILE] = FragmentMe()
-            fragmentMap[AppPageCode.TEST] = ChatSessionFragment() // FragmentTest()
-            fragmentMap[AppPageCode.CONTACT_SDK] = ContactFragment()
-            fragmentMap[AppPageCode.CHAT_SDK] = ChatManagerFragment()
+            //fragmentMap[AppPageCode.CHAT] = FragmentChat()
             // 当点击页面切换到验证码登录时候，这里切换页面；
             val loginPage = LoginFragment()
             loginPage.setChangeWithCodeCallback {
@@ -85,8 +86,9 @@ class MainActivity : AppCompatActivity() {
         }
 
         // 初始化底部工具栏 tab
-        setupClickHandler<TextView>(AppPageCode.TEST, R.id.b_tab_btn_main)
+        setupClickHandler<TextView>(AppPageCode.HOME, R.id.b_tab_btn_main)
         setupClickHandler<TextView>(AppPageCode.CONTACT_SDK, R.id.b_tab_btn_friends)
+        setupClickHandler<TextView>(AppPageCode.CHAT_SESSION, R.id.b_tab_btn_session)
         setupClickHandler<TextView>(AppPageCode.CHAT_SDK, R.id.b_tab_btn_msg)
         setupClickHandler<TextView>(AppPageCode.PROFILE_SDK, R.id.b_tab_btn_me)
 

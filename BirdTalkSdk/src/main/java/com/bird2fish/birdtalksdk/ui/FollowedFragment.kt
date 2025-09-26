@@ -1,21 +1,28 @@
 package com.bird2fish.birdtalksdk.ui
 
+import android.app.Activity
 import android.os.Bundle
 import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Button
 import android.widget.ImageView
 import android.widget.TextView
+import android.widget.Toast
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.bird2fish.birdtalksdk.InterErrorType
+import com.bird2fish.birdtalksdk.MsgEventType
 import com.bird2fish.birdtalksdk.SdkGlobalData
 import com.bird2fish.birdtalksdk.model.User
 import com.bird2fish.birdtalksdk.uihelper.ImagesHelper
 import com.bird2fish.birdtalksdk.R
+import com.bird2fish.birdtalksdk.StatusCallback
+import com.bird2fish.birdtalksdk.uihelper.AvatarHelper
 
-class FollowedFragment : Fragment() {
+class FollowedFragment : Fragment() , StatusCallback {
 
     private var _binding: FollowedFragment? = null
     private val binding get() = _binding!!
@@ -37,48 +44,57 @@ class FollowedFragment : Fragment() {
 
         // 获取列表控件
         friendList = view.findViewById<RecyclerView>(R.id.friend_list)
-
-        var user = User()
-        user.nick = "飞鸟真人"
-        user.icon = "sys:1"
-        user.region = "这是一个作者的简介……"
-        SdkGlobalData.followedList += user
-
-        user = User()
-        user.nick = "天涯歌女"
-        user.icon = "sys:2"
-        user.region = "人生弱智如初见，何时秋风悲画扇"
-        SdkGlobalData.followedList += user
-
-
-
-        val adapter = FollowedItemAdapter(SdkGlobalData.followedList)
+        val adapter = FollowedItemAdapter(SdkGlobalData.getMutualFollowList())
         adapter.setView(this)
         // 第三步：给listview设置适配器（view）
 
         friendList?.layoutManager = LinearLayoutManager(context)
         friendList?.setAdapter(adapter);
 
-//        this.changed.observe(requireActivity(), Observer {
-//            adapter.notifyDataSetChanged()
-//        })
         return view
     }
 
 
-    override fun onActivityCreated(savedInstanceState: Bundle?) {
-        super.onActivityCreated(savedInstanceState)
-        // TODO: Use the ViewModel
-        testInitData()
-    }
 
-    fun testInitData(){
-        //friendList?.n
+    // 发送信息，这里需要跳转
+    fun sendMsgTo(f: User){
+
     }
 
 
     fun onClickItem(index: Int){
 
+    }
+
+    override fun onError(code : InterErrorType, lastAction:String, errType:String, detail:String){
+
+    }
+    // 上传或下载事件
+    // 这里是回调函数，无法操作界面
+    override fun onEvent(eventType: MsgEventType, msgType:Int, msgId:Long, fid:Long, params:Map<String, String>){
+        if (eventType == MsgEventType.FRIEND_LIST_FOLLOW || eventType == MsgEventType.FRIEND_LIST_FAN){
+
+            (context as? Activity)?.runOnUiThread {
+
+                val adapter = FollowedItemAdapter(SdkGlobalData.getMutualFollowList())
+                adapter.setView(this)
+                friendList?.layoutManager = LinearLayoutManager(context)
+                friendList?.setAdapter(adapter);
+            }
+
+        }
+    }
+    // 刷新的时候需要更新个人信息
+    override fun onResume() {
+        super.onResume()
+        // 关注消息
+        SdkGlobalData.userCallBackManager.addCallback(this)
+    }
+
+    override fun onPause() {
+        super.onPause()
+        // 取消关注消息
+        SdkGlobalData.userCallBackManager.removeCallback(this)
     }
 
 }
@@ -105,6 +121,7 @@ class FollowedItemAdapter(private val dataList: List<User>) : RecyclerView.Adapt
         //val tvDelete : TextView = itemView.findViewById(R.id.tv_fav_share)
         var index: Int = 0
         var selectedPosition = RecyclerView.NO_POSITION
+        var btnSendMsg : Button = itemView.findViewById(R.id.btn_send_msg)
 
         init {
             // 在构造函数中为整个 ViewHolder 的根视图设置点击事件
@@ -130,17 +147,22 @@ class FollowedItemAdapter(private val dataList: List<User>) : RecyclerView.Adapt
         val item = dataList[position]
         holder.index = position
 
-        val id = ImagesHelper.getIconResId(item!!.icon)
-        holder.imgIcon.setImageResource(id)
-        holder.tvNick.setText(item!!.nick)
-        holder.tvDes.setText(item!!.region)
+        //val id = ImagesHelper.getIconResId(item!!.icon)
+        //holder.imgIcon.setImageResource(id)
+        AvatarHelper.tryLoadAvatar(fragment!!.requireContext(), item!!.icon, holder.imgIcon, item!!.gender)
+
+        val formattedName = "${item!!.nick}(${item!!.id})"
+        holder.tvNick.setText(formattedName)
+        holder.tvDes.setText(item!!.introduction)
 
         // 可以添加其他逻辑...
-//        holder.tvDelete.setOnClickListener{
-//            if (fragment != null){
-//                fragment!!.onClickItemShare(holder.tvDelete.tag as Int)
-//            }
-//        }
+        holder.btnSendMsg.setOnClickListener{
+            if (fragment != null){
+                fragment!!.sendMsgTo(item)
+            }
+        }
+        holder.btnSendMsg.isEnabled = true
+
 
         // 根据选中状态更新背景
         holder.itemView.isSelected = (position == holder.selectedPosition)

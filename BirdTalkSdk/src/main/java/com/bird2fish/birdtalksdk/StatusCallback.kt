@@ -16,12 +16,15 @@ enum class InterErrorType {
 // sdk通知界面的操作
 enum class MsgEventType {
     LOGIN_OK,  // 跳转
+    LOGIN_CODE, // 需要用户填写验证码
 
     FRIEND_REQUEST,   // 有好友申请，包括关注和
     FRIEND_REQ_REPLY, // 你申请好友的应答
     FRIEND_ONLINE,    // 好友上线
     FRIEND_OFFLINE,   // 好友下线
     FRIEND_UPDATE,    // 好友更新信息
+    FRIEND_LIST_FAN,
+    FRIEND_LIST_FOLLOW,
 
 
     MSG_COMING,          // 新消息
@@ -37,6 +40,9 @@ enum class MsgEventType {
 
     USR_UPDATEINFO_OK,
     USR_UPDATEINFO_FAIL,
+
+    SEARCH_FRIEND_RET,
+    SEARCH_GROUP_RET,
 
 }
 

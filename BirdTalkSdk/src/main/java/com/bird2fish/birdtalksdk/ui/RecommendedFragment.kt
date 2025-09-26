@@ -35,19 +35,6 @@ class RecommendedFragment : Fragment() {
         // 获取列表控件
         friendList = view.findViewById<RecyclerView>(R.id.friend_list)
 
-        var user = User()
-        user.nick = "赵四"
-        user.icon = "sys:7"
-        user.region = "这是一个作者的简介……"
-        SdkGlobalData.recommendedList += user
-
-        user = User()
-        user.nick = "钱五"
-        user.icon = "sys:8"
-        user.region = "人生弱智如初见，何时秋风悲画扇"
-        SdkGlobalData.recommendedList += user
-
-
 
         val adapter = RecommendedItemAdapter(SdkGlobalData.recommendedList)
         adapter.setView(this)

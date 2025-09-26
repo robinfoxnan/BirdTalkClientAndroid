@@ -144,7 +144,7 @@ object Session  {
     // 加载自己的个人信息
     // 1） 同步最新的消息，2)同步好友列表  3） 同步所在群  4）同步群消息
     fun loadOnLogin(){
-
+        SdkGlobalData.initLoad()
     }
 
     // 登录成功，通知界面更改页面
@@ -172,8 +172,13 @@ object Session  {
     }
 
     // 服务器发送完毕，通知跳转到输入验证码的页面
+    // 如果不输入口令的，需要填写验证码
     fun loginNotifyCode(){
 
+        val resultMap = mapOf(
+            "result" to "ok"
+        )
+        SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(MsgEventType.LOGIN_CODE, 0,0L, 0L, resultMap)
     }
 
     fun uploadSmallFile(ctx: Context, uri: Uri?) {

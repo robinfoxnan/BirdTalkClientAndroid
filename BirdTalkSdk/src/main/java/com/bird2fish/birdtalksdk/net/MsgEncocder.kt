@@ -1,5 +1,6 @@
 package com.bird2fish.birdtalksdk.net
 import android.content.Context
+import android.provider.Settings.Global
 import android.telephony.mbms.FileInfo
 import com.bird2fish.birdtalksdk.MsgEventType
 import com.bird2fish.birdtalksdk.SdkGlobalData
@@ -12,9 +13,12 @@ import com.bird2fish.birdtalksdk.pbmodel.User.FriendOpReq
 import com.bird2fish.birdtalksdk.pbmodel.User.GroupInfo
 import com.bird2fish.birdtalksdk.pbmodel.User.UserInfo
 import com.bird2fish.birdtalksdk.pbmodel.User.UserOpReq
+import com.bird2fish.birdtalksdk.pbmodel.User.UserOpResult
 import com.bird2fish.birdtalksdk.pbmodel.User.UserOperationType.*
 import com.bird2fish.birdtalksdk.uihelper.TextHelper
+import com.bird2fish.birdtalksdk.uihelper.UserHelper
 import com.google.protobuf.ByteString
+import java.util.LinkedList
 
 // 按照格式编码，用于产生各种消息
 class MsgEncocder {
@@ -110,9 +114,9 @@ class MsgEncocder {
                 MsgTUploadReply -> onUploadReply(msg)
                 MsgTDownloadReply -> doNothing()
 
-                MsgTUserOpRet -> onUserRet(msg)
+                MsgTUserOpRet -> onUserRet(msg)         // 登录等操做，也在这里来
                 MsgTFriendOp -> doNothing()
-                MsgTFriendOpRet -> doNothing()
+                MsgTFriendOpRet -> onFriendOpRet(msg)   // 所有好友操作相关的处理
                 MsgTGroupOp -> doNothing()
                 MsgTGroupOpRet -> doNothing()
 
@@ -291,21 +295,26 @@ class MsgEncocder {
         fun onUserRet(msg: MsgOuterClass.Msg){
             val opcode = msg.plainMsg.userOpRet.operation
             val result = msg.plainMsg.userOpRet.result
-            var status = ""
-            status = msg.plainMsg.userOpRet.getParamsOrDefault("status", "")
+            var status = msg.plainMsg.userOpRet.getParamsOrDefault("status", "")
 
-            if (msg.plainMsg.userOpRet.usersList.size <1){
-                return
-            }
+
 
             val user = msg.plainMsg.userOpRet.getUsers(0)
             when (opcode){
                 Login -> {
                     if (result == "ok"){
-                        // 解析自己的个人信息
-                        UserInfo2DbUser(user)
-                        // 设置状态，并跳转
-                        Session.loginOk()
+                        if (status == "waitcode"){
+                            Session.loginNotifyCode()
+                        }else if (status == "loginok"){
+                            // 解析自己的个人信息
+                            UserInfo2DbUser(user)
+                            // 设置状态，并跳转
+                            Session.loginOk()
+                        }else{
+                            //
+                            Session.loginFail(user.userId.toString(), status)
+                        }
+
                     }else {
                         Session.loginFail("", "")
                     }
@@ -377,6 +386,130 @@ class MsgEncocder {
 
         }
 
+        // 好友操作的返回结果
+        private fun onFriendOpRet(msg: MsgOuterClass.Msg){
+            val opcode = msg.plainMsg.friendOpRet.operation
+            val result = msg.plainMsg.friendOpRet.result
+            var status = ""
+            status = msg.plainMsg.friendOpRet.getParamsOrDefault("status", "")
+
+//            if (msg.plainMsg.friendOpRet.usersList.size <1){
+//                return
+//            }
+
+            when (opcode){
+                FindUser -> {
+                    onFindFriendRet(msg.plainMsg.friendOpRet, result, status)
+                }
+                AddFriend -> {
+                    onFriendAddRet(msg.plainMsg.friendOpRet, result, status)
+                }
+                ApproveFriend -> {
+
+                }
+                RemoveFriend -> {
+
+                }
+                BlockFriend -> {
+
+                }
+                UnBlockFriend -> {
+
+                }
+                SetFriendPermission -> {
+
+                }
+                SetFriendMemo -> {
+
+                }
+                ListFriends -> {
+                    val mode = msg.plainMsg.friendOpRet.paramsMap["mode"]
+                    if (mode == "fans"){
+                        onFriendListFans(msg.plainMsg.friendOpRet, result, status)
+                    }else if (mode == "follows"){
+                        onFriendListFollows(msg.plainMsg.friendOpRet, result, status)
+                    }
+                }
+
+                UserNoneAction -> doNothing()
+                RegisterUser -> doNothing()
+                UnregisterUser -> doNothing()
+                DisableUser -> doNothing()
+                RecoverUser -> doNothing()
+                SetUserInfo -> doNothing()
+                RealNameVerification -> doNothing()
+                Login -> doNothing()
+                Logout -> doNothing()
+                User.UserOperationType.UNRECOGNIZED -> doNothing()
+            }
+
+        }
+
+        // 好友列表返回
+        fun onFriendListFans(retMsg: User.FriendOpResult, result:String, status:String){
+
+            if (retMsg.usersList != null && retMsg.usersList.size > 0){
+                val lst = LinkedList<com.bird2fish.birdtalksdk.model.User>()
+                for (f in retMsg.usersList){
+                    SdkGlobalData.updateAddNewFan(f)
+                }
+            }
+            SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(MsgEventType.FRIEND_REQ_REPLY,
+                0, 0, 0, mapOf("result"  to result, "status" to status ) )
+        }
+
+        // 关注列表返回
+        fun onFriendListFollows(retMsg: User.FriendOpResult, result:String, status:String){
+            if (retMsg.usersList != null && retMsg.usersList.size > 0){
+
+                for (f in retMsg.usersList){
+                    SdkGlobalData.updateAddNewFollow(f)
+                }
+            }
+            SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(MsgEventType.FRIEND_REQ_REPLY,
+                0, 0, 0, mapOf("result"  to result, "status" to status ) )
+        }
+
+        // 添加好友返回结果
+        fun onFriendAddRet(retMsg: User.FriendOpResult, result:String, status:String){
+            var fid = 0L
+
+            if (retMsg.usersList != null && retMsg.usersList.size > 0){
+                fid = retMsg.usersList[0].userId
+                if (fid > 0 && result == "ok"){
+                    // 更新好友列表
+                    SdkGlobalData.updateAddNewFollow(retMsg.usersList[0])
+                }
+            }
+
+
+
+            SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(MsgEventType.FRIEND_REQ_REPLY,
+                0, 0, fid, mapOf("result"  to result, "status" to status ) )
+        }
+        // 好友搜索结果
+        private fun onFindFriendRet(retMsg: User.FriendOpResult, result:String, status:String){
+            // 设置个人信息完毕
+            val lst = LinkedList<com.bird2fish.birdtalksdk.model.User>()
+//            if (retMsg.usersList.size <1){
+//                return
+//            }
+
+            if (retMsg.usersList != null){
+                // 遍历返回的列表
+                for (f in retMsg.usersList){
+                    val friend = UserHelper.pbUserInfo2LocalUser(f)
+                    lst.add(friend)
+                }
+            }
+
+
+
+            SdkGlobalData.setSearchFriendRet(lst)
+            SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(MsgEventType.SEARCH_FRIEND_RET,
+                    0, 0, 0L, mapOf("result"  to result, "status" to status ) )
+
+        }
 
         /*
         message MsgError{
@@ -560,12 +693,13 @@ class MsgEncocder {
                 this.saveKeyPrint(this.keyExchange.getKeyPrint())
                 this.saveShareKey(this.keyExchange.getSharedKey()!!)
                 // 这里可以跳转了
+                Session.updateState(Session.SessionState.WAIT)
 
             }else if (exMsg.status == "needlogin"){  // 注册或者登录
                 // 保存key
                 this.saveKeyPrint(this.keyExchange.getKeyPrint())
                 this.saveShareKey(this.keyExchange.getSharedKey()!!)
-
+                Session.updateState(Session.SessionState.WAIT)
 
             }else{
                 sendBackErr(ErrTMsgContent, "exchange4 status is error")
@@ -641,8 +775,9 @@ class MsgEncocder {
                 userInfo.setEmail(id);
             }else{
                 userInfo.setUserId(id.toLong())
-                val paramsMap = userInfo.putParams("pwd", pwd)
             }
+
+            val paramsMap = userInfo.putParams("pwd", pwd)
 
             val regOpReq = UserOpReq.newBuilder()
                 .setOperation(Login)

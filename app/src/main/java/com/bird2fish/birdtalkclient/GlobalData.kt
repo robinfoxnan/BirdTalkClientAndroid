@@ -46,6 +46,10 @@ class ActionListener :StatusCallback{
         // 可以添加其他错误处理逻辑，如通知UI
     }
 
+    private fun doNothing(){
+
+    }
+
     override fun onEvent(eventType: MsgEventType, msgType: Int, msgId: Long, fid: Long, params:Map<String, String>) {
         // 处理事件逻辑
         Log.d("GlobalData", "Event: $eventType, MsgType: $msgType, MsgId: $msgId, Fid: $fid")
@@ -118,6 +122,12 @@ class ActionListener :StatusCallback{
             USR_UPDATEINFO_FAIL->{
 
             }
+
+            SEARCH_FRIEND_RET -> doNothing()
+            SEARCH_GROUP_RET -> doNothing()
+            FRIEND_LIST_FOLLOW ->doNothing()
+            FRIEND_LIST_FAN -> doNothing()
+            LOGIN_CODE -> doNothing()
         }
     }
 }

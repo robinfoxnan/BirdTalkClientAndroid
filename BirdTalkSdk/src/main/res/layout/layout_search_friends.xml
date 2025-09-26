@@ -18,8 +18,8 @@
 
         <ImageView
             android:id="@+id/iconTv"
-            android:layout_width="60dp"
-            android:layout_height="60dp"
+            android:layout_width="45dp"
+            android:layout_height="45dp"
             android:layout_weight="1"
             tools:ignore="MissingConstraints"
             tools:layout_editor_absoluteX="5dp"
@@ -65,7 +65,8 @@
             android:background="@drawable/btn_border_round_gray"
             android:text="@string/followed"
             app:layout_constraintEnd_toStartOf="@+id/btn_setting"
-            app:layout_constraintTop_toTopOf="parent" />
+            app:layout_constraintTop_toTopOf="parent"
+            tools:visibility="visible" />
 
         <ImageView
             android:id="@+id/btn_setting"

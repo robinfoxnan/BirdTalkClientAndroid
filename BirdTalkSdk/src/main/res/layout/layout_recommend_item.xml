@@ -18,8 +18,8 @@
 
         <ImageView
             android:id="@+id/iconTv"
-            android:layout_width="60dp"
-            android:layout_height="60dp"
+            android:layout_width="45dp"
+            android:layout_height="45dp"
             android:layout_weight="1"
             tools:ignore="MissingConstraints"
             tools:layout_editor_absoluteX="5dp"

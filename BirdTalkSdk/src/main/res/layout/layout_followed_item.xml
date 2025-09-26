@@ -18,8 +18,8 @@
 
         <ImageView
             android:id="@+id/iconTv"
-            android:layout_width="60dp"
-            android:layout_height="60dp"
+            android:layout_width="45dp"
+            android:layout_height="45dp"
             android:layout_weight="1"
             tools:ignore="MissingConstraints"
             tools:layout_editor_absoluteX="5dp"
@@ -57,7 +57,7 @@
         </LinearLayout>
 
         <Button
-            android:id="@+id/btn_send"
+            android:id="@+id/btn_send_msg"
             android:layout_width="70dp"
             android:layout_height="25dp"
             android:layout_marginTop="8dp"

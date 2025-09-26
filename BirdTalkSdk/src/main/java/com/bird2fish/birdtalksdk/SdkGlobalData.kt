@@ -5,10 +5,13 @@ import android.os.Build
 import com.bird2fish.birdtalksdk.model.User
 import com.bird2fish.birdtalksdk.model.Topic
 import com.bird2fish.birdtalksdk.net.CRC64
+import com.bird2fish.birdtalksdk.net.MsgEncocder
 import com.bird2fish.birdtalksdk.net.UnsafeOkHttpClient
+import com.bird2fish.birdtalksdk.uihelper.UserHelper
 import com.squareup.picasso.OkHttp3Downloader
 import com.squareup.picasso.Picasso
 import java.util.LinkedList
+import java.util.TreeMap
 import java.util.concurrent.atomic.AtomicLong
 
 
@@ -40,18 +43,116 @@ class SdkGlobalData {
         var userCallBackManager = CallbackManager()
 
         // 互相关注
-        var followedList : LinkedList<User> = LinkedList<User>()
+        var mutualFollowingList : MutableMap<Long, User> = LinkedHashMap()
         // 关注
-        var followingList : LinkedList<User> = LinkedList<User>()
+        var followingList : MutableMap<Long, User> = LinkedHashMap()
 
         // 粉丝
-        var fanList : LinkedList<User> = LinkedList<User>()
+        var fanList : MutableMap<Long, User> = LinkedHashMap()
 
         // 系统推荐
         var recommendedList : LinkedList<User> = LinkedList<User>()
 
+        // 搜索用户返回的结果
+        private var searchFriendList : LinkedList<User> = LinkedList<User>()
+
         // 当前会话列表
         var chatSessionList :LinkedList<Topic> = LinkedList<Topic>()
+
+        // 是否对方与自己双向关注
+        fun isMutualfollowing(id: Long):Boolean{
+            return mutualFollowingList.containsKey(id)
+        }
+
+        // 是否意境关注对方
+        fun isFollowing(id: Long):Boolean{
+            return followingList.containsKey(id)
+        }
+
+        // 是否对方是自己的粉丝
+        fun isFan(id: Long):Boolean{
+            return fanList.containsKey(id)
+
+        }
+
+        fun setSearchFriendRet(ret:LinkedList<User>){
+            // 使用同步代码块，锁定当前对象
+            synchronized(this) {
+                this.searchFriendList = ret
+            }
+        }
+
+        fun getSearchFriendRet(): LinkedList<User> {
+            // 使用同步代码块，锁定当前对象
+            synchronized(this) {
+                return this.searchFriendList
+            }
+        }
+
+        // 更新关注好友返回的信息
+        fun updateAddNewFollow(f:com.bird2fish.birdtalksdk.pbmodel.User.UserInfo){
+            val friend = UserHelper.pbUserInfo2LocalUser(f)
+
+            synchronized(followingList) {
+                if (!followingList.containsKey(f.userId)) {
+
+                    followingList[f.userId] = friend
+                }
+            }
+
+            var b  = false
+            synchronized(fanList){
+                if (fanList.containsKey(f.userId)){
+                    b = true
+                }
+            }
+            if (b){
+                synchronized(mutualFollowingList){
+                    mutualFollowingList[f.userId] = friend
+                }
+            }
+
+        }
+
+        fun updateAddNewFan(f:com.bird2fish.birdtalksdk.pbmodel.User.UserInfo){
+            val friend = UserHelper.pbUserInfo2LocalUser(f)
+
+            synchronized(fanList) {
+                if (!fanList.containsKey(f.userId)){
+                    fanList.set(f.userId, friend)
+                }
+            }
+
+            var b  = false
+            synchronized(followingList){
+                if (followingList.containsKey(f.userId)){
+                    b = true
+                }
+            }
+            if (b){
+                synchronized(mutualFollowingList){
+                    mutualFollowingList[f.userId] = friend
+                }
+            }
+
+        }
+
+        fun getMutualFollowList():List<User>{
+            synchronized(mutualFollowingList){
+                return mutualFollowingList.values.toList()
+            }
+        }
+        fun getFollowList(): List<User>{
+            synchronized(followingList) {
+                return followingList.values.toList()
+            }
+        }
+
+        fun getFanList(): List<User>{
+            synchronized(fanList){
+                return fanList.values.toList()
+            }
+        }
 
         // 创建实例
         val basicInfo = PlatformInfo(
@@ -88,6 +189,13 @@ class SdkGlobalData {
             builder.downloader(OkHttp3Downloader(client))
             val picasso = builder.build()
             Picasso.setSingletonInstance(picasso)
+
+        }
+
+        // 尝试加载用户的好友和粉丝等各种预加载信息
+        fun initLoad(){
+            MsgEncocder.sendListFriend("follows")
+            MsgEncocder.sendListFriend("fans")
         }
 
         fun nextId():Long{

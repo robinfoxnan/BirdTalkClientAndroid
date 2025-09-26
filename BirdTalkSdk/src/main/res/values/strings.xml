@@ -32,6 +32,7 @@
     <string name="follow">follow</string>
     <string name="fan">fan</string>
     <string name="followed">followed</string>
+    <string name="follow_back">follow back</string>
     <string name="mutual_following">mutual</string>
     <string name="user_id">user ID</string>
     <string name="age">age</string>
@@ -99,5 +100,6 @@
     <string name="user_id_error">user id input error</string>
     <string name="login_error">"can not Logging in with %s"</string>
     <string name="pwd_not_same">password should be same</string>
+    <string name="pwd_need_change">blank means no change</string>
 
 </resources>

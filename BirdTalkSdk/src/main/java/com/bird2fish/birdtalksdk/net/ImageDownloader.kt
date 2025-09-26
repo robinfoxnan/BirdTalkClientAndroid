@@ -61,7 +61,7 @@ class ImageDownloader {
             override fun onBitmapLoaded(bitmap: Bitmap, from: Picasso.LoadedFrom) {
                 // 直接获取加载后的Bitmap
                 val bitmapRound = ImagesHelper.getRoundAvatar(bitmap, context)
-                view.setImageBitmap(bitmap)
+                view.setImageBitmap(bitmapRound)
 
                 // 保存或处理Bitmap
                 saveBitmapToAppDir(

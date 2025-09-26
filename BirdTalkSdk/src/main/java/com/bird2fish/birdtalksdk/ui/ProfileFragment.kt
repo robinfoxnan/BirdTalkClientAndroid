@@ -40,6 +40,7 @@ import com.bird2fish.birdtalksdk.StatusCallback
 import com.bird2fish.birdtalksdk.net.ImageDownloader
 import com.bird2fish.birdtalksdk.net.MsgEncocder
 import com.bird2fish.birdtalksdk.net.Session
+import com.bird2fish.birdtalksdk.uihelper.AvatarHelper
 import com.bird2fish.birdtalksdk.uihelper.ImagesHelper
 import com.bird2fish.birdtalksdk.uihelper.PermissionsHelper
 import com.bird2fish.birdtalksdk.uihelper.TextHelper
@@ -74,7 +75,7 @@ class ProfileFragment : Fragment(), StatusCallback {
 
     private  lateinit var btnSave :Button
 
-    private var localImageName : String? = ""
+//    private var localImageName : String? = ""
     private var localUploadName : String? = ""    //上传
 
     private val _uuidImageName = MutableLiveData<String?>("")
@@ -98,8 +99,8 @@ class ProfileFragment : Fragment(), StatusCallback {
     override fun onEvent(eventType: MsgEventType, msgType:Int, msgId:Long, fid:Long, params:Map<String, String>){
         if (eventType == MsgEventType.MSG_UPLOAD_OK){
             params.get("uuidName")?.let {
-                this._uuidImageName.postValue(it)
                 SdkGlobalData.selfUserinfo.icon = it
+                this._uuidImageName.postValue(it)
                 // 这里应该发送消息，重新设置头像
                 saveUserAvatar(it)
             }
@@ -122,11 +123,13 @@ class ProfileFragment : Fragment(), StatusCallback {
     //        paramsMap.set("Region", "北京");
     //        paramsMap.set("Icon", "飞鸟真人");
     //        paramsMap.set("Params.title", "经理")
+
+    // 上传成功后，需要保存一下
     private fun saveUserAvatar(newIcon:String){
 
         val data = mapOf(
             "Icon" to newIcon,
-            "Params.title" to "setting"
+            //"Params.title" to "setting"
         )
         System.out.println("change avatar "+ newIcon)
         MsgEncocder.setUserInfo(SdkGlobalData.selfUserinfo.getId(), data)
@@ -196,7 +199,9 @@ class ProfileFragment : Fragment(), StatusCallback {
                     // 设置图片
                     //profileImageView.setImageURI(it)
                     val bitmap = ImagesHelper.loadRoundAvatar(it, this.requireContext())
-                    profileImageView.setImageBitmap(bitmap)
+                    synchronized(profileImageView) {
+                        profileImageView.setImageBitmap(bitmap)
+                    }
                     //TextHelper.showToast(this.requireContext(), "裁剪成功: ${it.toString()}")
                     photoUri = resultUri
 
@@ -221,7 +226,11 @@ class ProfileFragment : Fragment(), StatusCallback {
             // 处理变化
             if (newValue != ""){
                 //TextHelper.showToast(requireContext(), "上传头像完毕，重新加载：" + newValue)
-                loadImage(newValue!!)
+                //loadImage(newValue!!)
+                synchronized(profileImageView){
+                    AvatarHelper.tryLoadAvatar(requireContext(), newValue!!, profileImageView, SdkGlobalData.selfUserinfo.gender)
+                }
+
             }
 
         }
@@ -255,7 +264,11 @@ class ProfileFragment : Fragment(), StatusCallback {
         // 头像
         profileImageView = view.findViewById(R.id.imageViewIcon)
         //profileImageView.setImageResource(R.drawable.icon4)
-        loadLocalAvatar(SdkGlobalData.selfUserinfo.icon)
+        //loadLocalAvatar(SdkGlobalData.selfUserinfo.icon)
+        synchronized(profileImageView){
+            AvatarHelper.tryLoadAvatar(requireContext(), SdkGlobalData.selfUserinfo.icon, profileImageView, SdkGlobalData.selfUserinfo.gender)
+        }
+
         profileImageView.setOnClickListener { showImagePickerDialog() }
 
         // 获取权限来加载相册
@@ -284,7 +297,7 @@ class ProfileFragment : Fragment(), StatusCallback {
         //data["Phone"] = tvPhone.text?.toString()?.takeIf { it.isNotEmpty() } ?: "-"
         //data["Email"] = tvEmail.text?.toString()?.takeIf { it.isNotEmpty() } ?: "-"
         data["Intro"] = tvIntro.text?.toString()?.takeIf { it.isNotEmpty() } ?: "-"
-        data["Params.Title"] = "先生"
+        //data["Params.Title"] = "先生"
 
         MsgEncocder.setUserInfo(SdkGlobalData.selfUserinfo.id, data)
     }
@@ -312,22 +325,22 @@ class ProfileFragment : Fragment(), StatusCallback {
 
     // 加载远程的图片，先检查本地是否存在
     // /storage/emulated/0/Android/data/com.bird2fish.birdtalkclient/files/avatar
-    private  fun loadLocalAvatar(iconName:String){
-        val bitmap = ImagesHelper.loadBitmapFromAppDir(requireContext(), "avatar", iconName)
-        if (bitmap != null) {
-            val bitmapRound = ImagesHelper.getRoundAvatar(bitmap, requireContext())
-            profileImageView.setImageBitmap(bitmapRound )
-            return
-        }
-    }
-
-    // 使用pissaco直接从远程获取文件
-    private  fun loadImage(remoteName:String) {
-
-        // 从远程加载
-        val downloader = ImageDownloader()
-        downloader.downloadAndSaveImage(requireContext(), remoteName, "avatar", this.profileImageView, R.drawable.icon19)
-    }
+//    private  fun loadLocalAvatar(iconName:String){
+//        val bitmap = ImagesHelper.loadBitmapFromAppDir(requireContext(), "avatar", iconName)
+//        if (bitmap != null) {
+//            val bitmapRound = ImagesHelper.getRoundAvatar(bitmap, requireContext())
+//            profileImageView.setImageBitmap(bitmapRound )
+//            return
+//        }
+//    }
+//
+//    // 使用pissaco直接从远程获取文件
+//    private  fun loadImage(remoteName:String) {
+//
+//        // 从远程加载
+//        val downloader = ImageDownloader()
+//        downloader.downloadAndSaveImage(requireContext(), remoteName, "avatar", this.profileImageView, R.drawable.icon19)
+//    }
 
     override fun onPause() {
         super.onPause()

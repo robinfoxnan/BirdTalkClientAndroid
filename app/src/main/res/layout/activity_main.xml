@@ -21,6 +21,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
+        android:layout_marginBottom="10dp"
         app:layout_constraintBottom_toBottomOf="parent">
 
         <TextView
@@ -30,7 +31,7 @@
             android:layout_weight="1"
             android:text="@string/txt_main_page"
             android:textAlignment="center"
-            android:textSize="16sp"
+            android:textSize="18sp"
             android:textStyle="bold" />
 
         <TextView
@@ -40,15 +41,19 @@
             android:layout_weight="1"
             android:text="@string/txt_contact"
             android:textAlignment="center"
-            android:textSize="16sp"
+            android:textSize="18sp"
             android:textStyle="bold" />
 
-        <ImageView
-            android:id="@+id/b_tab_btn_publish"
+        <TextView
+            android:id="@+id/b_tab_btn_session"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            app:srcCompat="@android:drawable/ic_menu_add" />
+            android:text="@string/txt_chat_session"
+            android:textAlignment="center"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
 
         <TextView
             android:id="@+id/b_tab_btn_msg"
@@ -57,7 +62,7 @@
             android:layout_weight="1"
             android:text="@string/txt_msg"
             android:textAlignment="center"
-            android:textSize="16sp"
+            android:textSize="18sp"
             android:textStyle="bold" />
 
         <TextView
@@ -67,7 +72,7 @@
             android:layout_weight="1"
             android:text="@string/txt_me"
             android:textAlignment="center"
-            android:textSize="16sp"
+            android:textSize="18sp"
             android:textStyle="bold" />
 
     </LinearLayout>
