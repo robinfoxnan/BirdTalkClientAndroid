@@ -44,6 +44,9 @@ enum class MsgEventType {
     SEARCH_FRIEND_RET,
     SEARCH_GROUP_RET,
 
+    APP_NOTIFY_SEND_MSG,  // SDK通知界面
+    APP_NOTIFY_REMOVE_SESSION,
+
 }
 
 interface StatusCallback {

@@ -1,10 +1,12 @@
 package com.bird2fish.birdtalksdk.net
 
+import android.app.Activity
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.drawable.Drawable
 import android.widget.ImageView
+import android.widget.Toast
 import com.bird2fish.birdtalksdk.R
 import com.bird2fish.birdtalksdk.uihelper.ImagesHelper
 import com.squareup.picasso.Callback
@@ -61,7 +63,11 @@ class ImageDownloader {
             override fun onBitmapLoaded(bitmap: Bitmap, from: Picasso.LoadedFrom) {
                 // 直接获取加载后的Bitmap
                 val bitmapRound = ImagesHelper.getRoundAvatar(bitmap, context)
-                view.setImageBitmap(bitmapRound)
+                (context as? Activity)?.runOnUiThread {
+                    //Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                    view.setImageBitmap(bitmapRound)
+                }
+
 
                 // 保存或处理Bitmap
                 saveBitmapToAppDir(

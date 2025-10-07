@@ -59,6 +59,9 @@ class SdkGlobalData {
         // 当前会话列表
         var chatSessionList :LinkedList<Topic> = LinkedList<Topic>()
 
+        // 当前显示的消息界面，如果是负数，就是群组
+        var currentChatFid = 0L
+
         // 是否对方与自己双向关注
         fun isMutualfollowing(id: Long):Boolean{
             return mutualFollowingList.containsKey(id)
@@ -135,6 +138,13 @@ class SdkGlobalData {
                 }
             }
 
+        }
+
+        // 找本地双向的好友信息
+        fun getMutualFriendLocal(fid:Long):User?{
+            synchronized(mutualFollowingList){
+                return mutualFollowingList[fid]
+            }
         }
 
         fun getMutualFollowList():List<User>{

@@ -53,10 +53,14 @@ import androidx.recyclerview.widget.RecyclerView.Recycler
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout.OnRefreshListener
 import com.bird2fish.birdtalksdk.R
+import com.bird2fish.birdtalksdk.SdkGlobalData
 import com.bird2fish.birdtalksdk.model.Drafty
 import com.bird2fish.birdtalksdk.model.MessageContent
 import com.bird2fish.birdtalksdk.model.MessageStatus
+import com.bird2fish.birdtalksdk.model.User
 import com.bird2fish.birdtalksdk.model.UserStatus
+import com.bird2fish.birdtalksdk.pbmodel.User.GroupInfo
+import com.bird2fish.birdtalksdk.uihelper.AvatarHelper
 import com.bird2fish.birdtalksdk.uihelper.PermissionsHelper
 import com.bird2fish.birdtalksdk.uihelper.TextHelper
 import com.bird2fish.birdtalksdk.widgets.AudioSampler
@@ -96,6 +100,10 @@ class ChatPageFragment : Fragment() {
     //private var mFailureListener: PromisedReply.FailureListener<ServerMessage>? = null
 
     private var mGoToLatest: FloatingActionButton? = null
+
+    private var mPeerId :Long = 0L
+    private var mPeerFriend :User? = null
+    private var mPeerGroup : User? = null  //TODO:
 
     private val mTopicName: String? = null
     private val mMessageToSend: String? = null
@@ -225,6 +233,22 @@ class ChatPageFragment : Fragment() {
             args.putString(ARG_CHAT_ID, chatId)
             fragment.arguments = args
             return fragment
+        }
+    }
+
+    // 设置聊天的对方是谁，如果是正数就是私聊，如果是负数就是群组号码
+    fun setChatPeer(id: Long){
+        this.mPeerId = id
+        // 显示好友的信息
+        if (id > 0){
+            val f = SdkGlobalData.getMutualFriendLocal(id)
+            if (f != null){
+                this.mPeerFriend = f
+            }
+        }
+        // 显示群组信息，群使用负数表示，这样可以保证一致性
+        else{
+
         }
     }
 

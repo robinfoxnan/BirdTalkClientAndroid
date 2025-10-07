@@ -24,6 +24,9 @@ class GlobalData  {
         var mainActivity :AppCompatActivity?=null
 
 
+
+
+
         fun init(ctx: Context){
             // 设置与sdk的通知接口
             SdkGlobalData.addCallback(eventListener)
@@ -128,6 +131,8 @@ class ActionListener :StatusCallback{
             FRIEND_LIST_FOLLOW ->doNothing()
             FRIEND_LIST_FAN -> doNothing()
             LOGIN_CODE -> doNothing()
+            APP_NOTIFY_SEND_MSG -> doNothing()
+            APP_NOTIFY_REMOVE_SESSION -> doNothing()
         }
     }
 }

@@ -8,6 +8,7 @@
     android:background="@drawable/message_view_bkg"
     tools:context=".ui.ChatPageFragment">
 
+
     <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
         android:id="@+id/swipe_refresher"
         android:layout_width="0dp"

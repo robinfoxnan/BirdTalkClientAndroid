@@ -1,27 +1,24 @@
 package com.bird2fish.birdtalkclient
 
-import android.app.Activity
-import android.app.Application
-import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.view.View
 import android.widget.TextView
-import android.widget.Toast
 import androidx.annotation.IdRes
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import com.bird2fish.birdtalkclient.databinding.ActivityMainBinding
+import com.bird2fish.birdtalksdk.InterErrorType
+import com.bird2fish.birdtalksdk.MsgEventType
+import com.bird2fish.birdtalksdk.SdkGlobalData
+import com.bird2fish.birdtalksdk.StatusCallback
 import com.bird2fish.birdtalksdk.ui.ChatManagerFragment
 import com.bird2fish.birdtalksdk.ui.ChatSessionFragment
-import com.bird2fish.birdtalksdk.ui.FragmentTest
+import com.bird2fish.birdtalksdk.ui.ContactFragment
 import com.bird2fish.birdtalksdk.ui.LoginCodeFragment
 import com.bird2fish.birdtalksdk.ui.LoginFragment
-import com.bird2fish.birdtalksdk.ui.ContactFragment
 import com.bird2fish.birdtalksdk.ui.ProfileFragment
-import com.bird2fish.birdtalksdk.uihelper.TextHelper
-import com.yalantis.ucrop.UCrop
 
 
 enum class AppPageCode {
@@ -38,7 +35,7 @@ enum class AppPageCode {
     PROFILE_SDK,
 }
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : AppCompatActivity() , StatusCallback {
     private lateinit var binding: ActivityMainBinding
 
     // 用map管理页面
@@ -94,7 +91,14 @@ class MainActivity : AppCompatActivity() {
 
         // 初始化网络连接
         //GlobalData.init(getApplicationContext())
+        // 关注消息
+        SdkGlobalData.userCallBackManager.addCallback(this)
+    }
 
+    override fun finish() {
+        // 取消关注消息
+        SdkGlobalData.userCallBackManager.removeCallback(this)
+        super.finish() // 必须调用父类方法完成销毁
     }
 
     // 用于设置TAB按钮响应函数的模板函数
@@ -151,6 +155,21 @@ class MainActivity : AppCompatActivity() {
 //        }
 //
 //    }
+
+    override fun onError(code : InterErrorType, lastAction:String, errType:String, detail:String){
+
+    }
+
+    override fun onEvent(eventType: MsgEventType, msgType:Int, msgId:Long, fid:Long, params:Map<String, String>){
+
+        if (eventType == MsgEventType.APP_NOTIFY_SEND_MSG){// 切换都聊天界面
+            (fragmentMap[AppPageCode.CHAT_SDK] as ChatManagerFragment).switchToFriend(fid)
+            switchFragment(AppPageCode.CHAT_SDK)
+
+
+            // 会话列表中应该确保有这个会话
+        }
+    }
 
 
 }
