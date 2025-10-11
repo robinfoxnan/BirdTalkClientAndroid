@@ -91,6 +91,7 @@ class FollowedFragment : Fragment() , StatusCallback {
         super.onResume()
         // 关注消息
         SdkGlobalData.userCallBackManager.addCallback(this)
+        this.friendList?.adapter?.notifyDataSetChanged()
     }
 
     override fun onPause() {
@@ -128,7 +129,7 @@ class FollowedItemAdapter(private val dataList: List<User>) : RecyclerView.Adapt
         init {
             // 在构造函数中为整个 ViewHolder 的根视图设置点击事件
             itemView.setOnClickListener {
-                // 处理点击事件
+                // 处理点击事件，双向好友，可以从这里跳转到发送消息界面
                 if (fragment != null){
                     fragment!!.onClickItem(index)
                 }

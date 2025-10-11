@@ -10,6 +10,7 @@ enum class InterErrorType {
     USER_PHONE_ERROR,
     USER_EMAIL_ERROR,
     USER_PWD_ERROR,
+    UPLOAD_FAIL,
 
 }
 

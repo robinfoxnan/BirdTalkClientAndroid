@@ -303,6 +303,9 @@ class FullFormatter(private val mContainer: TextView, private val mClicker: Clic
             return null
         }
 
+        Log.d("DraftyImage", "data=$data")
+        Log.d("DraftyImage", "value type=${data["val"]?.javaClass?.name}")
+
         var result: SpannableStringBuilder? = null
         // Bitmap dimensions specified by the sender.
         var width = 0
@@ -449,7 +452,8 @@ class FullFormatter(private val mContainer: TextView, private val mClicker: Clic
                     ImageSpan(ImagesHelper.getPlaceholder(ctx, broken, null, scaledWidth, scaledHeight))
                 result = assignStyle(span!!, content)
             }
-        } else if (mClicker != null) {
+        }
+        else if (mClicker != null) {
             // Make image clickable by wrapping ImageSpan into a ClickableSpan.
             result = assignStyle(span, content)
             result!!.setSpan(object : ClickableSpan() {
@@ -457,7 +461,8 @@ class FullFormatter(private val mContainer: TextView, private val mClicker: Clic
                     mClicker.onClick("IM", data, null)
                 }
             }, 0, result.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-        } else {
+        }
+        else {
             result = assignStyle(span, content)
         }
 

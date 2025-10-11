@@ -2,8 +2,11 @@ package com.bird2fish.birdtalksdk.net
 import android.content.Context
 import android.provider.Settings.Global
 import android.telephony.mbms.FileInfo
+import com.bird2fish.birdtalksdk.InterErrorType
 import com.bird2fish.birdtalksdk.MsgEventType
 import com.bird2fish.birdtalksdk.SdkGlobalData
+import com.bird2fish.birdtalksdk.model.ChatSessionManager
+import com.bird2fish.birdtalksdk.model.Drafty
 import com.bird2fish.birdtalksdk.pbmodel.*
 import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass.*
 import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass.ComMsgType.*
@@ -106,8 +109,8 @@ class MsgEncocder {
                 MsgTKeyExchange -> {
                     onExchangeMsg(msg)
                 }
-                MsgTChatMsg -> doNothing()
-                MsgTChatReply -> doNothing()
+                MsgTChatMsg -> onRecvChatMsg(msg)      // 聊天消息
+                MsgTChatReply -> onRecvChatReply(msg)  // 聊天的回执
 
                 MsgTQueryResult -> doNothing()
 
@@ -134,6 +137,36 @@ class MsgEncocder {
         fun doNothing(){
 
         }
+
+        // 当收到消息的时候
+        fun onRecvChatMsg(msg: MsgOuterClass.Msg){
+            val chatMsg = msg.plainMsg.chatData
+            // 保存，处理
+            ChatSessionManager.onRecvChatMsg(chatMsg)
+
+            val resultMap = mapOf(
+                "status" to "coming",
+            )
+
+            // 通知界面更新消息，已经保存处理完了
+            SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(MsgEventType.MSG_COMING, chatMsg.msgType.number,
+                chatMsg.msgId, chatMsg.fromId, resultMap)
+        }
+
+        // 聊天的回执
+        fun onRecvChatReply(msg: MsgOuterClass.Msg){
+            val reply = msg.plainMsg.chatReply
+
+            val index = ChatSessionManager.onChatMsgReply(reply.fromId,  reply.paramsMap, reply.sendId, reply.sendOk,reply.recvOk, reply.readOk)
+
+            val resultMap = mapOf(
+                "status" to "reply",
+            )
+            // 通知界面更新消息，已经保存处理完了
+            SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(MsgEventType.MSG_SEND_OK, index,
+                reply.msgId, reply.fromId, resultMap)
+        }
+
 
         // 处理错误
         fun onError(msg: MsgOuterClass.Msg) {
@@ -233,10 +266,26 @@ class MsgEncocder {
                 "detail" to detail
             )
 
-            val msgType = ChatMsgType.IMAGE_VALUE
-            SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(MsgEventType.MSG_UPLOAD_OK,
-                msgType, ret.sendId, 0L, resultMap)
+            // result:"chunkok" detail:"wait next truck"
+            // result:"fileok" detail:"finish"}
 
+            if (uploadResult == "fileok" || uploadResult == "sameok"){
+
+                // 通知消息管理器，文件传完了，需要发送消息了
+                ChatSessionManager.onUploadFileReply(ret.sendId, uploadResult.toString(), detail, fileName, uuidName)
+
+                val msgType = ChatMsgType.IMAGE_VALUE
+                SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(MsgEventType.MSG_UPLOAD_OK, msgType, ret.sendId, 0L, resultMap)
+            }
+            else if (uploadResult == "chunkok")
+            {
+                return
+            }
+            else{
+                // 遇到错误
+                ChatSessionManager.onUploadFileReply(ret.sendId, uploadResult.toString(), detail, fileName, uuidName)
+                SdkGlobalData.userCallBackManager.invokeOnErrorCallbacks(InterErrorType.UPLOAD_FAIL,fileName,uploadResult, detail)
+            }
         }
 
         // 示例错误处理函数（你需要根据实际需求实现这些函数）
@@ -1098,11 +1147,13 @@ class MsgEncocder {
 
 
         // 上传文件
-        fun sendFileChunk(name:String, sz:Long, index:Int, chunkSz:Int, chunkCount:Int, hash:String, data:ByteArray, fileType:String?){
+        fun sendFileChunk(name:String, sz:Long, index:Int, chunkSz:Int, chunkCount:Int, hash:String, data:ByteArray, fileType:String?,
+                          gId:Long, msgId:Long){
             val timestamp = System.currentTimeMillis()
             val upload = MsgUploadReq.newBuilder()
 
-            upload.setGroupId(0)
+            upload.setSendId(msgId)
+            upload.setGroupId(gId)
             upload.setFileName(name)
             upload.setChunkIndex(index)
             upload.setChunkSize(chunkSz)
@@ -1111,13 +1162,59 @@ class MsgEncocder {
 
             upload.setHashType("md5")
             upload.setHashCode(hash)
-            upload.setSendId(SdkGlobalData.nextId())
             upload.setFileData(ByteString.copyFrom(data))
             upload.setFileType(fileType ?:"file")
 
 
             val plainMsg = MsgPlain.newBuilder().setUploadReq(upload)
             val msg = wrapMsg(plainMsg, timestamp, MsgTUpload)
+            sendMsg(msg)
+        }
+
+        // 发送消息
+        fun sendChatMsg(msgId:Long, fid: Long, chatType:ChatType, dataType:ChatMsgType, txt:String, refMsgId:Long){
+            val timestamp = System.currentTimeMillis()
+            val chatMsg = MsgChat.newBuilder()
+
+
+            // 注意，这里的msgId 在服务器应答时候会变为雪花算法指定的消息，sendId还是自己指定的编号
+            chatMsg.msgId = msgId   // 这个会变
+            chatMsg.sendId = msgId  // 这个回来时候不变
+
+            chatMsg.chatType = chatType
+            chatMsg.msgType = dataType
+            chatMsg.data =  com.google.protobuf.ByteString.copyFrom(txt.toByteArray(Charsets.UTF_8))
+
+            chatMsg.fromId = SdkGlobalData.selfUserinfo.id
+            chatMsg.userId = SdkGlobalData.selfUserinfo.id
+            chatMsg.toId = fid
+
+            chatMsg.tm = timestamp
+            chatMsg.devId = SdkGlobalData.basicInfo.deviceId
+            chatMsg.refMessageId = refMsgId
+
+
+            val plainMsg = MsgPlain.newBuilder().setChatData(chatMsg)
+            val msg = wrapMsg(plainMsg, timestamp, MsgTChatMsg)
+            sendMsg(msg)
+        }
+
+        // 发送回执
+        fun sendChatReply(fid:Long, sendId:Long, refMsgId:Long, bRead:Boolean){
+            val timestamp = System.currentTimeMillis()
+            var reply = MsgChatReply.newBuilder()
+
+            reply.msgId = refMsgId
+            reply.sendId = sendId
+            reply.userId = fid
+            reply.fromId = SdkGlobalData.selfUserinfo.id
+            reply.recvOk = timestamp
+            if (bRead){
+                reply.readOk = timestamp
+            }
+
+            val plainMsg = MsgPlain.newBuilder().setChatReply(reply)
+            val msg = wrapMsg(plainMsg, timestamp, MsgTChatReply)
             sendMsg(msg)
         }
 

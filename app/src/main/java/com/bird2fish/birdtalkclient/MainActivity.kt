@@ -8,6 +8,7 @@ import androidx.annotation.IdRes
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
+import com.bird2fish.birdtalkclient.AppPageCode.*
 import com.bird2fish.birdtalkclient.databinding.ActivityMainBinding
 import com.bird2fish.birdtalksdk.InterErrorType
 import com.bird2fish.birdtalksdk.MsgEventType
@@ -23,16 +24,16 @@ import com.bird2fish.birdtalksdk.ui.ProfileFragment
 
 enum class AppPageCode {
     HOME,
-    CONTACTS,
     CHAT_SESSION,
-    CHAT,
     PROFILE,
-    TEST,
     LOGIN,
     LOGIN_WITH_CODE,
     CONTACT_SDK,
     CHAT_SDK,
     PROFILE_SDK,
+    //CONTACTS,
+    //TEST,
+    //CHAT,
 }
 
 class MainActivity : AppCompatActivity() , StatusCallback {
@@ -41,6 +42,34 @@ class MainActivity : AppCompatActivity() , StatusCallback {
     // 用map管理页面
     private val fragmentMap = mutableMapOf<AppPageCode, Fragment>()
     private  @IdRes var lastBtnId : Int = R.id.b_tab_btn_main
+
+
+    // 首次初始化 FragmentMap
+    private fun initFragmentMap() {
+        fragmentMap[AppPageCode.HOME] = createFragment(AppPageCode.HOME)
+        fragmentMap[AppPageCode.CONTACT_SDK] = createFragment(AppPageCode.CONTACT_SDK)
+        fragmentMap[AppPageCode.CHAT_SESSION] = createFragment(AppPageCode.CHAT_SESSION)
+        fragmentMap[AppPageCode.CHAT_SDK] = createFragment(AppPageCode.CHAT_SDK)
+        fragmentMap[AppPageCode.PROFILE] = createFragment(AppPageCode.PROFILE)
+        fragmentMap[AppPageCode.LOGIN] = createFragment(AppPageCode.LOGIN)
+        fragmentMap[AppPageCode.LOGIN_WITH_CODE] = createFragment(AppPageCode.LOGIN_WITH_CODE)
+        fragmentMap[AppPageCode.PROFILE_SDK] = createFragment(AppPageCode.PROFILE_SDK)
+
+        // 默认加载的 Fragment
+        switchFragment(AppPageCode.CONTACT_SDK)
+    }
+
+    // 重建时恢复 FragmentMap（从 FragmentManager 中查找）
+    private fun restoreFragmentMap() {
+        AppPageCode.values().forEach { code ->
+            val fragment = supportFragmentManager.findFragmentByTag(code.name)
+            if (fragment != null) {
+                fragmentMap[code] = fragment // 用系统恢复的实例覆盖 map 中的旧引用
+            } else {
+                fragmentMap[code] = createFragment(code) // 若系统未恢复，则创建新实例
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -58,36 +87,21 @@ class MainActivity : AppCompatActivity() , StatusCallback {
             getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
         }
 
-        // 初始化页面
+        // 初始化或恢复 Fragment 实例
         if (savedInstanceState == null) {
-            // 初始化 Fragment 实例并存储到 Map 中
-            fragmentMap[AppPageCode.HOME] = FragmentArticles()
-            fragmentMap[AppPageCode.CONTACT_SDK] = ContactFragment()
-            fragmentMap[AppPageCode.CHAT_SESSION] = ChatSessionFragment() // FragmentTest()
-            fragmentMap[AppPageCode.CHAT_SDK] = ChatManagerFragment()
-            fragmentMap[AppPageCode.PROFILE] = FragmentMe()
-
-            //fragmentMap[AppPageCode.CONTACTS] = FragmentContact()
-            //fragmentMap[AppPageCode.CHAT] = FragmentChat()
-            // 当点击页面切换到验证码登录时候，这里切换页面；
-            val loginPage = LoginFragment()
-            loginPage.setChangeWithCodeCallback {
-                switchFragment(AppPageCode.LOGIN_WITH_CODE)
-            }
-            fragmentMap[AppPageCode.LOGIN] = loginPage
-            fragmentMap[AppPageCode.LOGIN_WITH_CODE] = LoginCodeFragment()
-            fragmentMap[AppPageCode.PROFILE_SDK] = ProfileFragment()
-
-            // 默认加载的 Fragment
-            switchFragment(AppPageCode.CONTACT_SDK)
+            // 首次创建：初始化所有 Fragment 到 map
+            initFragmentMap()
+        } else {
+            // 重建时：从 FragmentManager 恢复已有实例到 map
+            restoreFragmentMap()
         }
 
         // 初始化底部工具栏 tab
-        setupClickHandler<TextView>(AppPageCode.HOME, R.id.b_tab_btn_main)
-        setupClickHandler<TextView>(AppPageCode.CONTACT_SDK, R.id.b_tab_btn_friends)
-        setupClickHandler<TextView>(AppPageCode.CHAT_SESSION, R.id.b_tab_btn_session)
-        setupClickHandler<TextView>(AppPageCode.CHAT_SDK, R.id.b_tab_btn_msg)
-        setupClickHandler<TextView>(AppPageCode.PROFILE_SDK, R.id.b_tab_btn_me)
+        setupClickHandler<TextView>(HOME, R.id.b_tab_btn_main)
+        setupClickHandler<TextView>(CONTACT_SDK, R.id.b_tab_btn_friends)
+        setupClickHandler<TextView>(CHAT_SESSION, R.id.b_tab_btn_session)
+        setupClickHandler<TextView>(CHAT_SDK, R.id.b_tab_btn_msg)
+        setupClickHandler<TextView>(PROFILE_SDK, R.id.b_tab_btn_me)
 
         // 初始化网络连接
         //GlobalData.init(getApplicationContext())
@@ -128,33 +142,51 @@ class MainActivity : AppCompatActivity() , StatusCallback {
         lastBtnId = viewId
     }
 
-    // 用于切换 Fragment 的方法
-    fun switchFragment(index:  AppPageCode) {
-        val fragment = fragmentMap[index]
-        fragment?.let { // 如果 fragment 不为 null，则执行 let 代码块
+
+    // 新增：创建 Fragment 实例的方法（集中管理，便于维护）
+    private fun createFragment(index: AppPageCode): Fragment {
+        return when (index) {
+            HOME -> FragmentArticles()
+            CONTACT_SDK -> ContactFragment()
+            CHAT_SESSION -> ChatSessionFragment()
+            CHAT_SDK -> ChatManagerFragment()
+            PROFILE -> FragmentMe()
+            LOGIN -> LoginFragment().apply {
+                setChangeWithCodeCallback { switchFragment(LOGIN_WITH_CODE) }
+            }
+            LOGIN_WITH_CODE -> LoginCodeFragment()
+            PROFILE_SDK -> ProfileFragment()
+            // 其他页面...
+
+        }
+    }
+
+    fun switchFragment(index: AppPageCode) {
+        // 1. 先从 FragmentManager 中查找是否已有该 Fragment
+        var fragment = supportFragmentManager.findFragmentByTag(index.name)
+
+        // 2. 如果没有，再从 map 中获取或创建新实例
+        if (fragment == null) {
+            fragment = fragmentMap[index] ?: createFragment(index) // createFragment 是创建新实例的方法
+            fragmentMap[index] = fragment // 存入 map 缓存
+        }
+
+        // 3. 切换 Fragment（使用 tag 便于后续查找）
+        fragment?.let {
             supportFragmentManager.beginTransaction()
-                .setCustomAnimations(R.anim.slide_in_right, R.anim.slide_out_left, R.anim.slide_in_left, R.anim.slide_out_right)
-                .replace(R.id.fragment_container, it) // 在 let 代码块中，it 代表非空的 fragment
+                .setCustomAnimations(
+                    R.anim.slide_in_right,
+                    R.anim.slide_out_left,
+                    R.anim.slide_in_left,
+                    R.anim.slide_out_right
+                )
+                .replace(R.id.fragment_container, it, index.name) // 关键：设置 tag 为 AppPageCode 名称
                 .addToBackStack(null)
                 .commit()
         }
     }
 
-//    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-//        super.onActivityResult(requestCode, resultCode, data)
-//
-//        val fragment = supportFragmentManager.findFragmentById(R.id.fragment_container)
-//        fragment?.onActivityResult(requestCode, resultCode, data)
-//
-//        // Ensure UCrop result is handled correctly
-//        if (requestCode == UCrop.REQUEST_CROP ) {
-//            val uCropFragment = supportFragmentManager.findFragmentById(R.id.fragment_container) as? Fragment
-//            uCropFragment?.let {
-//                it.onActivityResult(requestCode, resultCode, data)
-//            }
-//        }
-//
-//    }
+
 
     override fun onError(code : InterErrorType, lastAction:String, errType:String, detail:String){
 
@@ -162,12 +194,22 @@ class MainActivity : AppCompatActivity() , StatusCallback {
 
     override fun onEvent(eventType: MsgEventType, msgType:Int, msgId:Long, fid:Long, params:Map<String, String>){
 
-        if (eventType == MsgEventType.APP_NOTIFY_SEND_MSG){// 切换都聊天界面
-            (fragmentMap[AppPageCode.CHAT_SDK] as ChatManagerFragment).switchToFriend(fid)
-            switchFragment(AppPageCode.CHAT_SDK)
-
-
-            // 会话列表中应该确保有这个会话
+        if (eventType == MsgEventType.APP_NOTIFY_SEND_MSG){
+            // 关键修复：从 FragmentManager 中通过 Tag 查找当前活跃的 CHAT_SDK Fragment
+            var chatFragment = supportFragmentManager.findFragmentByTag(CHAT_SDK.name) as? ChatManagerFragment
+            if (chatFragment != null && !chatFragment.isDetached && !chatFragment.isRemoving) {
+                // 确认 Fragment 未销毁、未移除，再执行操作
+                chatFragment.switchToFriend(fid)
+                switchFragment(CHAT_SDK)
+            } else {
+                // 若 Fragment 未创建或已销毁，先切换页面，再通过页面重建后的回调执行操作
+                chatFragment = ChatManagerFragment()
+                fragmentMap[AppPageCode.CHAT_SDK] = chatFragment
+                chatFragment.switchToFriend(fid)
+                switchFragment(CHAT_SDK)
+                // 可选：通过 EventBus 或回调，在 ChatManagerFragment 重建后执行 switchToFriend
+                // EventBus.getDefault().post(switchToFriendEvent(fid))
+            }
         }
     }
 

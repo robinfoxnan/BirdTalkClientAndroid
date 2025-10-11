@@ -1,5 +1,6 @@
 package com.bird2fish.birdtalksdk.uihelper
 
+import android.app.Activity
 import android.content.ContentResolver
 import android.content.ContentUris
 import android.content.Context
@@ -14,6 +15,7 @@ import android.webkit.MimeTypeMap
 import android.widget.Toast
 import androidx.core.net.toFile
 import androidx.core.net.toUri
+import com.bird2fish.birdtalksdk.model.Drafty
 import java.io.File
 import java.net.MalformedURLException
 import java.net.URL
@@ -29,6 +31,7 @@ import java.io.InputStream
 import java.security.MessageDigest
 import java.security.NoSuchAlgorithmException
 import java.security.SecureRandom
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 object  TextHelper {
 
@@ -36,6 +39,39 @@ object  TextHelper {
     private val mOsVersion:String? = "6.0"
 
 
+
+    /**
+     * 将Drafty对象序列化为JSON字符串
+     * @param drafty 要序列化的Drafty对象
+     * @return 序列化后的JSON字符串
+     * @throws Exception 序列化过程中可能抛出的异常
+     */
+    @Throws(Exception::class)
+    fun serializeDrafty(drafty: Drafty): String {
+        val mapper = ObjectMapper()
+        // Jackson会自动识别Drafty类中的Jackson注解并应用相应规则
+        return mapper.writeValueAsString(drafty)
+    }
+
+    /**
+     * 将JSON字符串反序列化为Drafty对象
+     * @param json 要反序列化的JSON字符串
+     * @return 反序列化后的Drafty对象
+     * @throws Exception 反序列化过程中可能抛出的异常
+     */
+    @Throws(Exception::class)
+    fun deserializeDrafty(json: String): Drafty {
+        val mapper = ObjectMapper()
+        return mapper.readValue(json, Drafty::class.java)
+    }
+
+
+    fun showDialogInCallback(context: Context, message: String) {
+        // 假设这是你的回调
+        (context as? Activity)?.runOnUiThread {
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+        }
+    }
 
     /**
      * 根据 Uri 获取文件的 MIME 类型

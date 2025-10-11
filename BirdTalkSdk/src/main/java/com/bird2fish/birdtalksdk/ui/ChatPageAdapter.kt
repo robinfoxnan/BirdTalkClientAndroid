@@ -5,6 +5,8 @@ import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.res.ColorStateList
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.graphics.Point
 import android.graphics.Typeface
@@ -16,6 +18,7 @@ import android.text.method.LinkMovementMethod
 import android.text.style.ForegroundColorSpan
 import android.text.style.IconMarginSpan
 import android.text.style.StyleSpan
+import android.util.Base64
 import android.util.Log
 import android.util.SparseBooleanArray
 import android.view.GestureDetector
@@ -46,6 +49,8 @@ import java.io.IOException
 import java.net.MalformedURLException
 import java.net.URL
 import com.bird2fish.birdtalksdk.R
+import com.bird2fish.birdtalksdk.model.ChatSessionManager
+import com.bird2fish.birdtalksdk.uihelper.AvatarHelper
 
 
 // 每个消息条目的内容布局部分
@@ -66,6 +71,12 @@ class ChatPageViewHolder  constructor(itemView: View, val mViewType: Int) : Recy
     val mProgress: View? = itemView.findViewById(R.id.progressPanel)                           // 右侧的才有进度条容器页面，根节点
     val mProgressResult: View? = itemView.findViewById(R.id.progressResult)                    // 右侧才有的进度结果
     var seqId: Int = 0
+
+    var chatSessionId:Long = 0L   // 聊天的ID，是对方的ID或者群组的ID取负数
+
+    fun setSessionId(id:Long){
+        this.chatSessionId = id
+    }
 
 
     // 关于每个条目的手势识别
@@ -131,6 +142,7 @@ class ChatPageAdapter(private val dataList: List<MessageContent>) : RecyclerView
         const val VIEW_TYPE_INVALID     = 0b000000
     }
     private var fragment : ChatPageFragment? = null
+    private var sessionId: Long = 0
     private val mMediaControl: MediaControl = MediaControl()
 
     private var mSelectedItems: SparseBooleanArray? = null
@@ -207,6 +219,42 @@ class ChatPageAdapter(private val dataList: List<MessageContent>) : RecyclerView
         this.mMediaControl.setActivity(this.fragment!!.requireActivity())
     }
 
+    fun setSessionId(id: Long){
+        this.sessionId = id
+    }
+
+    /**
+     * 打印 Spanned 的完整信息（文本 + 所有 Span 详情）
+     */
+    fun logSpannedDetails(tag: String, spanned: Spanned) {
+        // 1. 打印纯文本内容
+        val text = spanned.toString()
+        Log.d(tag, "文本内容: $text (长度: ${text.length})")
+
+        // 2. 打印所有 Span 信息
+        val allSpans = spanned.getSpans(0, spanned.length, Any::class.java)
+        Log.d(tag, "包含 Span 数量: ${allSpans.size}")
+
+        for (span in allSpans) {
+            val start = spanned.getSpanStart(span)
+            val end = spanned.getSpanEnd(span)
+            val flags = spanned.getSpanFlags(span)
+            val spanType = span.javaClass.simpleName
+
+            // 截取 Span 作用的文本片段
+            val spanText = try {
+                spanned.substring(start, end)
+            } catch (e: IndexOutOfBoundsException) {
+                "【Span 范围错误: start=$start, end=$end, 文本长度=${text.length}】"
+            }
+
+            // 打印 Span 详情
+            Log.d(
+                tag,
+                "Span[$spanType]: 范围=$start~$end, 标志=$flags, 作用文本: '$spanText'"
+            )
+        }
+    }
 
 
     // 创建 ViewHolder
@@ -234,6 +282,8 @@ class ChatPageAdapter(private val dataList: List<MessageContent>) : RecyclerView
             } else {
                 layoutId = R.layout.layout_message_right
             }
+        }else{
+            layoutId = R.layout.layout_message_right_single   // 后加的，防止-1
         }
 
         val v = LayoutInflater.from(parent.context).inflate(layoutId, parent, false)
@@ -244,7 +294,9 @@ class ChatPageAdapter(private val dataList: List<MessageContent>) : RecyclerView
                     if ((viewType and VIEW_TYPE_DATE) != 0) View.VISIBLE else View.GONE
             }
         }
-        return ChatPageViewHolder(v, viewType)
+        val holder = ChatPageViewHolder(v, viewType)
+        holder.setSessionId(this.sessionId)
+        return holder
     }
 
 
@@ -290,8 +342,12 @@ class ChatPageAdapter(private val dataList: List<MessageContent>) : RecyclerView
         }
 
         if (holder.mAvatar != null){
-            val index = ImagesHelper.getIconResId(item.iconUrl!!)
-            holder.mAvatar.setImageResource(index)
+//            val index = ImagesHelper.getIconResId(item.iconUrl!!)
+//            holder.mAvatar.setImageResource(index)
+            val chatSession = ChatSessionManager.getSession(this.sessionId)
+            if (chatSession != null){
+                AvatarHelper.tryLoadAvatar(this.fragment!!.requireContext(), chatSession.sessionIcon, holder.mAvatar, "")
+            }
         }
         if ( holder.mUserName != null){
             holder.mUserName.text = item.nick
@@ -322,7 +378,10 @@ class ChatPageAdapter(private val dataList: List<MessageContent>) : RecyclerView
                 SpanClicker()
             )
             formatter.setQuoteFormatter(QuoteFormatter(holder.mText, holder.mText.textSize))
-            var text  = item.content.format(formatter) as Spanned
+            var text  = item.content!!.format(formatter) as Spanned
+            // 打印
+            logSpannedDetails("birdtalksdk-debug text:", text)
+
             if (TextUtils.isEmpty(text)) {
                 text =
                     if (item.msgStatus === MessageStatus.DRAFT || item.msgStatus === MessageStatus.QUEUED || item.msgStatus === MessageStatus.SENDING) {
@@ -350,7 +409,7 @@ class ChatPageAdapter(private val dataList: List<MessageContent>) : RecyclerView
 
 
         // 声音，按钮，链接，提及，TAG，图片，设置点击的事件转发
-        if (item.content != null && item.content.hasEntities(
+        if (item.content != null && item.content!!.hasEntities(
                 mutableListOf(
                     "AU",
                     "BN",
@@ -420,7 +479,7 @@ class ChatPageAdapter(private val dataList: List<MessageContent>) : RecyclerView
                 //mSelectionMode = fragment!!.startSupportActionMode(mSelectionModeCallback)
             }
 
-            toggleSelectionAt(pos)
+            //toggleSelectionAt(pos)
             notifyItemChanged(pos)
             updateSelectionMode()
             true
@@ -733,23 +792,26 @@ class ChatPageAdapter(private val dataList: List<MessageContent>) : RecyclerView
             //Toast.makeText(this@ChatPageAdapter.fragment!!.requireContext(), "image click", Toast.LENGTH_SHORT).show()
 
             val ref = data["ref"]
-            val url = TextHelper.toAbsoluteURL(ref as String)
+            if (ref != null){
+                val url = TextHelper.toAbsoluteURL(ref as String)
+                val dialog = FullscreenImageDialog(this@ChatPageAdapter.fragment!!.requireContext(), null, url)
+                dialog.show()
+                return true
+            }
 
-            val dialog = FullscreenImageDialog(this@ChatPageAdapter.fragment!!.requireContext(), null, url)
-            dialog.show()
-
-
-//
-//            if (args == null && (data["val"].also { `val` = it }) != null) {
-//                val bytes = if (`val` is String) Base64.decode(
-//                    `val` as String?,
-//                    Base64.DEFAULT
-//                ) else if (`val` is ByteArray) `val` as ByteArray? else null
-//                if (bytes != null) {
-//                    args = Bundle()
-//                    args.putByteArray(AttachmentHandler.ARG_SRC_BYTES, bytes)
-//                }
-//            }
+            var bmpPreview: Bitmap? = null
+            val imgValue = data["val"]
+            if (imgValue != null) {
+                val bits = if ((imgValue is String)) Base64.decode(
+                    imgValue as String?,
+                    Base64.DEFAULT
+                ) else (imgValue as ByteArray?)!!
+                bmpPreview = BitmapFactory.decodeByteArray(bits, 0, bits.size)
+                if (bmpPreview != null){
+                    val dialog = FullscreenImageDialog(this@ChatPageAdapter.fragment!!.requireContext(), bmpPreview, null)
+                    dialog.show()
+                }
+            }
 
 
             return true

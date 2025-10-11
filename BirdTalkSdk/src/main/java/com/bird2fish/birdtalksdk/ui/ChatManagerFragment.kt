@@ -73,14 +73,24 @@ class ChatManagerFragment : Fragment() {
     // 继续的时候
     override fun onResume() {
         super.onResume()
-        switchToPage(SdkGlobalData.currentChatFid)
+        view?.post {
+            if (::viewPager.isInitialized && viewPager.adapter != null) {
+                switchToPage(SdkGlobalData.currentChatFid)
+            }
+        }
     }
 
+    // 初始化后才能切换
     private fun switchToPage(fid: Long){
-        var index = chatPagerAdapter.findIndex(fid)
-        if (index == -1){
-            index = chatPagerAdapter.addChatPage(fid)
+
+        var index = 0
+        if (this.chatPagerAdapter != null){
+            index = chatPagerAdapter.findIndex(fid)
+            if (index < 0){
+                index = chatPagerAdapter.addChatPage(fid)
+            }
         }
+
 
         // 显示好友的信息
         if (fid > 0){
@@ -95,8 +105,10 @@ class ChatManagerFragment : Fragment() {
 
         }
 
+        if (index >= 0 && index < chatPagerAdapter.getItemCount()){
+            this.viewPager.setCurrentItem(index, true)
+        }
 
-        this.viewPager.setCurrentItem(index, true)
     }
 
     // 打开图片的预览
@@ -108,56 +120,88 @@ class ChatManagerFragment : Fragment() {
 
     // 自定义的 FragmentStateAdapter
     inner class ChatPagerAdapter(fragment: Fragment) : FragmentStateAdapter(fragment) {
-        // 假设有 4 个会话，实际可以根据需要动态生成
+        // 会话 ID 列表
         private val chatIds = LinkedList<Long>()
-        private val chatIdMap = mutableMapOf<Long, Fragment>()
 
-        // 添加页面
-        fun addChatPage(fid:Long):Int{
-            synchronized(chatIds){
-                chatIds.add(fid)
-                return chatIds.size - 1
+        // chatId -> 索引 的映射
+        private val chatIdMap = mutableMapOf<Long, Int>()
+
+        /**
+         * 添加一个会话页面
+         * @return 新页面的索引
+         */
+        fun addChatPage(fid: Long): Int {
+            synchronized(chatIds) {
+                if (!chatIdMap.containsKey(fid)) {
+                    chatIds.add(fid)
+                    chatIdMap[fid] = chatIds.size - 1
+                    notifyDataSetChanged()
+                }else{
+
+                }
+                return chatIdMap[fid]!!
             }
         }
 
-        // 找不到就返回-1
-        fun findIndex(fid:Long):Int{
-            synchronized(chatIds){
-                val firstIndex: Int = chatIds.indexOf(100L)
-                return firstIndex
+        /**
+         * 查找指定会话 ID 的页面索引
+         * @return 找不到返回 -1
+         */
+        fun findIndex(fid: Long): Int {
+            synchronized(chatIds) {
+                return chatIdMap[fid] ?: -1
             }
         }
 
-        fun removeChatPage(fid:Long){
-            synchronized(chatIds){
-                chatIds.remove(fid)
+        /**
+         * 移除一个会话页面
+         */
+        fun removeChatPage(fid: Long) {
+            synchronized(chatIds) {
+                val index = chatIdMap.remove(fid)
+                if (index != null && index >= 0 && index < chatIds.size) {
+                    chatIds.removeAt(index)
+                    // 重新调整索引映射
+                    chatIdMap.clear()
+                    chatIds.forEachIndexed { i, id -> chatIdMap[id] = i }
+                }
             }
+            notifyDataSetChanged()
         }
 
         override fun getItemCount(): Int {
-            synchronized(chatIds){
-             return chatIds.size
+            synchronized(chatIds) {
+                return chatIds.size
             }
         }
 
+        /**
+         * 创建 Fragment
+         */
         override fun createFragment(position: Int): Fragment {
-            // 创建 ChatFragment 实例，并传递对应的 chatId
-            var fid = 0L
-            synchronized(chatIds){
-                fid = chatIds[position]
+            val fid = synchronized(chatIds) {
+                chatIds[position]
             }
+            // 不缓存 Fragment 实例，交给 FragmentStateAdapter 管理
+            return ChatPageFragment.newInstance(fid.toString(), this@ChatManagerFragment)
+        }
 
-            synchronized(chatIdMap){
-                if (chatIdMap.containsKey(fid)){
-                    return chatIdMap[fid]!!
-                }else{
-                    val fragment = ChatPageFragment.newInstance(fid.toString(), this@ChatManagerFragment)
-                    fragment.setChatPeer(fid)
-                    chatIdMap[fid] = fragment
-                    return fragment
-                }
+        /**
+         * 唯一标识 Fragment
+         */
+        override fun getItemId(position: Int): Long {
+            synchronized(chatIds) {
+                return chatIds[position]
             }
+        }
 
+        /**
+         * 确认 ID 是否仍然有效
+         */
+        override fun containsItem(itemId: Long): Boolean {
+            synchronized(chatIds) {
+                return chatIds.contains(itemId)
+            }
         }
     }
 }

@@ -34,6 +34,7 @@ import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
 import android.widget.ImageView
 import android.widget.TextView
@@ -52,8 +53,13 @@ import androidx.recyclerview.widget.RecyclerView
 import androidx.recyclerview.widget.RecyclerView.Recycler
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout.OnRefreshListener
+import com.bird2fish.birdtalksdk.InterErrorType
+import com.bird2fish.birdtalksdk.MsgEventType
 import com.bird2fish.birdtalksdk.R
 import com.bird2fish.birdtalksdk.SdkGlobalData
+import com.bird2fish.birdtalksdk.StatusCallback
+import com.bird2fish.birdtalksdk.model.ChatSession
+import com.bird2fish.birdtalksdk.model.ChatSessionManager
 import com.bird2fish.birdtalksdk.model.Drafty
 import com.bird2fish.birdtalksdk.model.MessageContent
 import com.bird2fish.birdtalksdk.model.MessageStatus
@@ -73,7 +79,7 @@ import java.io.IOException
 import java.net.URI
 import java.util.LinkedList
 
-class ChatPageFragment : Fragment() {
+class ChatPageFragment : Fragment() , StatusCallback {
 
     private var root :View? =null
     private var parentView :ChatManagerFragment? = null
@@ -91,7 +97,7 @@ class ChatPageFragment : Fragment() {
 
     private lateinit var permissionsHelper: PermissionsHelper
 
-    private lateinit var chatId: String
+
 
     private var mMessageViewLayoutManager: LinearLayoutManager? = null
     private var mRecyclerView: RecyclerView? = null
@@ -101,7 +107,8 @@ class ChatPageFragment : Fragment() {
 
     private var mGoToLatest: FloatingActionButton? = null
 
-    private var mPeerId :Long = 0L
+    private lateinit var chatId: String
+    private var mChatIdLong :Long = 0L
     private var mPeerFriend :User? = null
     private var mPeerGroup : User? = null  //TODO:
 
@@ -141,9 +148,54 @@ class ChatPageFragment : Fragment() {
 
     private var mReply : MessageContent? = null
 
+    private var chatSession: ChatSession? = null
+
 
     // 临时的一个消息列表
-    var dataList = LinkedList<MessageContent>()
+    //var dataList = LinkedList<MessageContent>()
+
+    // 通知界面事件
+    override fun onError(code : InterErrorType, lastAction:String, errType:String, detail:String){
+
+    }
+
+    // 上传或下载事件
+    // 这里是回调函数，无法操作界面
+    override fun onEvent(eventType: MsgEventType, msgType:Int, msgId:Long, fid:Long, params:Map<String, String>){
+        if (eventType == MsgEventType.MSG_UPLOAD_OK){
+
+
+        }
+        else if (eventType == MsgEventType.MSG_UPLOAD_FAIL){
+            TextHelper.showDialogInCallback(this.requireContext(), "上传头像失败")
+        }
+        // 新消息来了,或者回执来了
+        else if (eventType == MsgEventType.MSG_COMING || eventType == MsgEventType.MSG_SEND_OK
+            || eventType == MsgEventType.MSG_RECV_OK || eventType == MsgEventType.MSG_READ_OK) {
+            refreshData(msgType)
+        }
+
+        // 上传文件结束了
+        else if (eventType == MsgEventType.MSG_UPLOAD_OK){
+            refreshData(msgType)
+        }
+
+    }
+
+    // 需要在界面线程中处理
+    fun refreshData(index:Int){
+
+        (context as? Activity)?.runOnUiThread {
+            view?.post {
+                if ( mMessagesAdapter!= null) {
+                    mMessagesAdapter!!.notifyDataSetChanged()
+                    // 数据更新
+                    //mMessagesAdapter?.notifyItemChanged(index)
+                }
+            }
+        }
+
+    }
 
     // 申请录音权限
     private val audioRecorderPermissionLauncher =
@@ -229,6 +281,7 @@ class ChatPageFragment : Fragment() {
         fun newInstance(chatId: String, p: ChatManagerFragment): ChatPageFragment {
             val fragment = ChatPageFragment()
             fragment.setParent(p)
+            fragment.setChatId(chatId.toLong())
             val args = Bundle()
             args.putString(ARG_CHAT_ID, chatId)
             fragment.arguments = args
@@ -237,23 +290,14 @@ class ChatPageFragment : Fragment() {
     }
 
     // 设置聊天的对方是谁，如果是正数就是私聊，如果是负数就是群组号码
-    fun setChatPeer(id: Long){
-        this.mPeerId = id
-        // 显示好友的信息
-        if (id > 0){
-            val f = SdkGlobalData.getMutualFriendLocal(id)
-            if (f != null){
-                this.mPeerFriend = f
-            }
-        }
-        // 显示群组信息，群使用负数表示，这样可以保证一致性
-        else{
 
-        }
-    }
 
     fun setParent(p:ChatManagerFragment){
         this.parentView = p
+    }
+
+    fun setChatId(id:Long){
+        this.mChatIdLong = id
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -261,8 +305,6 @@ class ChatPageFragment : Fragment() {
 
         // 获取 arguments，注意这一步
         chatId = arguments?.getString(ARG_CHAT_ID) ?: ""  // 安全获取
-
-
 
     }
 
@@ -272,6 +314,34 @@ class ChatPageFragment : Fragment() {
         } else {
             mRecyclerView!!.scrollToPosition(0)
         }
+    }
+
+
+    fun testInitData(){
+        // 初始化
+        val msg = MessageContent(1, 1001, "飞鸟", "sys:3", UserStatus.ONLINE, MessageStatus.OK, true,
+            true, true, "昨天你去哪里了呢？", null)
+        chatSession?.addMessageToTail(msg)
+
+        val msg1 = MessageContent(2, 1002, "我", "sys:4", UserStatus.ONLINE, MessageStatus.SENDING, false,
+            false, false, "发送中，服务器还没有回执", null)
+        chatSession?.addMessageToTail(msg1)
+
+        val msg2 = MessageContent(3, 1002, "我", "sys:4", UserStatus.ONLINE, MessageStatus.OK, false,
+            false, false, "服务器给回执了", null)
+        chatSession?.addMessageToTail(msg2)
+
+        val msg3 = MessageContent(4, 1002, "我", "sys:4", UserStatus.OFFLINE, MessageStatus.OK, false,
+            false, true, "用户接收回执", null)
+        chatSession?.addMessageToTail(msg3)
+
+        val msg4 = MessageContent(5, 1002, "我", "sys:4", UserStatus.OFFLINE, MessageStatus.OK, false,
+            true, true, "用户阅读回执", null)
+        chatSession?.addMessageToTail(msg4)
+
+        val msg5 = MessageContent(6, 1002, "我", "sys:4", UserStatus.OFFLINE, MessageStatus.FAIL, false,
+            false, false, "发送失败的", null)
+        chatSession?.addMessageToTail(msg5)
     }
 
     override fun onCreateView(
@@ -310,25 +380,11 @@ class ChatPageFragment : Fragment() {
         }
         mMessageViewLayoutManager?.setReverseLayout(true)
         ////
-
-        // 初始化
-        val msg = MessageContent(1, 1001, "飞鸟", "sys:3", UserStatus.ONLINE, MessageStatus.OK, true,
-            true, true, "昨天你去哪里了呢？", null)
-        dataList += msg
-
-        val msg1 = MessageContent(2, 1002, "我", "sys:4", UserStatus.ONLINE, MessageStatus.OK, false,
-            false, true, "西单啊，还去了奥森", null)
-        dataList += msg1
-
-        val msg2 = MessageContent(3, 1002, "我", "sys:4", UserStatus.ONLINE, MessageStatus.OK, false,
-            true, true, "今天真冷", null)
-        dataList += msg2
-
-        val msg3 = MessageContent(4, 1002, "我", "sys:4", UserStatus.OFFLINE, MessageStatus.FAIL, false,
-            false, false, "今天真冷", null)
-        dataList += msg3
-
-
+        if (mChatIdLong == 0L){
+            mChatIdLong = SdkGlobalData.currentChatFid
+        }
+        chatSession = ChatSessionManager.getSession(mChatIdLong)
+        //testInitData()
 
         // 建立数据列表控件
         mRecyclerView = view.findViewById(R.id.messages_container)
@@ -352,8 +408,9 @@ class ChatPageFragment : Fragment() {
             }
         })
 
-        mMessagesAdapter = ChatPageAdapter(dataList)
+        mMessagesAdapter = ChatPageAdapter(chatSession!!.msgList)
         mMessagesAdapter!!.setView(this)
+        mMessagesAdapter!!.setSessionId(this.mChatIdLong)
         // 第三步：给listview设置适配器（view）
 
         mRecyclerView?.layoutManager = LinearLayoutManager(context)
@@ -922,11 +979,13 @@ class ChatPageFragment : Fragment() {
 
     override fun onResume() {
         super.onResume()
+        SdkGlobalData.userCallBackManager.addCallback(this)
         Log.d("MyFragment", "onResume called")
     }
 
     override fun onPause() {
         super.onPause()
+        SdkGlobalData.userCallBackManager.removeCallback(this)
         Log.d("MyFragment", "onPause called")
     }
 
@@ -1166,47 +1225,55 @@ class ChatPageFragment : Fragment() {
         return inputStream.use { it.readBytes() } // 自动关闭 InputStream
     }
 
-    // 发送浏览选择的图片
-    private fun sendLoadImage(context: Context, uri: Uri){
-
-        val contentResolver: ContentResolver = context.contentResolver
+    fun testSendImage(){
+        val contentResolver: ContentResolver = requireContext().contentResolver
         val details = mutableMapOf<String, Any?>()
 
         val draft = Drafty("")
-        try {
+        val url = "https://bkimg.cdn.bcebos.com/pic/adaf2edda3cc7cd98d1032641457363fb80e7bec3b4a?x-bce-process=image/format,f_auto/watermark,image_d2F0ZXIvYmFpa2UyNzI,g_7,xp_5,yp_5,P_20/resize,m_lfit,limit_1,h_1080"
+        // 网络的
+        //draft.insertImage(0,"image/jpeg", null, 884, 535, "",
+//        draft.insertImage(0,"image/jpeg", null, 0, 0, "",
+//            URI(url), 417737)
+        draft.insertImage(0,"image/jpeg", null, 0, 0, "",
+            URI(url), 0)
 
-            val url = "https://bkimg.cdn.bcebos.com/pic/adaf2edda3cc7cd98d1032641457363fb80e7bec3b4a?x-bce-process=image/format,f_auto/watermark,image_d2F0ZXIvYmFpa2UyNzI,g_7,xp_5,yp_5,P_20/resize,m_lfit,limit_1,h_1080"
-            // 网络的
-            //draft.insertImage(0,"image/jpeg", null, 884, 535, "",
-            draft.insertImage(0,"image/jpeg", null, 0, 0, "",
-                URI(url), 417737)
+        //二进制方式
 
-            //二进制方式
-
-            //val t = draft.insertLocalImage(this.requireContext(),contentResolver, uri, "测试.jpg")
+//            val t = draft.insertLocalImage(this.requireContext(),contentResolver, uri, "测试.jpg")
 //            if (t == null){
 //                return;
 //            }
 
-            Log.d("文件内容", "draft: ${draft.toPlainText()}")
-            val msg2 = MessageContent(2, 1002, "我", "sys:4",
-                UserStatus.ONLINE, MessageStatus.UPLOADING, false, false, false, "", draft)
-            dataList += msg2
+        Log.d("文件内容", "draft: ${draft.toPlainText()}")
+        val msg2 = MessageContent(2, 1002, "我", "sys:4",
+            UserStatus.ONLINE, MessageStatus.UPLOADING, false, false, false, "", draft)
+        chatSession!!.addMessageToTail(msg2)
 
-            mMessagesAdapter?.notifyDataSetChanged()
+        mMessagesAdapter?.notifyDataSetChanged()
+    }
 
+    // 发送浏览选择的图片
+    private fun sendLoadImage(context: Context, uri: Uri){
 
-        } catch (e: FileNotFoundException) {
-            Log.e("ImageDetails", "File not found: $e")
-        } catch (e: Exception) {
-            Log.e("ImageDetails", "Error while fetching image details: $e")
+        val msgId = ChatSessionManager.sendImageMessageUploading(this.mChatIdLong, context, uri)
+        if (msgId ==0L){
+            Toast.makeText(requireContext(), "send image fail", Toast.LENGTH_LONG)
         }
+        mMessagesAdapter?.notifyDataSetChanged()
+    }
 
-
+    fun hideSoftKeyboard() {
+        val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        // 隐藏软键盘
+        imm.hideSoftInputFromWindow(this.root?.windowToken, 0)
     }
 
     // 发送文本
     private fun sendText(activity: Activity?) {
+
+        //testSendImage()
+
         if (activity == null || activity.isFinishing || activity.isDestroyed) {
             return
         }
@@ -1238,6 +1305,12 @@ class ChatPageFragment : Fragment() {
 //                        View.GONE
 //                }
 //            }
+
+            // 提交消息，然后刷新显示
+            ChatSessionManager.sendTextMessageOut(this.mChatIdLong, message)
+            inputField.text.clear()
+            hideSoftKeyboard()
+            this.mMessagesAdapter!!.notifyDataSetChanged()
         }
     }
 
@@ -1277,7 +1350,7 @@ class ChatPageFragment : Fragment() {
             sz.toLong())
         val msg2 = MessageContent(2, 1002, "我", "sys:4",
             UserStatus.ONLINE, MessageStatus.OK,false, true, false, "", draft)
-        dataList += msg2
+        chatSession!!.addMessageToTail(msg2)
 
         this.mMessagesAdapter?.notifyDataSetChanged()
 

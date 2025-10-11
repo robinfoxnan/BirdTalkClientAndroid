@@ -181,7 +181,7 @@ object Session  {
         SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(MsgEventType.LOGIN_CODE, 0,0L, 0L, resultMap)
     }
 
-    fun uploadSmallFile(ctx: Context, uri: Uri?) {
+    fun uploadSmallFile(ctx: Context, uri: Uri?, groupId:Long, msgId:Long) {
         if (uri == null) {
             println("URI is null, cannot upload file.")
             return
@@ -216,10 +216,10 @@ object Session  {
             while (inputStream.read(buffer).also { bytesRead = it } != -1) {
 
                 if (bytesRead == chunkSz){
-                    MsgEncocder.sendFileChunk(name, fileSize, index, chunkSz, chunks, hashCode, buffer, type)
+                    MsgEncocder.sendFileChunk(name, fileSize, index, chunkSz, chunks, hashCode, buffer, type, groupId, msgId)
                 }else{
                     val chunkData = buffer.copyOf(bytesRead) // 确保最后一块数据大小正确
-                    MsgEncocder.sendFileChunk(name, fileSize, index, chunkSz, chunks, hashCode, chunkData, type)
+                    MsgEncocder.sendFileChunk(name, fileSize, index, chunkSz, chunks, hashCode, chunkData, type, groupId, msgId)
                 }
 
                 index++

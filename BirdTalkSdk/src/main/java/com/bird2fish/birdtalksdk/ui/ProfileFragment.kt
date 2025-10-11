@@ -209,7 +209,8 @@ class ProfileFragment : Fragment(), StatusCallback {
 
                     this.photoUri?.let{
                         this.localUploadName = TextHelper.getFileNameFromUri(requireContext(), this.photoUri)
-                        Session.uploadSmallFile(requireContext(), it)
+                        val msgId = SdkGlobalData.nextId()
+                        Session.uploadSmallFile(requireContext(), it, 0, msgId)
                     }
                 }
             } else if (result.resultCode == UCrop.RESULT_ERROR) {
