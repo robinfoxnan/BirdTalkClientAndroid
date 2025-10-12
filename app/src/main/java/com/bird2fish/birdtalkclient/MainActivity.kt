@@ -1,9 +1,11 @@
 package com.bird2fish.birdtalkclient
 
+import android.app.Activity
 import android.os.Build
 import android.os.Bundle
 import android.view.View
 import android.widget.TextView
+import android.widget.Toast
 import androidx.annotation.IdRes
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -135,8 +137,6 @@ class MainActivity : AppCompatActivity() , StatusCallback {
         setupClickHandler<TextView>(CHAT_SDK, R.id.b_tab_btn_msg)
         setupClickHandler<TextView>(PROFILE_SDK, R.id.b_tab_btn_me)
 
-        // 初始化网络连接
-        //GlobalData.init(getApplicationContext())
         // 关注消息
         SdkGlobalData.userCallBackManager.addCallback(this)
 
@@ -188,12 +188,32 @@ class MainActivity : AppCompatActivity() , StatusCallback {
 
     }
 
+    fun showText(txt: String){
+        this.runOnUiThread {
+            Toast.makeText(this, txt, Toast.LENGTH_LONG).show()
+        }
+    }
+
     override fun onEvent(eventType: MsgEventType, msgType:Int, msgId:Long, fid:Long, params:Map<String, String>){
 
         if (eventType == MsgEventType.APP_NOTIFY_SEND_MSG){
                 SdkGlobalData.currentChatFid = fid
                 switchFragment(CHAT_SDK)
 
+        }else if (eventType == MsgEventType.RECONNECTING){
+            if (msgType == 0){
+               showText("链接超时，准备重链接")
+            }else if (msgType == 1){
+                showText("无法链接服务器，准备重链接")
+            }else if (msgType == 2){
+                showText("网络异常，准备重链接")
+            }else if (msgType == 3){
+                showText("服务器关闭了链接，准备重链接")
+            }else {
+                showText("链接异常关闭，准备重链接")
+            }
+        }else if (eventType == MsgEventType.CONNECTED){
+            showText("服务器重连完毕")
         }
     }// end onEvent
 

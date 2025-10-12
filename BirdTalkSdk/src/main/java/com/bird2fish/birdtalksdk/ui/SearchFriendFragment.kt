@@ -112,6 +112,8 @@ class SearchFriendFragment : Fragment(), StatusCallback {
         friendListView?.layoutManager = LinearLayoutManager(context)
         friendListView?.setAdapter(adapter);
 
+        // 关注消息
+        SdkGlobalData.userCallBackManager.addCallback(this)
         return view
     }
 
@@ -222,12 +224,11 @@ class SearchFriendFragment : Fragment(), StatusCallback {
     // 刷新的时候需要更新个人信息
     override fun onResume() {
         super.onResume()
-        // 关注消息
-        SdkGlobalData.userCallBackManager.addCallback(this)
+
     }
 
-    override fun onPause() {
-        super.onPause()
+    override fun onDestroyView() {
+        super.onDestroyView()
         // 取消关注消息
         SdkGlobalData.userCallBackManager.removeCallback(this)
     }

@@ -48,6 +48,10 @@ public class UnsafeOkHttpClient {
                 }
             });
 
+            builder.connectTimeout(10, TimeUnit.SECONDS);   // 连接超时
+            builder.writeTimeout(5, TimeUnit.SECONDS);    // 写入超时
+            //builder.readTimeout(0, TimeUnit.SECONDS) ;     // 读取超时
+
             return builder.build();
         } catch (Exception e) {
             throw new RuntimeException(e);

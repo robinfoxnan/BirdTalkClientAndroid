@@ -91,8 +91,6 @@ class LoinActivity : AppCompatActivity() {
         // 设置调佣关系
         GlobalData.loginActivity = this
 
-        // 初始化网络连接
-        GlobalData.init(applicationContext)
     }
 
     override fun onPostCreate(savedInstanceState: Bundle?) {

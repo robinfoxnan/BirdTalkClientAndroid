@@ -1,230 +1,204 @@
 package com.bird2fish.birdtalksdk.net
 
 import android.content.Context
+import android.os.Handler
+import android.os.HandlerThread
+import android.util.Log
 import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass.Msg
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.WebSocket
-import okio.IOException
-import java.util.concurrent.ExecutorService
-import java.util.concurrent.Executors
-import java.util.concurrent.TimeUnit
+import okio.ByteString
+import java.io.IOException
 import java.util.concurrent.atomic.AtomicBoolean
 
-class WebSocketClient  // 私有构造器，防止外部实例化
-private constructor() {
+class WebSocketClient private constructor() {
+    private val TAG = "WebSocketClient"
     private var client: OkHttpClient? = null
     private var socket: WebSocket? = null
-
     private var listener: ClientWebSocketListener? = null
+
     private val isRunning = AtomicBoolean(false)
-    private val hasBackendThread = AtomicBoolean(false)   // 后台的线程
 
-    private val sendQueue: SendQueue = SendQueue.getInstance()
-    private val threadExecutor: ExecutorService = Executors.newSingleThreadExecutor()
+    private val handlerThread: HandlerThread = HandlerThread("ws_send_thread")
+    private var handler: Handler
+
     private var serverPath: String = "wss://192.168.1.2:7817/ws?"
-    private val fileServerPath :String = "https://192.168.1.2:7817"
+    private var fileServerPath: String = "https://192.168.1.2:7817"
+    private var reconnectDelaySeconds = 10
 
-    private var RECONNECT_DELAY_SECONDS = 10 // 重连延迟秒数
+    private var manuallyClosed = false
 
-    // 这个函数必须要调用，读文件时候需要这个
-    fun setContext(context : Context?){
+    init {
+        handlerThread.start()
+        handler = Handler(handlerThread.looper)
+    }
+
+    companion object {
+        @get:Synchronized
+        var instance: WebSocketClient? = null
+            get() {
+                if (field == null) {
+                    field = WebSocketClient()
+                }
+                return field
+            }
+            private set
+    }
+
+    fun setContext(context: Context?) {
         MsgEncocder.setContext(context)
     }
 
-    fun setReconnectDelay(t: Int){
-        if (t > 5)
-            this.RECONNECT_DELAY_SECONDS = t
-        else
-            this.RECONNECT_DELAY_SECONDS = 5
-    }
-
-    fun setDomain(domain:String ){
-        //val domain = "example.com"
+    fun setDomain(domain: String) {
         val formattedUrl = "wss://$domain/ws?"
-        if (!serverPath.equals(formattedUrl)){
-            this.serverPath = formattedUrl
 
-            // 使用的中途如果重置了这个，需要重连
-            //this.attemptReconnect()
+        if (serverPath != formattedUrl) {
+            serverPath = formattedUrl
+            attemptReconnect()
         }
     }
 
-    fun isRunning(): Boolean {
-        return isRunning.get()
+    fun setFileServerDomain(domain: String){
+        fileServerPath = "https://$domain"
     }
 
-    fun setNotRunning() {
-        isRunning.set(false)
-        Session.updateState( Session.SessionState.DISCONNECTED)
+    fun setReconnectDelay(seconds: Int) {
+        reconnectDelaySeconds = if (seconds > 5) seconds else 5
     }
 
-    // 启动异步发送任务
-    private fun startSendTask() {
+    fun isRunning() = isRunning.get()
 
-        if (hasBackendThread.get()){
-            return
-        }
-        threadExecutor.submit {
-            // 这个循环就是发送消息的协程循环
-            while (isRunning.get()) {
-                try {
-                    val msg = sendQueue.dequeue()
-                    if(msg === null){
-                        Thread.sleep(50)
-                        continue;
-                    }
-                    sendMsg(msg.toByteArray())
-                } catch (e: InterruptedException) {
-                    Thread.currentThread().interrupt()
-                    hasBackendThread.set(false)
-                    break
-                }
-            }
-        }
-    }
-
-
-    // connect 方法修改为同步，确保线程安全
     @Synchronized
     fun connect() {
-        // 如果已经在运行，直接返回
-        if (isRunning.get()) {
-            return
-        }
+        Log.d("WebSocketClient", "准备链接....")
+        if (isRunning.get()) return
+
         shutdownSock()
-        Session.updateState(Session.SessionState.CONNECTING)
-
-        // 初始化 OkHttpClient 和 WebSocket
-        if (this.client == null) {
-            client = UnsafeOkHttpClient.getUnsafeOkHttpClient()
-        }
-
-        val request: Request = Request.Builder().url(this.serverPath).build()
-
-        if (this.listener == null) {
-            this.listener = ClientWebSocketListener(this)
-        }
-
-        socket = client!!.newWebSocket(request, listener!!)
-        // 启动发送任务线程
-        startSendTask()
-
         isRunning.set(true)
+
+        if (client == null) client = UnsafeOkHttpClient.getUnsafeOkHttpClient()
+        if (listener == null) listener = ClientWebSocketListener(this)
+
+        val request: Request = Request.Builder().url(serverPath).build()
+
+        this.manuallyClosed = false
+        socket = client!!.newWebSocket(request, listener!!)
+
+        startSendTask()
     }
 
-    // https://127.0.0.1:7817/filestore/384255o2s7nu.jpg
-    fun getRemoteFilePath(remote: String): String{
+//    @Synchronized
+//    fun shutdownSock() {
+//        isRunning.set(false)
+//        socket?.close(1000, "Goodbye!")
+//        socket = null
+//    }
 
-        // 基础拼接
-        val baseUrl = if (fileServerPath.startsWith("https")) fileServerPath else "https://$fileServerPath"
-        val fullUrl = "$baseUrl/filestore/${remote.trimStart('/')}"
-
-        return fullUrl
-    }
-
-    // shutdown 方法修改为同步，确保线程安全
     @Synchronized
     fun shutdownSock() {
-        // 这里仅仅是设置变量，通知线程自己停止
-        setNotRunning()
-        // 安全地关闭 WebSocket 和客户端
+        manuallyClosed = true
         if (socket != null) {
-            socket!!.close(1000, "Goodbye!")
+            socket!!.close(1000, "Goodbye")
             socket = null
         }
     }
 
-    // 停止线程池子，
-    fun shutdownThreadPool(){
-        if (!(threadExecutor.isShutdown || threadExecutor.isTerminated)) {
-            // 停止发送线程
-            threadExecutor.shutdownNow()
-            try {
-                // 如果一定时间后（比如设置超时时间）线程池还未关闭，可以再调用threadExecutor.shutdownNow()来强制关闭。
-                if (!threadExecutor.awaitTermination(5, TimeUnit.SECONDS)) {
-                    // 如果超时还未关闭，再强制关闭
-                    threadExecutor.shutdownNow()
+    fun wasManuallyClosed(): Boolean {
+        return manuallyClosed
+    }
+
+    fun enqueueMessage(msg: Msg) {
+        SendQueue.instance.enqueue(msg)
+    }
+
+    private fun startSendTask() {
+        handler.post(object : Runnable {
+            override fun run() {
+                if (!isRunning.get()) return
+
+                var msg = SendQueue.instance.dequeue()
+                while (msg != null) {
+                    sendMsg(msg.toByteArray())
+                    msg = SendQueue.instance.dequeue()
                 }
-            } catch (e: InterruptedException) {
-                Thread.currentThread().interrupt()
-                // 重新尝试强制关闭
-                threadExecutor.shutdownNow()
+
+                // 50ms 后再执行下一次循环
+                handler.postDelayed(this, 50)
             }
-
-        }
+        })
     }
 
-    // 清理资源
-    fun clean() {
-
-        if (client != null) {
-            client!!.dispatcher.executorService.shutdown()
-            client = null
-        }
-
-        this.shutdownSock()
-    }
-
-    // 添加消息到发送队列的方法
-    fun enqueueMessage(msg: Msg?) {
-        try {
-            sendQueue.enqueue(msg)
-        } catch (e: RuntimeException) {
-            // 可以在这里记录日志或者进行合适的异常处理逻辑，比如提示用户入队失败等
-            e.printStackTrace()
-        }
-    }
+    // 这个版本改为阻塞一直等待有消息为止，防止CPU空轮询
+    // 但是需要在断开时候配合sendingThread.interrupt()使用，暂时不用这个版本
+//    private fun startSendTask() {
+//        handler.post(object : Runnable {
+//            override fun run() {
+//                if (!isRunning.get()) return
+//
+//                try {
+//                    // 阻塞直到队列有消息
+//                    val msg = SendQueue.instance.take()
+//                    sendMsg(msg.toByteArray())
+//                } catch (e: InterruptedException) {
+//                    Thread.currentThread().interrupt()
+//                    return
+//                }
+//
+//                // 消息发送完后，立即尝试下一条
+//                handler.post(this)
+//            }
+//        })
+//    }
 
     @Synchronized
     private fun sendMsg(data: ByteArray): Boolean {
-        if (socket != null  && isRunning.get()) {
-            val strData: okio.ByteString = okio.ByteString.of(*data)
-            try {
-                val ret = socket?.send(strData)
-                if (ret is Boolean)
-                    return ret
-
-                return false
+        if (socket != null && isRunning.get()) {
+            // 在 Kotlin 里，这个 * 是 展开运算符（spread operator），用于把一个数组“拆开”成可变参数（vararg）。
+            val strData: ByteString = ByteString.of(*data)
+            return try {
+                socket!!.send(strData)
             } catch (e: IOException) {
-                // 可以在这里记录日志，以便后续排查问题
                 e.printStackTrace()
-                attemptReconnect()
+                scheduleReconnect()
+                false
             }
         }
         return false
     }
 
-    // 尝试重连
+
+
+
+    private fun scheduleReconnect() {
+        isRunning.set(false)
+        Log.d(TAG, "10秒后重连接...")
+        handler.postDelayed({ connect() }, reconnectDelaySeconds * 1000L)
+    }
+
     fun attemptReconnect() {
-        setNotRunning()
-        //        LogHelper.d("Attempting to reconnect in seconds: ", this.RECONNECT_DELAY_SECONDS);
-        try {
-            TimeUnit.SECONDS.sleep(RECONNECT_DELAY_SECONDS.toLong())
-        } catch (e: InterruptedException) {
-//            LogHelper.d("Reconnect delay interrupted: ", this.RECONNECT_DELAY_SECONDS);
-            Thread.currentThread().interrupt()
+        Log.d(TAG, "10秒后重连接.")
+        if (isRunning.get()) {
+            shutdownSock()
         }
-        connect()
+        Log.d(TAG, "10秒后重连接..")
+        scheduleReconnect()
     }
 
-    companion object {
-        //private const val WEBSOCKET_URL = "wss://127.0.0.1/ws?"
-        // 单例实例的引用
-        @get:Synchronized
-        var instance: WebSocketClient? = null
-            // 获取单例实例的静态方法
-            get() {
-                if (field == null) {
-                    synchronized(WebSocketClient::class.java) {
-                        if (field == null) {
-                            field = WebSocketClient()
-                        }
-                    }
-                }
-                return field
-            }
-            private set
-
+    // 根据上传返回的文件名，按照约定，计算路径
+    fun getRemoteFilePath(remote: String): String {
+        val baseUrl = if (fileServerPath.startsWith("https")) fileServerPath else "https://$fileServerPath"
+        return "$baseUrl/filestore/${remote.trimStart('/')}"
     }
+
+    fun clean() {
+        shutdownSock()
+        client?.dispatcher?.executorService?.shutdown()
+        client = null
+        handlerThread.quitSafely()
+    }
+
+
+
+
 }

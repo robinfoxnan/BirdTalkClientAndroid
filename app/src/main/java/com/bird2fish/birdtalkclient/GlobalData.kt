@@ -1,6 +1,7 @@
 package com.bird2fish.birdtalkclient
 import android.app.Activity
 import android.content.Context
+import android.content.Intent
 import android.os.Build
 import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
@@ -12,28 +13,30 @@ import com.bird2fish.birdtalksdk.SdkGlobalData
 import com.bird2fish.birdtalksdk.StatusCallback
 import com.bird2fish.birdtalksdk.net.CRC64
 import com.bird2fish.birdtalksdk.net.WebSocketClient
+import com.bird2fish.birdtalksdk.net.WebSocketService
 
 
 class GlobalData  {
 
     companion object {
         // 引用SDK中的
-        var client : WebSocketClient = WebSocketClient.instance!!
         val eventListener : ActionListener = ActionListener()
         var loginActivity: AppCompatActivity? = null
         var mainActivity :AppCompatActivity?=null
 
-
-
-
-
-        fun init(ctx: Context){
+        fun init(ctx: Context, domain:String){
             // 设置与sdk的通知接口
             SdkGlobalData.addCallback(eventListener)
             SdkGlobalData.init(ctx)
-            client.setDomain("192.168.1.2:7817")
-            client.setContext(ctx)
-            client.connect()
+
+            val appContext = ctx.applicationContext
+            WebSocketClient.instance!!.setDomain(domain)
+            WebSocketClient.instance!!.setFileServerDomain(domain)
+            WebSocketClient.instance!!.setContext(appContext)
+
+            // 启动后台服务（前台服务）
+            val intent = Intent(appContext, WebSocketService::class.java)
+            appContext.startService(intent)
         }
 
     }
@@ -133,6 +136,9 @@ class ActionListener :StatusCallback{
             LOGIN_CODE -> doNothing()
             APP_NOTIFY_SEND_MSG -> doNothing()
             APP_NOTIFY_REMOVE_SESSION -> doNothing()
+            CONNECTING -> doNothing()
+            RECONNECTING -> doNothing()
+            CONNECTED -> doNothing()
         }
     }
 }

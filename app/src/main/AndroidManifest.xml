@@ -17,7 +17,10 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
 
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+
     <application
+        android:name=".App"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -50,6 +53,12 @@
                 android:name="android.app.lib_name"
                 android:value="" />
         </activity> <!-- 其他活动声明 -->
+
+        <service
+            android:name="com.bird2fish.birdtalksdk.net.WebSocketService"
+            android:exported="false"
+            android:foregroundServiceType="connectedDevice|dataSync" />
+
         <meta-data
             android:name="android.app.default_searchable"
             android:value=".MainActivity" /> <!-- 设置应用默认语言为中文 -->

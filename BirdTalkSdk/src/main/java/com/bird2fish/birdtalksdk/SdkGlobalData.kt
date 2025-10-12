@@ -62,6 +62,9 @@ class SdkGlobalData {
         // 当前显示的消息界面，如果是负数，就是群组
         var currentChatFid = 0L
 
+        fun  invokeOnEventCallbacks(eventType: MsgEventType, msgType: Int, msgId: Long, fid: Long, params:Map<String, String>){
+            this.userCallBackManager.invokeOnEventCallbacks(eventType, msgType, msgId, fid, params)
+        }
 
         // 是否对方与自己双向关注
         fun isMutualfollowing(id: Long):Boolean{

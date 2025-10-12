@@ -16,6 +16,10 @@ enum class InterErrorType {
 
 // sdk通知界面的操作
 enum class MsgEventType {
+    CONNECTING,
+    RECONNECTING,
+    CONNECTED,
+
     LOGIN_OK,  // 跳转
     LOGIN_CODE, // 需要用户填写验证码
 

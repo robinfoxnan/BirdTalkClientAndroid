@@ -55,6 +55,9 @@ class FollowingFragment : Fragment(), StatusCallback {
 //            adapter.notifyDataSetChanged()
 //        })
 
+        // 关注消息
+        SdkGlobalData.userCallBackManager.addCallback(this)
+
         return view
     }
 
@@ -95,11 +98,11 @@ class FollowingFragment : Fragment(), StatusCallback {
     override fun onResume() {
         super.onResume()
         // 关注消息
-        SdkGlobalData.userCallBackManager.addCallback(this)
+        //SdkGlobalData.userCallBackManager.addCallback(this)
     }
 
-    override fun onPause() {
-        super.onPause()
+    override fun onDestroyView() {
+        super.onDestroyView()
         // 取消关注消息
         SdkGlobalData.userCallBackManager.removeCallback(this)
     }

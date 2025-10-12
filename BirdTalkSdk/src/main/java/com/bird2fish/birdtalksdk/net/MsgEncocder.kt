@@ -587,12 +587,12 @@ class MsgEncocder {
         // 发给服务器消息
         private fun sendBackErr(code:ErrorMsgType, detail:String){
             val retMsg = createErrMsg(code, detail)
-            SendQueue.getInstance().enqueue(retMsg)
+            SendQueue.instance.enqueue(retMsg)
         }
 
         // 发送普通的消息
         private  fun sendMsg(msg: Msg){
-            SendQueue.getInstance().enqueue(msg)
+            SendQueue.instance.enqueue(msg)
         }
 
 
@@ -730,7 +730,7 @@ class MsgEncocder {
             // 生成阶段三，然后发送
             val msg = createKeyExchange3Msg()
 
-            SendQueue.getInstance().enqueue(msg)
+            SendQueue.instance.enqueue(msg)
 
         }
 

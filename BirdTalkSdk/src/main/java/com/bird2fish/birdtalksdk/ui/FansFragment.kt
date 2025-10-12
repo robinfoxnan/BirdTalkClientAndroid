@@ -67,6 +67,9 @@ class FansFragment : Fragment() , StatusCallback {
 //        this.changed.observe(requireActivity(), Observer {
 //            adapter.notifyDataSetChanged()
 //        })
+
+        // 关注消息
+        SdkGlobalData.userCallBackManager.addCallback(this)
         return view
     }
 
@@ -112,8 +115,8 @@ class FansFragment : Fragment() , StatusCallback {
         SdkGlobalData.userCallBackManager.addCallback(this)
     }
 
-    override fun onPause() {
-        super.onPause()
+    override fun onDestroyView() {
+        super.onDestroyView()
         // 取消关注消息
         SdkGlobalData.userCallBackManager.removeCallback(this)
     }
