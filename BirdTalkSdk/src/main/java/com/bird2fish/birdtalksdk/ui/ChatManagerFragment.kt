@@ -65,20 +65,26 @@ class ChatManagerFragment : Fragment() {
     }
 
     // 切换到某个好友的页面
-    fun switchToFriend(fid: Long){
-        SdkGlobalData.currentChatFid = fid
 
-    }
+    // 当 Fragment 被隐藏或显示时调用
+    override fun onHiddenChanged(hidden: Boolean) {
+        super.onHiddenChanged(hidden)
+        if (!hidden) {
+            switchToPage(SdkGlobalData.currentChatFid)
+        } else {
 
-    // 继续的时候
-    override fun onResume() {
-        super.onResume()
-        view?.post {
-            if (::viewPager.isInitialized && viewPager.adapter != null) {
-                switchToPage(SdkGlobalData.currentChatFid)
-            }
         }
     }
+
+    // 继续的时候，但是在使用隐藏以及显示模式情况下，这个函数不起用
+//    override fun onResume() {
+//        super.onResume()
+//        view?.post {。
+//            if (::viewPager.isInitialized && viewPager.adapter != null) {
+//                switchToPage(SdkGlobalData.currentChatFid)
+//            }
+//        }
+//    }
 
     // 初始化后才能切换
     private fun switchToPage(fid: Long){
@@ -107,6 +113,7 @@ class ChatManagerFragment : Fragment() {
 
         if (index >= 0 && index < chatPagerAdapter.getItemCount()){
             this.viewPager.setCurrentItem(index, true)
+
         }
 
     }
@@ -142,6 +149,8 @@ class ChatManagerFragment : Fragment() {
                 return chatIdMap[fid]!!
             }
         }
+
+
 
         /**
          * 查找指定会话 ID 的页面索引

@@ -42,7 +42,6 @@ object AvatarHelper {
     // 使用pissaco直接从远程获取文件
     private  fun loadRemoteImage(ctx: Context, remoteName:String,  view: ImageView) {
 
-
         // 从远程加载
         val downloader = ImageDownloader()
         downloader.downloadAndSaveImage(ctx, remoteName, "avatar", view, R.drawable.icon27)
@@ -69,6 +68,7 @@ object AvatarHelper {
     fun tryLoadAvatar(ctx: Context, iconName:String, view: ImageView, gender:String = "male"){
         val isMale = isMale(gender)
         val ret = loadLocalAvatar(ctx, iconName, view, isMale)
+        //val ret = false
         if (!ret){
             loadRemoteImage(ctx, iconName, view)
         }

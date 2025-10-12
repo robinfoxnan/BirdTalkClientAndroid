@@ -306,6 +306,8 @@ class ChatPageFragment : Fragment() , StatusCallback {
         // 获取 arguments，注意这一步
         chatId = arguments?.getString(ARG_CHAT_ID) ?: ""  // 安全获取
 
+        setShowHide(true)
+
     }
 
     private fun scrollToBottom(smooth: Boolean) {
@@ -977,25 +979,39 @@ class ChatPageFragment : Fragment() , StatusCallback {
     }
 
 
+
+
+    // 当 Fragment 被隐藏或显示时调用
+    fun setShowHide(b: Boolean){
+        if (b){
+            SdkGlobalData.userCallBackManager.addCallback(this)
+        }else{
+            SdkGlobalData.userCallBackManager.removeCallback(this)
+        }
+    }
+
+
     override fun onResume() {
         super.onResume()
-        SdkGlobalData.userCallBackManager.addCallback(this)
+        setShowHide(true)
         Log.d("MyFragment", "onResume called")
     }
 
     override fun onPause() {
         super.onPause()
-        SdkGlobalData.userCallBackManager.removeCallback(this)
+        setShowHide(false)
         Log.d("MyFragment", "onPause called")
     }
 
     override fun onStop() {
         super.onStop()
+        setShowHide(false)
         Log.d("MyFragment", "onStop called")
     }
 
     override fun onDestroyView() {
         super.onDestroyView()
+        setShowHide(false)
         Log.d("MyFragment", "onDestroyView called")
     }
 

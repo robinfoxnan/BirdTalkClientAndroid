@@ -274,7 +274,16 @@ class ProfileFragment : Fragment(), StatusCallback {
 
         // 获取权限来加载相册
         permissionsHelper = PermissionsHelper(this.requireActivity())
+
+
+        onShow()
         return view
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        // 保底清理，防止泄漏
+        onHide()
     }
 
     // 保存个人信息
@@ -303,9 +312,18 @@ class ProfileFragment : Fragment(), StatusCallback {
         MsgEncocder.setUserInfo(SdkGlobalData.selfUserinfo.id, data)
     }
 
-    // 刷新的时候需要更新个人信息
-    override fun onResume() {
-        super.onResume()
+
+
+    // 当 Fragment 被隐藏或显示时调用
+//    override fun onHiddenChanged(hidden: Boolean) {
+//        super.onHiddenChanged(hidden)
+//        if (!hidden) {
+//            onShow()
+//        } else {
+//            onHide()
+//        }
+//    }
+    fun onShow(){
         // Fragment 可见且可交互时执行
         tvId.text = SdkGlobalData.selfUserinfo.id.toString()
         tvName.text = SdkGlobalData.selfUserinfo.name
@@ -323,6 +341,11 @@ class ProfileFragment : Fragment(), StatusCallback {
         // 关注消息
         SdkGlobalData.userCallBackManager.addCallback(this)
     }
+
+    fun onHide(){
+        SdkGlobalData.userCallBackManager.removeCallback(this)
+    }
+
 
     // 加载远程的图片，先检查本地是否存在
     // /storage/emulated/0/Android/data/com.bird2fish.birdtalkclient/files/avatar
@@ -343,11 +366,7 @@ class ProfileFragment : Fragment(), StatusCallback {
 //        downloader.downloadAndSaveImage(requireContext(), remoteName, "avatar", this.profileImageView, R.drawable.icon19)
 //    }
 
-    override fun onPause() {
-        super.onPause()
-        // 取消关注消息
-        SdkGlobalData.userCallBackManager.removeCallback(this)
-    }
+
 
     private fun showImagePickerDialog() {
         val options = arrayOf("从相册选择", "拍照")

@@ -59,15 +59,8 @@ class ImageDownloader {
         val fullUrl = WebSocketClient.instance!!.getRemoteFilePath( remote)
 
 
-        val target = object : com.squareup.picasso.Target {
+        view.tag = object : com.squareup.picasso.Target {
             override fun onBitmapLoaded(bitmap: Bitmap, from: Picasso.LoadedFrom) {
-                // 直接获取加载后的Bitmap
-                val bitmapRound = ImagesHelper.getRoundAvatar(bitmap, context)
-                (context as? Activity)?.runOnUiThread {
-                    //Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
-                    view.setImageBitmap(bitmapRound)
-                }
-
 
                 // 保存或处理Bitmap
                 saveBitmapToAppDir(
@@ -76,12 +69,23 @@ class ImageDownloader {
                     dirName = "avatar",
                     fileName = remote
                 )
+
+                // 直接获取加载后的Bitmap
+                val bitmapRound = ImagesHelper.getRoundAvatar(bitmap, context)
+                view.setImageBitmap(bitmapRound)
+               // (context as? Activity)?.runOnUiThread {
+                    Toast.makeText(context, remote, Toast.LENGTH_SHORT).show()
+                    view.invalidate()
+               // }
+
+
             }
 
             override fun onBitmapFailed(e: Exception, errorDrawable: Drawable?) {
                 // 加载失败
-
-                view.setImageResource(defaultIcon)
+                (context as? Activity)?.runOnUiThread {
+                    view.setImageResource(defaultIcon)
+                }
             }
 
             override fun onPrepareLoad(placeHolderDrawable: Drawable?) {
@@ -89,9 +93,10 @@ class ImageDownloader {
             }
         }
 
+
         // 使用 Picasso 加载图片
         val picasso = Picasso.get()
-        picasso.load(fullUrl).into(target)
+        picasso.load(fullUrl).into(view.tag as com.squareup.picasso.Target)
         return true
     }
 
