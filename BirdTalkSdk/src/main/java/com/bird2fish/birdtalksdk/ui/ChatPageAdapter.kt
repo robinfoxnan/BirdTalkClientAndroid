@@ -667,11 +667,8 @@ class ChatPageAdapter(private val dataList: List<MessageContent>) : RecyclerView
                 }
             }
 
-//            if (TextUtils.isEmpty(fname)) {
-//                fname = mActivity.getString(R.string.default_attachment_name)
-//            }
-//
-//            AttachmentHandler.enqueueDownloadAttachment(mActivity, data, fname, mimeType)
+            // 尝试下载文件，下载后打开
+
             return true
         }
 

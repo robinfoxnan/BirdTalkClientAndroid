@@ -181,9 +181,6 @@ class MainActivity : AppCompatActivity() , StatusCallback {
     }
 
 
-
-
-
     override fun onError(code : InterErrorType, lastAction:String, errType:String, detail:String){
 
     }

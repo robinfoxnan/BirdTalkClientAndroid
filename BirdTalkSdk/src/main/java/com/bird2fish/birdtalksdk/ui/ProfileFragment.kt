@@ -85,32 +85,30 @@ class ProfileFragment : Fragment(), StatusCallback {
 
     }
 
-    // 在界面中显示提示信息
-    fun showDialogInCallback(context: Context, message: String) {
-        // 假设这是你的回调
-        (context as? Activity)?.runOnUiThread {
-            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
-        }
-    }
-
 
     // 上传或下载事件
     // 这里是回调函数，无法操作界面
     override fun onEvent(eventType: MsgEventType, msgType:Int, msgId:Long, fid:Long, params:Map<String, String>){
         if (eventType == MsgEventType.MSG_UPLOAD_OK){
-            params.get("uuidName")?.let {
-                SdkGlobalData.selfUserinfo.icon = it
-                this._uuidImageName.postValue(it)
-                // 这里应该发送消息，重新设置头像
-                saveUserAvatar(it)
+
+            val fileName = params.get("fileName")
+            if (fileName == this.localUploadName){
+                params.get("uuidName")?.let {
+                    SdkGlobalData.selfUserinfo.icon = it
+                    this._uuidImageName.postValue(it)
+                    // 这里应该发送消息，重新设置头像
+                    saveUserAvatar(it)
+                    this.localUploadName = ""
+                }
             }
 
+
         }else if (eventType == MsgEventType.MSG_UPLOAD_FAIL){
-            showDialogInCallback(this.requireContext(), "上传头像失败")
+            TextHelper.showDialogInCallback(this.requireContext(), "上传头像失败")
         }else if (eventType == MsgEventType.USR_UPDATEINFO_OK){
-            showDialogInCallback(this.requireContext(), "保存信息完毕")
+            TextHelper.showDialogInCallback(this.requireContext(), "保存信息完毕")
         }else if (eventType == MsgEventType.USR_UPDATEINFO_FAIL){
-            showDialogInCallback(this.requireContext(), "更新失败")
+            TextHelper.showDialogInCallback(this.requireContext(), "更新失败")
         }
     }
 
@@ -206,7 +204,6 @@ class ProfileFragment : Fragment(), StatusCallback {
                     photoUri = resultUri
 
                     // 尝试上传
-
                     this.photoUri?.let{
                         this.localUploadName = TextHelper.getFileNameFromUri(requireContext(), this.photoUri)
                         val msgId = SdkGlobalData.nextId()

@@ -3,6 +3,7 @@ package com.bird2fish.birdtalksdk.model
 import android.content.ContentResolver
 import android.content.Context
 import android.net.Uri
+import android.text.TextUtils
 import android.util.Log
 import com.bird2fish.birdtalksdk.SdkGlobalData
 import com.bird2fish.birdtalksdk.net.MsgEncocder
@@ -12,7 +13,6 @@ import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass
 import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass.ChatMsgType
 import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass.ChatType
 import com.bird2fish.birdtalksdk.uihelper.TextHelper
-import org.json.JSONObject
 import java.io.FileNotFoundException
 import java.net.URI
 import java.util.LinkedList
@@ -291,6 +291,122 @@ object ChatSessionManager {
         return msgId
     }
 
+    // 将文件上传后发送消息，与那个图片不一样在于处理draft方式不同
+    fun sendFileMessageUploading(sessionId:Long, context: Context, uri: Uri):Long{
+        val contentResolver: ContentResolver = context.contentResolver
+
+        val msgId = SdkGlobalData.nextId()
+        val chatSession = getSession(sessionId)
+
+
+        //二进制方式
+        var fileName = TextHelper.getFileNameFromUri(context, uri)
+        if (TextUtils.isEmpty(fileName)) {
+            fileName = "file"
+        }
+
+        //Log.d("文件内容", "draft: ${draft.toPlainText()}")
+        val mime = TextHelper.getMimeTypeFromUri(context, uri)
+        val sz = TextHelper.getFileSize(context, uri)
+
+        val uId = if (sessionId > 0) sessionId else -sessionId
+
+
+
+        val draft = Drafty("")
+        //draft.attachFile(mime, bits, fileName);
+        draft.attachFile(mime, fileName, uri.toString(), sz);
+
+        val msg = MessageContent(msgId,
+            chatSession.sessionId, chatSession.sessionTitle, chatSession.sessionIcon,
+            UserStatus.ONLINE, MessageStatus.UPLOADING, false, false, false,"", draft,  0, uri, mime)
+
+        val (hasAttach, sz1) = hasAttachment(draft)
+        Log.d("SendFile", "文件大小为：${sz1}")
+
+        // 得保存到临时列表，等待上传结束
+        synchronized(this.uploadingMap){
+            this.uploadingMap[msgId] = msg
+        }
+        // 异步上传
+        Session.uploadSmallFile(context, uri,  uId, msgId)
+        // 添加到界面列表
+        chatSession!!.addMessageNewOut(msg)
+
+        return msgId
+    }
+
+    // 发送语音
+    fun sendAudioOut(sessionId:Long, context: Context, draft:Drafty):Long{
+
+        val msgId = SdkGlobalData.nextId()
+        val chatSession = getSession(sessionId)
+
+
+        val uId = if (sessionId > 0) sessionId else -sessionId
+
+        val msg = MessageContent(msgId, SdkGlobalData.selfUserinfo.id, "", "",
+            UserStatus.ONLINE, MessageStatus.SENDING,false, false, false, "", draft)
+
+        // 1)写入数据库
+
+        // 2）加入列表
+        chatSession?.addMessageNewOut(msg)
+
+        // 3）发送到服务器
+        val chatType = if (sessionId > 0) ChatType.ChatTypeP2P else ChatType.ChatTypeGroup
+
+        val txt = TextHelper.serializeDrafty(draft)
+        Log.d("send audio drafty", txt)
+
+        MsgEncocder.sendChatMsg(msgId, uId, chatType, ChatMsgType.VOICE, txt, 0L)
+        return  msgId
+    }
+
+    fun hasAttachment(drafty: Drafty?, filename: String? = null): Pair<Boolean, Long?> {
+        if (drafty?.ent.isNullOrEmpty()) return Pair(false, null)
+
+        for (entity in drafty!!.ent!!) {
+            if (entity?.tp == null || entity.data == null) continue
+
+            // 只检测附件类型
+            if (entity.tp == "EX" || entity.tp == "FI") {
+                val name = entity.data["name"] as? String
+                val sizeObj = entity.data["size"]
+                val size: Long? = when (sizeObj) {
+                    is Number -> sizeObj.toLong()
+                    is String -> sizeObj.toLongOrNull()
+                    else -> null
+                }
+
+                if (!filename.isNullOrEmpty()) {
+                    if (name != null && name == filename) {
+                        return Pair(true, size)
+                    }
+                } else {
+                    // 不指定文件名，只要存在附件就返回第一个附件的大小
+                    return Pair(true, size)
+                }
+            }
+        }
+
+        return Pair(false, null)
+    }
+
+    fun hasImage(drafty: Drafty?): Boolean {
+        if (drafty?.ent == null) {
+            return false
+        }
+
+        for (entity in drafty.ent) {
+            if (entity?.tp == null) continue
+            if (entity.tp.equals("IM") ) {
+                return true
+            }
+        }
+        return false
+    }
+
     // 上传结束了，这个时候需要发送消息
     fun onUploadFileReply(msgId:Long, result:String, detail:String, fileName:String, uuidName:String){
 
@@ -305,26 +421,57 @@ object ChatSessionManager {
             return
         }
 
-        // "image/jpeg"
-
-
-        val draft = Drafty("")
-
-        val fullUrl = WebSocketClient.instance!!.getRemoteFilePath(uuidName)
-
-            //draft.insertImage(0,"image/jpeg", null, 884, 535, "",
-        draft.insertImage(0, msg!!.mime, null, 0, 0, "",
-                URI(fullUrl), 0)
-
         // 这里的userId就是sessionId
         val chatSession = getSession(msg!!.userId)
 
         msg!!.msgStatus = MessageStatus.SENDING
         //msg!!.content = draft
         val chatType = if (msg!!.userId > 0) ChatType.ChatTypeP2P else ChatType.ChatTypeGroup
-        val txt = TextHelper.serializeDrafty(draft)
-        Log.d("send image drafty", txt)
-        MsgEncocder.sendChatMsg(msg!!.msgId, msg!!.userId, chatType, ChatMsgType.IMAGE, txt, 0L)
+
+        val draft = Drafty("")
+
+        // "image/jpeg"
+        val fullUrl = WebSocketClient.instance!!.getRemoteFilePath(uuidName)
+        var draftMsg = msg!!.content
+
+        // 如果是图片
+        if (hasImage(draftMsg)){
+            //draft.insertImage(0,"image/jpeg", null, 884, 535, "",
+            draft.insertImage(0, msg!!.mime, null, 0, 0, "",
+                URI(fullUrl), 0)
+
+            val txt = TextHelper.serializeDrafty(draft)
+            Log.d("send image or file drafty", txt)
+
+            MsgEncocder.sendChatMsg(msg!!.msgId, msg!!.userId, chatType, ChatMsgType.IMAGE, txt, 0L)
+            return
+        }
+
+        // 解构返回值
+        val (hasAttach, sz) = hasAttachment(draftMsg)
+
+        if (hasAttach) {
+            // 调用 attachFile 时传入文件大小
+            draft.attachFile(msg!!.mime, fileName, fullUrl, sz ?: 0L)
+
+            // 序列化 Drafty
+            val txt = TextHelper.serializeDrafty(draft)
+            Log.d("send image or file drafty", txt)
+
+            // 发送消息
+            MsgEncocder.sendChatMsg(
+                msg!!.msgId,
+                msg!!.userId,
+                chatType,
+                ChatMsgType.FILE,
+                txt,
+                0L
+            )
+
+            return
+        }
+
+        // 如果是大的语音片
 
     }
 
@@ -371,15 +518,18 @@ object ChatSessionManager {
 
             val txt = chatMsg.data.toString(Charsets.UTF_8)
 
-            val draft = Drafty(txt)
+            val draft = TextHelper.deserializeDrafty(txt)
+            Log.d("Audio Draty", txt)
 
             msg = MessageContent(chatMsg.msgId,
                 sId, chatSession.sessionTitle, chatSession.sessionIcon,
                 UserStatus.ONLINE, MessageStatus.OK, true, false, false, "", draft)
-        }else if (chatMsg.msgType == MsgOuterClass.ChatMsgType.FILE){
+        }
+        else if (chatMsg.msgType == MsgOuterClass.ChatMsgType.FILE){
             val txt = chatMsg.data.toString(Charsets.UTF_8)
 
-            val draft = Drafty(txt)
+            val draft = TextHelper.deserializeDrafty(txt)
+            Log.d("File Draty", txt)
 
             msg = MessageContent(chatMsg.msgId,
                 sId, chatSession.sessionTitle, chatSession.sessionIcon,

@@ -10,7 +10,9 @@ import android.os.Build
 import android.provider.DocumentsContract
 import android.provider.MediaStore
 import android.provider.OpenableColumns
+import android.text.TextUtils
 import android.util.Base64
+import android.util.Log
 import android.webkit.MimeTypeMap
 import android.widget.Toast
 import androidx.core.net.toFile
@@ -73,8 +75,29 @@ object  TextHelper {
         }
     }
 
+
     /**
-     * 根据 Uri 获取文件的 MIME 类型
+     * 常见文件扩展名与 MIME 类型对应表：
+     *
+     * 文件类型              扩展名                      MIME 类型
+     * ---------------------------------------------------------------
+     * PDF 文档              .pdf                        application/pdf
+     * Word 文档（旧版）     .doc                        application/msword
+     * Word 文档（新版）     .docx                       application/vnd.openxmlformats-officedocument.wordprocessingml.document
+     * Excel 表格（旧版）    .xls                        application/vnd.ms-excel
+     * Excel 表格（新版）    .xlsx                       application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+     * PowerPoint（旧版）    .ppt                        application/vnd.ms-powerpoint
+     * PowerPoint（新版）    .pptx                       application/vnd.openxmlformats-officedocument.presentationml.presentation
+     * MP3 音频              .mp3                        audio/mpeg
+     * MP4 视频              .mp4                        video/mp4
+     * PNG 图片              .png                        image/png
+     * JPG 图片              .jpg / .jpeg                image/jpeg
+     * ZIP 压缩包            .zip                        application/zip
+     * 纯文本                .txt                        text/plain
+     */
+
+    /**
+    * 根据 Uri 获取文件的 MIME 类型
      *
      * @param context 应用上下文
      * @param uri 文件 Uri
@@ -83,7 +106,7 @@ object  TextHelper {
     fun getMimeTypeFromUri(context: Context, uri: Uri?): String? {
         if (uri == null) return null
 
-        return when {
+        val mime =  when {
             // 处理 content:// Uri
             ContentResolver.SCHEME_CONTENT.equals(uri.scheme, ignoreCase = true) -> {
                 try {
@@ -110,6 +133,8 @@ object  TextHelper {
                 uri.path?.let { getMimeTypeFromExtension(it) } ?: uri.lastPathSegment?.let { getMimeTypeFromExtension(it) }
             }
         }
+
+        return mime ?: "application/octet-stream"
     }
 
     /**
@@ -162,6 +187,14 @@ object  TextHelper {
         return Base64.encodeToString(bytes, Base64.NO_WRAP or Base64.URL_SAFE or Base64.NO_PADDING)
     }
 
+
+    private fun queryFileNameFromMediaStore(context: Context, contentUri: Uri, id: String): String? {
+        val selection = "_id=?"
+        val selectionArgs = arrayOf(id)
+        return queryFileName(context, contentUri, selection, selectionArgs)
+    }
+
+
     /**
      * 从 Uri 中提取文件名
      *
@@ -176,7 +209,13 @@ object  TextHelper {
             // 处理 content:// Uri
             ContentResolver.SCHEME_CONTENT.equals(uri.scheme, ignoreCase = true) -> {
                 // 对于 Android 4.4 (API 19) 及以上版本的 DocumentProvider
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT && DocumentsContract.isDocumentUri(context, uri)) {
+                val isDocumentUri = try {
+                    DocumentsContract.isDocumentUri(context, uri)
+                } catch (e: Exception) {
+                    false
+                }
+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT && isDocumentUri) {
                     // ExternalStorageProvider
                     if (isExternalStorageDocument(uri)) {
                         val docId = DocumentsContract.getDocumentId(uri)
@@ -187,34 +226,40 @@ object  TextHelper {
                     }
                     // DownloadsProvider
                     else if (isDownloadsDocument(uri)) {
-                        val id = DocumentsContract.getDocumentId(uri)
-                        if (id.startsWith("raw:")) {
-                            return id.substring(4)
+                        val docId = DocumentsContract.getDocumentId(uri)
+
+                        // 1️ raw: 前缀，直接用路径
+                        if (docId.startsWith("raw:")) {
+                            return File(docId.removePrefix("raw:")).name
                         }
 
-                        val contentUri = ContentUris.withAppendedId(
-                            Uri.parse("content://downloads/public_downloads"),
-                            id.toLongOrNull() ?: return null
-                        )
-
-                        return queryFileName(context, contentUri)
+                        // 2️  对非 raw: 文件，直接 SAF 查询 Display Name
+                        return queryFileName(context, uri)
                     }
                     // MediaProvider
                     else if (isMediaDocument(uri)) {
                         val docId = DocumentsContract.getDocumentId(uri)
-                        val split = docId.split(":").toTypedArray()
-                        if (split.size < 2) return null
+                        val parts = docId.split(":").toTypedArray()
+                        if (parts.size < 2) return null
 
-                        val type = split[0]
+                        val type = parts[0]
+                        val id = parts[1]
+                        val volumeName = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                            MediaStore.getExternalVolumeNames(context).firstOrNull() ?: "external"
+                        } else "external"
+
                         val contentUri = when (type) {
                             "image" -> MediaStore.Images.Media.EXTERNAL_CONTENT_URI
                             "video" -> MediaStore.Video.Media.EXTERNAL_CONTENT_URI
                             "audio" -> MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
-                            else -> return null
+
+                            else -> {
+                                return queryFileName(context, uri)
+                            }
                         }
 
                         val selection = "_id=?"
-                        val selectionArgs = arrayOf(split[1])
+                        val selectionArgs = arrayOf(id)
 
                         return queryFileName(context, contentUri, selection, selectionArgs)
                     }
@@ -231,16 +276,61 @@ object  TextHelper {
                 }
                 null
             }
-
-            // 其他情况
-            else -> {
+            else -> {  // 其他情况
                 uri.lastPathSegment ?: uri.path?.let { File(it).name }
             }
         }
     }
 
+
+    /*
+    实测结论（基于 A12, A13, MIUI, ColorOS）
+    来源	URI 示例	正确 Provider
+    Chrome 下载	content://com.android.providers.downloads.documents/document/531	✅ public_downloads
+    微信/QQ 文件	content://com.android.providers.media.documents/document/document:115843	✅ my_downloads / all_downloads
+    文件管理器复制的文件	content://media/external/file/1234	✅ MediaStore.Files
+    系统相册选择	content://media/external/images/media/1024	✅ MediaStore.Images.Media
+     */
+    private fun resolveDownloadsFileName(context: Context, id: String): String? {
+        val downloadUris = listOf(
+            "content://downloads/public_downloads",
+            "content://downloads/my_downloads",
+            "content://downloads/all_downloads"
+        )
+
+        for (base in downloadUris) {
+            val contentUri = ContentUris.withAppendedId(Uri.parse(base), id.toLongOrNull() ?: continue)
+            queryFileName(context, contentUri)?.let { return it }
+        }
+
+        // 尝试 raw: 或 uuid 场景
+        if (id.startsWith("raw:")) {
+            return File(id.removePrefix("raw:")).name
+        }
+
+        return null
+    }
+
+
+    // 实现一个小工具函数检测某个 ID 是否存在
+    private fun existsInMediaStore(context: Context, contentUri: Uri, id: String): Boolean {
+        return context.contentResolver.query(
+            contentUri,
+            arrayOf("_id"),
+            "_id=?",
+            arrayOf(id),
+            null
+        )?.use { it.moveToFirst() } ?: false
+    }
+
     /**
-     * 查询 ContentProvider 中的文件名
+     * 四、简化版核心结论
+     * 文件来源	URI 类型	正确获取方式
+     * 系统图库、相机	content://media/external/images/media/xxx	MediaStore 查询
+     * 下载文件	content://downloads/...	DownloadsProvider 查询
+     * 自定义目录（例如 /000/xxx.pdf）	content://com.android.providers.media.documents/document/document:xxxx	✅
+     * 直接 queryFileName(context, uri)
+     * 第三方文件管理器 / SAF 选择	任意 content://document/ 形式	✅ 直接 OpenableColumns.DISPLAY_NAME 查询
      */
     private fun queryFileName(
         context: Context,
@@ -262,7 +352,11 @@ object  TextHelper {
 
             if (cursor != null && cursor.moveToFirst()) {
                 val index = cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DISPLAY_NAME)
-                return cursor.getString(index)
+                // 确保文件名非空
+                val fileName = cursor.getString(index)
+                if (!TextUtils.isEmpty(fileName)) {
+                    return fileName
+                }
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -270,7 +364,8 @@ object  TextHelper {
             cursor?.close()
         }
 
-        return null
+        return ""
+        //return uri.lastPathSegment?.takeIf { it.isNotEmpty() }
     }
 
     /**
@@ -431,6 +526,30 @@ object  TextHelper {
             return null
         }
     }
+
+    // 从二进制文件读取
+    fun readFromBinaryFile(context: Context, uri: Uri): ByteArray? {
+        return try {
+            // 使用 ContentResolver 打开输入流
+            context.contentResolver.openInputStream(uri)?.use { inputStream ->
+                // 将输入流转换为字节数组
+                inputStream.readBytes()
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+//    fun readFromBinaryFile(context: Context, uri: Uri): ByteArray? {
+//        return try {
+//            val file: File = uri.toFile()
+//            if (file.exists()) file.readBytes() else null
+//        } catch (e: Exception) {
+//            e.printStackTrace()
+//            //throw RuntimeException("Failed to read from file: $fileName", e)
+//            return null
+//        }
+//    }
 
     fun getRequestHeaders(): Map<String, String> {
         val headers = HashMap<String, String>()

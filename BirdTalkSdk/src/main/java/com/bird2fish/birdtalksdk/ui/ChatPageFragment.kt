@@ -191,6 +191,13 @@ class ChatPageFragment : Fragment() , StatusCallback {
                     mMessagesAdapter!!.notifyDataSetChanged()
                     // 数据更新
                     //mMessagesAdapter?.notifyItemChanged(index)
+
+                    mRecyclerView!!.post {
+                        val itemCount = mMessagesAdapter!!.itemCount ?: 0
+                        if (itemCount > 0) {
+                            mRecyclerView!!.scrollToPosition(itemCount - 1)
+                        }
+                    }
                 }
             }
         }
@@ -261,16 +268,7 @@ class ChatPageFragment : Fragment() , StatusCallback {
                 return@registerForActivityResult
             }
 
-
-            TextHelper.showToast(requireContext(), content.toString())
-//            val args = Bundle().apply {
-//                putParcelable(AttachmentHandler.ARG_LOCAL_URI, content)
-//                putString(AttachmentHandler.ARG_OPERATION, AttachmentHandler.ARG_OPERATION_FILE)
-//                putString(AttachmentHandler.ARG_TOPIC_NAME, mTopicName)
-//            }
-            // Show attachment preview.
-            //activity.showFragment(MessageActivity.FRAGMENT_FILE_PREVIEW, args, true)
-
+            sendFile(content)
         }
 
 
@@ -306,9 +304,8 @@ class ChatPageFragment : Fragment() , StatusCallback {
         // 获取 arguments，注意这一步
         chatId = arguments?.getString(ARG_CHAT_ID) ?: ""  // 安全获取
 
-        setShowHide(true)
-
     }
+
 
     private fun scrollToBottom(smooth: Boolean) {
         if (smooth) {
@@ -649,9 +646,14 @@ class ChatPageFragment : Fragment() , StatusCallback {
             }
         })
 
+        setShowHide(true)
         return view
     }
 
+    override fun onDestroy() {
+        super.onDestroy()
+        setShowHide(false)
+    }
 
     // 这里是发送对方正在输入的消息
     fun sendKeyPress() {
@@ -979,8 +981,6 @@ class ChatPageFragment : Fragment() , StatusCallback {
     }
 
 
-
-
     // 当 Fragment 被隐藏或显示时调用
     fun setShowHide(b: Boolean){
         if (b){
@@ -990,31 +990,11 @@ class ChatPageFragment : Fragment() , StatusCallback {
         }
     }
 
-
     override fun onResume() {
         super.onResume()
         setShowHide(true)
         Log.d("MyFragment", "onResume called")
     }
-
-    override fun onPause() {
-        super.onPause()
-        setShowHide(false)
-        Log.d("MyFragment", "onPause called")
-    }
-
-    override fun onStop() {
-        super.onStop()
-        setShowHide(false)
-        Log.d("MyFragment", "onStop called")
-    }
-
-    override fun onDestroyView() {
-        super.onDestroyView()
-        setShowHide(false)
-        Log.d("MyFragment", "onDestroyView called")
-    }
-
 
     // 初始化录音按钮
     private fun initAudioRecorder(activity: Activity) {
@@ -1307,21 +1287,6 @@ class ChatPageFragment : Fragment() , StatusCallback {
 
         val message = inputField.text.toString().trim { it <= ' ' }
         if (message != "") {
-//            var msg: Drafty = Drafty.parse(message)
-//            if (mReply != null) {
-//                msg = mReply.append(msg)
-//            }
-//            if (sendMessage(msg, mReplySeqID)) {
-//                // Message is successfully queued, clear text from the input field and redraw the list.
-//                inputField.text.clear()
-//                if (mReplySeqID > 0) {
-//                    mReplySeqID = -1
-//                    mReply = null
-//                    activity.findViewById<View>(R.id.replyPreviewWrapper).visibility =
-//                        View.GONE
-//                }
-//            }
-
             // 提交消息，然后刷新显示
             ChatSessionManager.sendTextMessageOut(this.mChatIdLong, message)
             inputField.text.clear()
@@ -1330,6 +1295,7 @@ class ChatPageFragment : Fragment() , StatusCallback {
         }
     }
 
+    // 发送语音
     private fun sendAudio(activity: AppCompatActivity?) {
         if (activity == null || activity.isFinishing || activity.isDestroyed) {
             return
@@ -1364,23 +1330,18 @@ class ChatPageFragment : Fragment() , StatusCallback {
             "",
             null, // URI("https://lx-sycdn.kuwo.cn/c7aff93e02882b90b34e8f45387b4436/6755728e/resource/n2/3/57/2049851017.mp3?")
             sz.toLong())
-        val msg2 = MessageContent(2, 1002, "我", "sys:4",
-            UserStatus.ONLINE, MessageStatus.OK,false, true, false, "", draft)
-        chatSession!!.addMessageToTail(msg2)
+        ChatSessionManager.sendAudioOut(this.mChatIdLong, requireContext(), draft)
 
+
+
+    }
+
+    // 浏览文件后发送
+    private fun sendFile(uri:Uri){
+        TextHelper.showToast(requireContext(), uri.toString())
+
+        ChatSessionManager.sendFileMessageUploading(this.mChatIdLong, requireContext(), uri)
         this.mMessagesAdapter?.notifyDataSetChanged()
-
-//        args.putByteArray(AttachmentHandler.ARG_AUDIO_PREVIEW, preview)
-//        args.putParcelable(AttachmentHandler.ARG_LOCAL_URI, Uri.fromFile(mAudioRecord))
-//        args.putString(AttachmentHandler.ARG_FILE_PATH, mAudioRecord!!.absolutePath)
-//        args.putInt(AttachmentHandler.ARG_AUDIO_DURATION, mAudioRecordDuration)
-//        args.putString(AttachmentHandler.ARG_OPERATION, AttachmentHandler.ARG_OPERATION_AUDIO)
-//        args.putString(AttachmentHandler.ARG_TOPIC_NAME, mTopicName)
-//        AttachmentHandler.enqueueMsgAttachmentUploadRequest(
-//            activity,
-//            AttachmentHandler.ARG_OPERATION_AUDIO,
-//            args
-//        )
     }
 
     // 打开图片浏览器

@@ -10,6 +10,7 @@ import android.content.Intent
 import android.os.Binder
 import android.os.IBinder
 import android.util.Log
+import androidx.core.content.ContextCompat
 import com.bird2fish.birdtalksdk.R
 
 
@@ -65,9 +66,10 @@ class WebSocketService : Service() {
             nm.createNotificationChannel(channel)
         }
         return NotificationCompat.Builder(this, channelId)
-            .setContentTitle("后台通信中")
-            .setContentText("WebSocket 长连接服务")
-            .setSmallIcon(R.drawable.ic_notification_icon_small_24dp)
+            .setContentTitle("鸣聊")
+            .setContentText("后台服务工作中...")
+            //.setSmallIcon(if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) R.drawable.talkbird24 else R.drawable.talkbird_legacy) // 为旧版本准备的备用图标
+            //.setColor(ContextCompat.getColor(this, R.color.notification_icon_color)) // 设置图标背景色（Android 5.0+）
             .build()
     }
 

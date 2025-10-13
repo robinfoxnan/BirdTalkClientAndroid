@@ -24,7 +24,6 @@ class ClientWebSocketListener(client: WebSocketClient?) : WebSocketListener() {
         val resultMap = mapOf("reason" to "")
         invokeOnEventCallbacks(MsgEventType.CONNECTED, 0, 0, 0, resultMap)
         updateState(Session.SessionState.CONNECTED)
-        invokeOnEventCallbacks(MsgEventType.CONNECTED, 0, 0, 0, resultMap)
         startHello()
     }
 
