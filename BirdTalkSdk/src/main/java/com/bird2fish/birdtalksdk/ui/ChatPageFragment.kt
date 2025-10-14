@@ -180,6 +180,19 @@ class ChatPageFragment : Fragment() , StatusCallback {
             refreshData(msgType)
         }
 
+        // 下载文件
+        else if (eventType == MsgEventType.MSG_DOWNLOAD_OK ||
+            eventType == MsgEventType.MSG_DOWNLOAD_PROCESS ||
+            eventType == MsgEventType.MSG_DOWNLOAD_FAIL){
+            refreshData(msgType)
+        }
+
+        else if (eventType == MsgEventType.MSG_UPLOAD_PROCESS ||
+            eventType == MsgEventType.MSG_UPLOAD_OK ||
+            eventType == MsgEventType.MSG_UPLOAD_FAIL){
+            refreshData(msgType)
+        }
+
     }
 
     // 需要在界面线程中处理
@@ -419,8 +432,8 @@ class ChatPageFragment : Fragment() , StatusCallback {
 
 
 
- //       mRefresher?.setOnRefreshListener(OnRefreshListener {
-//            mRefresher?.setRefreshing(false)
+        mRefresher?.setOnRefreshListener(OnRefreshListener {
+            mRefresher?.setRefreshing(false)
 //            if (!mMessagesAdapter.loadNextPage() && !StoredTopic.isAllDataLoaded(mTopic)) {
 //                try {
 //                    mTopic.getMeta(
@@ -448,31 +461,31 @@ class ChatPageFragment : Fragment() , StatusCallback {
 //            } else {
 //                mRefresher?.setRefreshing(false)
 //            }
- //       })
+        })
 
-//        mRefresher?.setOnTouchListener { _, event ->
-//            when (event.action) {
-//                MotionEvent.ACTION_DOWN -> {
-//                    // 禁用下拉刷新手势
-//                    mRefresher?.isEnabled = false
-//                }
-//                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-//                    // 恢复刷新手势
-//                    mRefresher?.isEnabled = true
-//                }
-//            }
-//            false // 返回 false 以继续处理其他事件
-//        }
-//
-//        mRefresher?.isEnabled = false
+        mRefresher?.setOnTouchListener { _, event ->
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    // 禁用下拉刷新手势
+                    mRefresher?.isEnabled = false
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    // 恢复刷新手势
+                    mRefresher?.isEnabled = true
+                }
+            }
+            false // 返回 false 以继续处理其他事件
+        }
+
+        mRefresher?.isEnabled = false
 
 
-//        mRecyclerView!!.setOnTouchListener { _, event ->
-//            if (event.action == MotionEvent.ACTION_DOWN) {
-//                mRecyclerView!!.parent?.requestDisallowInterceptTouchEvent(true)
-//            }
-//            false
-//        }
+        mRecyclerView!!.setOnTouchListener { _, event ->
+            if (event.action == MotionEvent.ACTION_DOWN) {
+                mRecyclerView!!.parent?.requestDisallowInterceptTouchEvent(true)
+            }
+            false
+        }
 
 
 

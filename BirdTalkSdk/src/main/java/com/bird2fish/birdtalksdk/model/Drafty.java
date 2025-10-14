@@ -714,7 +714,7 @@ public class Drafty implements Serializable {
      */
     @SuppressWarnings("UnusedReturnValue")
     public Drafty attachFile(String mime, byte[] bits, String fname) {
-        return attachFile(mime, bits, fname, null, bits.length);
+        return attachFile(mime, bits, fname, null, bits.length, 0, 0);
     }
 
     /**
@@ -727,8 +727,8 @@ public class Drafty implements Serializable {
      * @return 'this' Drafty object.
      */
     @SuppressWarnings("UnusedReturnValue")
-    public Drafty attachFile(String mime, String fname, String refurl, long size) {
-        return attachFile(mime, null, fname, refurl, size);
+    public Drafty attachFile(String mime, String fname, String refurl, long size,long msgid, long fid) {
+        return attachFile(mime, null, fname, refurl, size, msgid, fid);
     }
 
     /**
@@ -742,7 +742,7 @@ public class Drafty implements Serializable {
      *
      * @return 'this' Drafty object.
      */
-    protected Drafty attachFile(String mime, byte[] bits, String fname, String refurl, long size) {
+    protected Drafty attachFile(String mime, byte[] bits, String fname, String refurl, long size, long msgid, long fid) {
         if (bits == null && refurl == null) {
             throw new IllegalArgumentException("Either file bits or reference URL must not be null.");
         }
@@ -755,6 +755,10 @@ public class Drafty implements Serializable {
         addOrSkip(data, "name", fname);
         addOrSkip(data, "ref", refurl);
         addOrSkip(data,"cur", 0);
+        if (msgid > 0)
+            addOrSkip(data,"msgid", msgid);
+        if (fid != 0)
+            addOrSkip(data,"fid", fid);
         if (size > 0) {
             data.put("size", size);
         }

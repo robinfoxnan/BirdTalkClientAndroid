@@ -258,6 +258,7 @@ class MsgEncocder {
             val fileName = ret.fileName
             val uuidName = ret.uuidName
             val detail = ret.detail
+            val index = ret.chunkIndex
 
             val resultMap = mapOf(
                 "uploadResult" to uploadResult.toString(),
@@ -272,18 +273,20 @@ class MsgEncocder {
             if (uploadResult == "fileok" || uploadResult == "sameok"){
 
                 // 通知消息管理器，文件传完了，需要发送消息了
-                ChatSessionManager.onUploadFileReply(ret.sendId, uploadResult.toString(), detail, fileName, uuidName)
+                ChatSessionManager.onUploadFileFinish(ret.sendId, uploadResult.toString(), detail, fileName, uuidName)
 
                 val msgType = ChatMsgType.IMAGE_VALUE
                 SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(MsgEventType.MSG_UPLOAD_OK, msgType, ret.sendId, 0L, resultMap)
             }
             else if (uploadResult == "chunkok")
             {
+                // 这个函数中通知消息
+                ChatSessionManager.onUploadFileProcess(ret.sendId, fileName, uuidName, index, resultMap)
                 return
             }
             else{
                 // 遇到错误
-                ChatSessionManager.onUploadFileReply(ret.sendId, uploadResult.toString(), detail, fileName, uuidName)
+                ChatSessionManager.onUploadFileFinish(ret.sendId, uploadResult.toString(), detail, fileName, uuidName)
                 SdkGlobalData.userCallBackManager.invokeOnErrorCallbacks(InterErrorType.UPLOAD_FAIL,fileName,uploadResult, detail)
             }
         }

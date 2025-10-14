@@ -79,56 +79,20 @@ class ActionListener :StatusCallback{
                     val  mainViewModel = ViewModelProvider(GlobalData.mainActivity!!).get(mainViewModel::class.java)
                 }
             }
-            FRIEND_REQ_REPLY ->{
-
-            }
-            FRIEND_ONLINE ->{
-
-            }
-            FRIEND_OFFLINE ->{
-
-            }
-            FRIEND_UPDATE ->{
-
-            }
-
-
-            MSG_COMING ->{
-
-            }
-            MSG_DOWNLOAD_ERROR ->{
-
-            }
-
-            MSG_SEND_ERROR ->{
-
-            }
-            MSG_SEND_OK ->{
-
-            }
-            MSG_RECV_OK ->{
-
-            }
-            MSG_READ_OK ->{
-
-            }
-            // end items
-            MSG_DOWNLOAD_OK -> {
-
-            }
-            MSG_UPLOAD_OK -> {
-
-            }
-            MSG_UPLOAD_FAIL -> {
-
-            }
-            USR_UPDATEINFO_OK->{
-
-            }
-            USR_UPDATEINFO_FAIL->{
-
-            }
-
+            FRIEND_REQ_REPLY ->doNothing()
+            FRIEND_ONLINE ->doNothing()
+            FRIEND_OFFLINE ->doNothing()
+            FRIEND_UPDATE ->doNothing()
+            MSG_COMING ->doNothing()
+            MSG_SEND_ERROR ->doNothing()
+            MSG_SEND_OK ->doNothing()
+            MSG_RECV_OK ->doNothing()
+            MSG_READ_OK ->doNothing()
+            MSG_UPLOAD_OK -> doNothing()
+            MSG_UPLOAD_FAIL -> doNothing()
+            USR_UPDATEINFO_OK->doNothing()
+            USR_UPDATEINFO_FAIL->doNothing()
+            MSG_UPLOAD_PROCESS -> doNothing()
             SEARCH_FRIEND_RET -> doNothing()
             SEARCH_GROUP_RET -> doNothing()
             FRIEND_LIST_FOLLOW ->doNothing()
@@ -139,6 +103,12 @@ class ActionListener :StatusCallback{
             CONNECTING -> doNothing()
             RECONNECTING -> doNothing()
             CONNECTED -> doNothing()
+
+            // end items
+            MSG_DOWNLOAD_OK -> doNothing()
+            MSG_DOWNLOAD_PROCESS -> doNothing()
+            MSG_DOWNLOAD_FAIL -> doNothing()
+
         }
     }
 }

@@ -19,7 +19,9 @@ class MessageContent(
     var content :Drafty?,
     var tm :Long = 0,
     var fileUri: Uri? = null,  // 上传文件使用的
-    var mime : String? = ""
+    var mime : String? = "",
+    var fileSz:Long = 0L,
+    var fileHashCode:String = ""
 //    var tm1:Long =0,
 //    var tm2:Long =0 ,
 

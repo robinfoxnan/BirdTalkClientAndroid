@@ -43,28 +43,34 @@ class ClientWebSocketListener(client: WebSocketClient?) : WebSocketListener() {
         //LogHelper.d( "WebSocket closing: {0} / {1}", new Object[]{code, reason});
         Log.i("WebSocket", "Closing: $code / $reason")
 
-
-
-        if (ws != null && !ws!!.wasManuallyClosed()) {
-            updateState(Session.SessionState.CONNECTING)
-
-            val resultMap = mapOf("reason" to "manual")
-            invokeOnEventCallbacks(MsgEventType.RECONNECTING, 4, 0, 0, resultMap)
-
-            Log.d("WebSocketClient", "本地主动关闭，执行重连")
-            ws!!.attemptReconnect()
-        }else{
-
-            Log.d("WebSocketClient", "远端主动关闭，执行重连")
-            val resultMap = mapOf("reason" to "remote closed")
-            invokeOnEventCallbacks(MsgEventType.RECONNECTING, 3, 0, 0, resultMap)
+        // 判断关闭类型
+        when (code) {
+            1000 -> {
+                // 正常关闭（可能用户手动退出）
+                Log.d("WebSocketClient", "本地正常关闭，不重连")
+                updateState(Session.SessionState.DISCONNECTED)
+            }
+            1001 -> {
+                // 远端关闭或App中断
+                Log.d("WebSocketClient", "远端主动关闭，准备重连")
+                updateState(Session.SessionState.CONNECTING)
+                invokeOnEventCallbacks(MsgEventType.RECONNECTING, 3, 0, 0, mapOf("reason" to "remote closed"))
+                ws?.attemptReconnect()
+            }
+            else -> {
+                // 其他非正常关闭，执行重连
+                Log.d("WebSocketClient", "异常关闭 code=$code，执行重连")
+                updateState(Session.SessionState.CONNECTING)
+                invokeOnEventCallbacks(MsgEventType.RECONNECTING, 2, 0, 0, mapOf("reason" to "abnormal close"))
+                ws?.attemptReconnect()
+            }
         }
     }
 
     override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
         //LogHelper.d( "WebSocket error: ", t);
-        println("WebSocket error: $t")
 
+        Log.d("WebSocketClient", "$t")
         val resultMap = mapOf("reason" to "failure")
         when (t) {
             is java.net.SocketTimeoutException -> {

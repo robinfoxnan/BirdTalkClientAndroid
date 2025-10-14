@@ -235,6 +235,87 @@ object Session  {
     }
 
 
+    // 每次只发一个块
+    fun uploadFileChunk(
+        ctx: Context,
+        uri: Uri?,
+        groupId: Long,
+        msgId: Long,
+        index: Int, // 要发送的块号
+        hash:String
+    ) :String {
+        if (uri == null) {
+            //println("URI is null, cannot upload file.")
+            return ""
+        }
+
+        var hashCode = hash
+        // 计算文件的 MD5 哈希值
+        if (index == 0){
+            hashCode = TextHelper.calculateMD5FromUri(ctx, uri)
+        }
+
+
+        try {
+            // 获取文件名
+            var name = TextHelper.getFileNameFromUri(ctx, uri)
+            if (name.isNullOrEmpty()) {
+                name = TextHelper.generateRandomByteString()
+            }
+
+
+
+            // 定义分块大小和文件大小
+            val chunkSz = 1024 * 1024 // 1MB
+            val fileSize = TextHelper.getFileSize(ctx, uri)
+            val totalChunks = ((fileSize + chunkSz - 1) / chunkSz).toInt()
+
+            if (index < 0 || index >= totalChunks) {
+                println("Invalid chunk index: $index")
+                return ""
+            }
+
+            // 获取文件的 MIME 类型
+            val type = TextHelper.getMimeTypeFromUri(ctx, uri)
+
+            // 打开输入流
+            val inputStream = ctx.contentResolver.openInputStream(uri)
+                ?: throw IllegalArgumentException("Unable to open InputStream for URI")
+
+            // 跳到指定块的起始位置
+            val skipBytes = index.toLong() * chunkSz
+            if (skipBytes > 0) {
+                val skipped = inputStream.skip(skipBytes)
+                if (skipped != skipBytes) {
+                    println("Failed to skip to chunk $index")
+                    inputStream.close()
+                    return ""
+                }
+            }
+
+            // 读取块数据
+            val bufferSize = if (fileSize - skipBytes >= chunkSz) chunkSz else (fileSize - skipBytes).toInt()
+            val buffer = ByteArray(bufferSize)
+            val bytesRead = inputStream.read(buffer)
+            if (bytesRead <= 0) {
+                println("No data read for chunk $index")
+                inputStream.close()
+                return ""
+            }
+
+            // 发送块
+            MsgEncocder.sendFileChunk(name, fileSize, index, chunkSz, totalChunks, hashCode, buffer, type, groupId, msgId)
+
+            inputStream.close()
+            println("Chunk $index uploaded. Size: $bytesRead / $fileSize")
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
+        return hashCode
+    }
+
+
     fun uploadBigFile(ctx: Context, uri: Uri?){
 
     }

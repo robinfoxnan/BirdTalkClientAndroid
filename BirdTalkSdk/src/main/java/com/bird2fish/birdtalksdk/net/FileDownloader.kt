@@ -285,4 +285,59 @@ object FileDownloader {
             Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
         }
     }
+
+    /**
+     * 打开本地文件或 content URI 文件
+     *
+     * @param context 上下文
+     * @param path 文件路径或者 URI，可以是：
+     *  - 本地路径 /storage/emulated/0/Download/test.pdf
+     *  - file:// URI
+     *  - content:// URI
+     */
+    fun openLocalFile(context: Context, path: String) {
+        val uri: Uri
+        val mimeType: String
+
+        when {
+            path.startsWith("content://") -> {
+                uri = Uri.parse(path)
+                mimeType = context.contentResolver.getType(uri) ?: "*/*"
+            }
+            path.startsWith("file://") -> {
+                val file = File(Uri.parse(path).path!!)
+                if (!file.exists()) {
+                    android.widget.Toast.makeText(context, "文件不存在", android.widget.Toast.LENGTH_SHORT).show()
+                    return
+                }
+                uri = Uri.fromFile(file)
+                mimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension(file.extension.lowercase()) ?: "*/*"
+            }
+            else -> {
+                val file = File(path)
+                if (!file.exists()) {
+                    android.widget.Toast.makeText(context, "文件不存在", android.widget.Toast.LENGTH_SHORT).show()
+                    return
+                }
+                // 使用 FileProvider 提供 content:// URI
+                uri = try {
+                    FileProvider.getUriForFile(context, context.packageName + ".fileprovider", file)
+                } catch (e: Exception) {
+                    Uri.fromFile(file)
+                }
+                mimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension(file.extension.lowercase()) ?: "*/*"
+            }
+        }
+
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(uri, mimeType)
+            flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK
+        }
+
+        try {
+            context.startActivity(intent)
+        } catch (e: Exception) {
+            android.widget.Toast.makeText(context, "无法打开此文件类型", android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
 }

@@ -581,13 +581,17 @@ class FullFormatter(private val mContainer: TextView, private val mClicker: Clic
             ImageSpan(icon, ImageSpan.ALIGN_BOTTOM),
             Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
         )
+
+        val url = data["ref"] as String
+        val isLocalUrl = (url != null) && !url.startsWith("http", true)
+
         if (valid) {
             if (fname == ctx.resources.getString(R.string.default_attachment_name)){
-                fname = TextHelper.getFileNameFromUrl(data["ref"] as String)
+                fname = TextHelper.getFileNameFromUrl(url)
             }
             val bHas = TextHelper.hasDownloadFile(fname)
 
-            if (bHas){
+            if (isLocalUrl || bHas){
                 saveLink.append(
                     ctx.resources.getString(R.string.open_attachment),
                     object : ClickableSpan() {
@@ -636,10 +640,20 @@ class FullFormatter(private val mContainer: TextView, private val mClicker: Clic
 
             if (curProgress in 1..99) { // 0 和 100 不显示
                 result.append("\n")
-                val progressText = ctx.getString(R.string.downloading, curProgress)
+                var progressText = ctx.getString(R.string.downloading, curProgress)
+                if (isLocalUrl){
+                    progressText = ctx.getString(R.string.uploading, curProgress)
+                }
                 result.append(
                     progressText,
                     ForegroundColorSpan(Color.BLUE), // 可自定义颜色
+                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
+            }
+            if (curProgress == -1){
+                result.append(
+                    ctx.getString(R.string.failed),
+                    ForegroundColorSpan(Color.RED), // 可自定义颜色
                     Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
                 )
             }

@@ -5,6 +5,7 @@ import android.content.Context
 import android.net.Uri
 import android.text.TextUtils
 import android.util.Log
+import com.bird2fish.birdtalksdk.MsgEventType
 import com.bird2fish.birdtalksdk.SdkGlobalData
 import com.bird2fish.birdtalksdk.net.MsgEncocder
 import com.bird2fish.birdtalksdk.net.Session
@@ -65,7 +66,7 @@ class ChatSession (val sessionId:Long)
 
         synchronized(msgSendingList){
             if (msgSendingList.containsKey(msgId)){
-                val msg = msgSendingList[msgId]
+                //val msg = msgSendingList[msgId]
                 msgSendingList.remove(msgId)
             }
         }
@@ -271,6 +272,9 @@ object ChatSessionManager {
                 chatSession.sessionId, chatSession.sessionTitle, chatSession.sessionIcon,
                 UserStatus.ONLINE, MessageStatus.UPLOADING, false, false, false,"", draft,  0, uri, mime)
 
+            val sz = TextHelper.getFileSize(context, uri)
+            msg.fileSz = sz
+
             // 得保存到临时列表，等待上传结束
             synchronized(this.uploadingMap){
                 this.uploadingMap[msgId] = msg
@@ -315,11 +319,12 @@ object ChatSessionManager {
 
         val draft = Drafty("")
         //draft.attachFile(mime, bits, fileName);
-        draft.attachFile(mime, fileName, uri.toString(), sz);
+        draft.attachFile(mime, fileName, uri.toString(), sz, msgId, sessionId);
 
         val msg = MessageContent(msgId,
             chatSession.sessionId, chatSession.sessionTitle, chatSession.sessionIcon,
             UserStatus.ONLINE, MessageStatus.UPLOADING, false, false, false,"", draft,  0, uri, mime)
+        msg.fileSz = sz
 
         val (hasAttach, sz1) = hasAttachment(draft)
         Log.d("SendFile", "文件大小为：${sz1}")
@@ -329,11 +334,33 @@ object ChatSessionManager {
             this.uploadingMap[msgId] = msg
         }
         // 异步上传
-        Session.uploadSmallFile(context, uri,  uId, msgId)
+        //Session.uploadSmallFile(context, uri,  uId, msgId)
+        msg.fileHashCode = Session.uploadFileChunk(context, uri,  uId, msgId, 0, "")
         // 添加到界面列表
         chatSession!!.addMessageNewOut(msg)
 
         return msgId
+    }
+
+    // 计算上传进度
+    fun onUploadFileProcess(msgId:Long, fileName:String, uuid:String, index:Int, params:Map<String, String>){
+        var msg:MessageContent? = null
+        synchronized(this.uploadingMap){
+            msg = this.uploadingMap[msgId]
+        }
+
+        if (msg != null){
+            val sessionId = msg!!.userId
+            val sz = msg!!.fileSz.toFloat()
+            val percent:Float = (index+1).toFloat() * 1024*1024 * 100   /sz;
+
+            val draft = msg!!.content
+            setAttachmentProcess(draft, fileName, percent.toInt())
+            Session.uploadFileChunk(SdkGlobalData.context!!, msg!!.fileUri, msg!!.userId, msgId, index + 1, msg!!.fileHashCode)
+
+            SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(MsgEventType.MSG_UPLOAD_PROCESS, percent.toInt(), msgId, 0L, params)
+        }
+
     }
 
     // 发送语音
@@ -393,6 +420,24 @@ object ChatSessionManager {
         return Pair(false, null)
     }
 
+    // 设置本地的附件上传进度
+    fun setAttachmentProcess(drafty: Drafty?, filename: String? = null, percent:Int):Boolean{
+        if (drafty?.ent.isNullOrEmpty()) return false
+        for (entity in drafty!!.ent!!) {
+            if (entity?.tp == null || entity.data == null) continue
+
+            // 只检测附件类型
+            if (entity.tp == "EX") {
+                val name = entity.data["name"] as? String
+                if (name == filename){
+                    entity.data["cur"] = percent
+                    return true
+                }
+            }
+        }
+        return false
+    }
+
     fun hasImage(drafty: Drafty?): Boolean {
         if (drafty?.ent == null) {
             return false
@@ -408,7 +453,7 @@ object ChatSessionManager {
     }
 
     // 上传结束了，这个时候需要发送消息
-    fun onUploadFileReply(msgId:Long, result:String, detail:String, fileName:String, uuidName:String){
+    fun onUploadFileFinish(msgId:Long, result:String, detail:String, fileName:String, uuidName:String){
 
         var msg : MessageContent? = null
         synchronized(this.uploadingMap){
@@ -451,8 +496,11 @@ object ChatSessionManager {
         val (hasAttach, sz) = hasAttachment(draftMsg)
 
         if (hasAttach) {
+
+            setAttachmentProcess(draftMsg, fileName, 100)
+
             // 调用 attachFile 时传入文件大小
-            draft.attachFile(msg!!.mime, fileName, fullUrl, sz ?: 0L)
+            draft.attachFile(msg!!.mime, fileName, fullUrl, sz ?: 0L, msgId, SdkGlobalData.selfUserinfo.id)
 
             // 序列化 Drafty
             val txt = TextHelper.serializeDrafty(draft)
@@ -468,11 +516,36 @@ object ChatSessionManager {
                 0L
             )
 
+
+
             return
         }
 
         // 如果是大的语音片
 
+    }
+
+    // 如果上传文件错误了
+    fun onUploadFileError(msgId:Long, result:String, detail:String, fileName:String, uuidName:String){
+        var msg : MessageContent? = null
+        synchronized(this.uploadingMap){
+            msg = this.uploadingMap[msgId]
+        }
+
+        if (msg == null){
+            Log.e("onUploadFileReply", "can't find message in queue")
+            return
+        }
+
+        // 这里的userId就是sessionId
+        val chatSession = getSession(msg!!.userId)
+
+        msg!!.msgStatus = MessageStatus.FAIL
+        //msg!!.content = draft
+        val chatType = if (msg!!.userId > 0) ChatType.ChatTypeP2P else ChatType.ChatTypeGroup
+        var draftMsg = msg!!.content
+
+        setAttachmentProcess(draftMsg, fileName, -1)
     }
 
     // 处理收到的数据，
@@ -545,4 +618,10 @@ object ChatSessionManager {
         val index = chatSession.setReply(msgId, tm, tm1, tm2)
         return index
     }
+
+
+    // 点击时候直接设置进度了
+//    fun notifyDownloadProcess(sessionId:Long, msgid:Long, percent:Int, fname:String, url:String){
+//
+//    }
 }

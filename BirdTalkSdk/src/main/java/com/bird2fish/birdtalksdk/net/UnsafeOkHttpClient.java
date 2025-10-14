@@ -49,8 +49,11 @@ public class UnsafeOkHttpClient {
             });
 
             builder.connectTimeout(10, TimeUnit.SECONDS);   // 连接超时
-            builder.writeTimeout(5, TimeUnit.SECONDS);    // 写入超时
+            //builder.writeTimeout(30, TimeUnit.SECONDS);    // 写入超时
             //builder.readTimeout(0, TimeUnit.SECONDS) ;     // 读取超时
+            builder.pingInterval(30, TimeUnit.SECONDS); // 每 30 秒发心跳
+            builder.readTimeout(0, TimeUnit.MILLISECONDS);
+            builder.writeTimeout(0, TimeUnit.MILLISECONDS);
 
             return builder.build();
         } catch (Exception e) {

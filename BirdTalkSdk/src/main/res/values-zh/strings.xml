@@ -82,7 +82,8 @@
     <string name="default_attachment_name">附件</string>
     <string name="download_attachment">下载附件</string>
     <string name="open_attachment">打开附件</string>
-    <string name="downloading">下载中 %1$d%% </string>
+    <string name="downloading">下载进度 %1$d%% </string>
+    <string name="uploading">上传进度 %1$d%% </string>
 
     <string name="processing">处理中</string>
     <string name="failed">失败</string>

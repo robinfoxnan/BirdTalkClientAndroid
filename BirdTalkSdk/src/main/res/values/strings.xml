@@ -85,6 +85,7 @@
     <string name="download_attachment">download attachment</string>
     <string name="open_attachment">open attachment</string>
     <string name="downloading">downloading %1$d%% </string>
+    <string name="uploading">uploading %1$d%% </string>
 
 
 

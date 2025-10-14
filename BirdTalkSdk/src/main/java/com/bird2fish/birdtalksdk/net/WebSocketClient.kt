@@ -112,15 +112,21 @@ class WebSocketClient private constructor() {
         SendQueue.instance.enqueue(msg)
     }
 
+    // 注意，这里千万不能用服务器逻辑一样来发送数据，大文件会把连接卡住，
     private fun startSendTask() {
         handler.post(object : Runnable {
             override fun run() {
                 if (!isRunning.get()) return
 
                 var msg = SendQueue.instance.dequeue()
-                while (msg != null) {
+
+//                while (msg != null) {
+//                    sendMsg(msg.toByteArray())
+//                    msg = SendQueue.instance.dequeue()
+//                }
+                if (msg != null)
+                {
                     sendMsg(msg.toByteArray())
-                    msg = SendQueue.instance.dequeue()
                 }
 
                 // 50ms 后再执行下一次循环
@@ -159,6 +165,7 @@ class WebSocketClient private constructor() {
             return try {
                 socket!!.send(strData)
             } catch (e: IOException) {
+                Log.e("WebSocket", "write meets error!!!!")
                 e.printStackTrace()
                 scheduleReconnect()
                 false

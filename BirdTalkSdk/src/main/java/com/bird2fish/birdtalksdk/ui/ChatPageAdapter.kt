@@ -660,13 +660,30 @@ class ChatPageAdapter(private val dataList: List<MessageContent>) : RecyclerView
             }
 
             url = data["ref"] as String?
+
             if (TextUtils.isEmpty(url)){
-                TextHelper.showToast(SdkGlobalData.context!!, "路径为空，无法下载")
+                TextHelper.showToast(SdkGlobalData.context!!, "路径为空，无法操作")
                 return false
             }
 
+            // 本地文件直接打开
+            if (!url!!.startsWith("http", true))
+            {
+                FileDownloader.openLocalFile(SdkGlobalData.context!!, url)
+                return true
+            }
 
-
+            var msgId :Long = 0L
+            try {
+                val szObj = data["msgid"]
+                msgId = when (szObj) {
+                    is Number -> szObj.toLong()
+                    is String -> szObj.toLong()
+                    else -> 0L
+                }
+            } catch (ignored: NullPointerException) {
+            } catch (ignored: ClassCastException) {
+            }
             // 尝试下载文件，下载后打开
             FileDownloader.downloadAndOpen(
                 SdkGlobalData.context!!,
@@ -674,15 +691,21 @@ class ChatPageAdapter(private val dataList: List<MessageContent>) : RecyclerView
                 fname!!,
                 onProgress = { percent ->
                     Log.d("Download", "进度: $percent%")
-                    SdkGlobalData.invokeOnEventCallbacks(MsgEventType. MSG_DOWNLOAD_PROCESS, percent.toInt(), 0, 0, mapOf("url" to url, "name"  to fname))
+                    (data as MutableMap<String, Any>)["cur"] = percent.toInt()
+                    //ChatSessionManager.notifyDownloadProcess(sessionId, msgId, percent.toInt(), fname, url)
+                    SdkGlobalData.invokeOnEventCallbacks(MsgEventType. MSG_DOWNLOAD_PROCESS, percent.toInt(), msgId, sessionId, mapOf("url" to url, "name"  to fname))
                 },
                 onFinished = { file ->
                     Log.d("Download", "下载完成: ${file.absolutePath}")
-                    SdkGlobalData.invokeOnEventCallbacks(MsgEventType. MSG_DOWNLOAD_PROCESS, 100, 0, 0, mapOf("url" to url, "name"  to fname))
+                    (data as MutableMap<String, Any>)["cur"] = 100
+                    //ChatSessionManager.notifyDownloadProcess(sessionId, msgId, 100, fname, url)
+                    SdkGlobalData.invokeOnEventCallbacks(MsgEventType. MSG_DOWNLOAD_PROCESS, 100, msgId, sessionId, mapOf("url" to url, "name"  to fname))
                 },
                 onError = { e ->
                     Log.e("Download", "出错: ${e.message}")
-                    SdkGlobalData.invokeOnEventCallbacks(MsgEventType. MSG_DOWNLOAD_PROCESS, 0, 0, 0, mapOf("url" to url, "name"  to fname))
+                    //ChatSessionManager.notifyDownloadProcess(sessionId, msgId, -1, fname, url)
+                    (data as MutableMap<String, Any>)["cur"] = -1
+                    SdkGlobalData.invokeOnEventCallbacks(MsgEventType. MSG_DOWNLOAD_PROCESS, -1, msgId, sessionId, mapOf("url" to url, "name"  to fname))
                 }
             )
 
