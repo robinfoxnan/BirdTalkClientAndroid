@@ -754,6 +754,7 @@ public class Drafty implements Serializable {
         addOrSkip(data, "val", bits);
         addOrSkip(data, "name", fname);
         addOrSkip(data, "ref", refurl);
+        addOrSkip(data,"cur", 0);
         if (size > 0) {
             data.put("size", size);
         }

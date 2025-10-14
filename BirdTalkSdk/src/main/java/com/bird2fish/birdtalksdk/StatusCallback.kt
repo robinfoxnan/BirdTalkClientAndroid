@@ -33,15 +33,21 @@ enum class MsgEventType {
 
 
     MSG_COMING,          // 新消息
-    MSG_DOWNLOAD_ERROR,  // 下载失败
-    MSG_DOWNLOAD_OK,
+
+
 
     MSG_SEND_ERROR,      // 发送消息失败
     MSG_SEND_OK,         // 发送消息成功
     MSG_RECV_OK,         // 对方接受消息
     MSG_READ_OK,         // 对方阅读消息
+
     MSG_UPLOAD_OK,
+    MSG_UPLOAD_PROCESS,
     MSG_UPLOAD_FAIL,
+
+    MSG_DOWNLOAD_OK,
+    MSG_DOWNLOAD_PROCESS,
+    MSG_DOWNLOAD_FAIL,  // 下载失败
 
     USR_UPDATEINFO_OK,
     USR_UPDATEINFO_FAIL,
@@ -51,6 +57,8 @@ enum class MsgEventType {
 
     APP_NOTIFY_SEND_MSG,  // SDK通知界面
     APP_NOTIFY_REMOVE_SESSION,
+
+
 
 }
 

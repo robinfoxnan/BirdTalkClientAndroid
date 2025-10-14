@@ -83,6 +83,9 @@
 
     <string name="default_attachment_name">default attachment name</string>
     <string name="download_attachment">download attachment</string>
+    <string name="open_attachment">open attachment</string>
+    <string name="downloading">downloading %1$d%% </string>
+
 
 
     <string name="processing">processing</string>

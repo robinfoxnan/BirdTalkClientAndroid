@@ -10,7 +10,6 @@ import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.graphics.Point
 import android.graphics.Typeface
-import android.os.Bundle
 import android.text.SpannableString
 import android.text.Spanned
 import android.text.TextUtils
@@ -38,6 +37,7 @@ import androidx.appcompat.view.ActionMode
 import androidx.appcompat.widget.AppCompatImageButton
 import androidx.appcompat.widget.AppCompatImageView
 import androidx.recyclerview.widget.RecyclerView
+import com.bird2fish.birdtalksdk.MsgEventType
 import com.bird2fish.birdtalksdk.format.FullFormatter
 import com.bird2fish.birdtalksdk.format.QuoteFormatter
 import com.bird2fish.birdtalksdk.model.MessageContent
@@ -49,7 +49,10 @@ import java.io.IOException
 import java.net.MalformedURLException
 import java.net.URL
 import com.bird2fish.birdtalksdk.R
+import com.bird2fish.birdtalksdk.SdkGlobalData
 import com.bird2fish.birdtalksdk.model.ChatSessionManager
+import com.bird2fish.birdtalksdk.net.FileDownloader
+import com.bird2fish.birdtalksdk.net.MsgEncocder
 import com.bird2fish.birdtalksdk.uihelper.AvatarHelper
 
 
@@ -649,25 +652,39 @@ class ChatPageAdapter(private val dataList: List<MessageContent>) : RecyclerView
 
             var fname: String? = null
             var mimeType: String? = null
+            var url :String? = null
             try {
                 fname = data["name"] as String?
                 mimeType = data["mime"] as String?
             } catch (ignored: ClassCastException) {
             }
 
-            // Try to extract file name from reference.
-            if (TextUtils.isEmpty(fname)) {
-                val ref = data["ref"]
-                if (ref is String) {
-                    try {
-                        val url = URL(ref as String?)
-                        fname = url.file
-                    } catch (ignored: MalformedURLException) {
-                    }
-                }
+            url = data["ref"] as String?
+            if (TextUtils.isEmpty(url)){
+                TextHelper.showToast(SdkGlobalData.context!!, "路径为空，无法下载")
+                return false
             }
 
+
+
             // 尝试下载文件，下载后打开
+            FileDownloader.downloadAndOpen(
+                SdkGlobalData.context!!,
+                url!!,
+                fname!!,
+                onProgress = { percent ->
+                    Log.d("Download", "进度: $percent%")
+                    SdkGlobalData.invokeOnEventCallbacks(MsgEventType. MSG_DOWNLOAD_PROCESS, percent.toInt(), 0, 0, mapOf("url" to url, "name"  to fname))
+                },
+                onFinished = { file ->
+                    Log.d("Download", "下载完成: ${file.absolutePath}")
+                    SdkGlobalData.invokeOnEventCallbacks(MsgEventType. MSG_DOWNLOAD_PROCESS, 100, 0, 0, mapOf("url" to url, "name"  to fname))
+                },
+                onError = { e ->
+                    Log.e("Download", "出错: ${e.message}")
+                    SdkGlobalData.invokeOnEventCallbacks(MsgEventType. MSG_DOWNLOAD_PROCESS, 0, 0, 0, mapOf("url" to url, "name"  to fname))
+                }
+            )
 
             return true
         }

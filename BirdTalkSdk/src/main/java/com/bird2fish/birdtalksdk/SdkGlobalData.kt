@@ -35,9 +35,11 @@ class SdkGlobalData {
 
     companion object{
 
+        var context :Context? = null
         // 个人信息
         val selfUserinfo :com.bird2fish.birdtalksdk.model.User = User()
         private val msgId  = AtomicLong(1)
+
 
         // 这里是一个回调的列表
         var userCallBackManager = CallbackManager()
@@ -193,6 +195,7 @@ class SdkGlobalData {
 
         // 初始化
         fun init(context:Context){
+            this.context = context
             basicInfo.deviceId = generateUniqueDeviceId()
             basicInfo.osInfo = getOSInfo()
 

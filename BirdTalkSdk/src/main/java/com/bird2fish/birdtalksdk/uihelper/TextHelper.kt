@@ -7,6 +7,7 @@ import android.content.Context
 import android.database.Cursor
 import android.net.Uri
 import android.os.Build
+import android.os.Environment
 import android.provider.DocumentsContract
 import android.provider.MediaStore
 import android.provider.OpenableColumns
@@ -18,6 +19,7 @@ import android.widget.Toast
 import androidx.core.net.toFile
 import androidx.core.net.toUri
 import com.bird2fish.birdtalksdk.model.Drafty
+import com.bird2fish.birdtalksdk.net.FileDownloader
 import java.io.File
 import java.net.MalformedURLException
 import java.net.URL
@@ -41,7 +43,31 @@ object  TextHelper {
     private val mOsVersion:String? = "6.0"
 
 
+    fun getFileNameFromUrl(url: String): String {
+        return try {
+            val uri = Uri.parse(url)
+            val lastSegment = uri.lastPathSegment
+            if (!lastSegment.isNullOrEmpty()) lastSegment else "download_${System.currentTimeMillis()}"
+        } catch (e: Exception) {
+            "download_${System.currentTimeMillis()}"
+        }
+    }
 
+
+    fun hasDownloadFile(filename:String): Boolean{
+        val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+        if (!downloadsDir.exists()) downloadsDir.mkdirs()
+
+        val outFile = File(downloadsDir, filename)
+
+        // ✅ 已存在则直接返回
+        if (outFile.exists() && outFile.length() > 0) {
+            //FileDownloader.showToast(context, "文件已存在，直接打开")
+            return true
+        }
+
+        return false
+    }
     /**
      * 将Drafty对象序列化为JSON字符串
      * @param drafty 要序列化的Drafty对象

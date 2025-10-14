@@ -28,5 +28,6 @@
                 android:resource="@xml/file_paths_public" />
         </provider>
 
+
     </application>
 </manifest>

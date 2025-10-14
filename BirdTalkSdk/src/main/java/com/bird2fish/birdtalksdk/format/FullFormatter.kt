@@ -523,6 +523,7 @@ class FullFormatter(private val mContainer: TextView, private val mClicker: Clic
         } catch (ignored: ClassCastException) {
         }
         if (TextUtils.isEmpty(fname)) {
+            // 设置默认的文件为：“附件”
             fname = ctx.resources.getString(R.string.default_attachment_name)
         } else
             if (fname!!.length > MAX_FILE_LENGTH) {
@@ -533,10 +534,17 @@ class FullFormatter(private val mContainer: TextView, private val mClicker: Clic
 
         result.append(fname, TypefaceSpan("monospace"), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         try {
-            val size: String = TextHelper.bytesToHumanSize(data["size"] as Long)
-            if (!TextUtils.isEmpty(size)) {
+            val szObj = data["size"]
+            val sizeLong = when (szObj) {
+                is Number -> szObj.toLong()
+                is String -> szObj.toLongOrNull()
+                else -> null
+            }
+
+            if (sizeLong != null && sizeLong > 0) {
+                val sizeStr = sizeLong?.let { TextHelper.bytesToHumanSize(it) } ?: "未知大小"
                 result.append(
-                    "\u2009($size)",
+                    "\u2009($sizeStr)",
                     ForegroundColorSpan(Color.GRAY),
                     Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
                 )
@@ -574,15 +582,32 @@ class FullFormatter(private val mContainer: TextView, private val mClicker: Clic
             Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
         )
         if (valid) {
-            // Clickable "save".
-            saveLink.append(
-                ctx.resources.getString(R.string.download_attachment),
-                object : ClickableSpan() {
-                    override fun onClick(widget: View) {
-                        mClicker.onClick("EX", data, null)
-                    }
-                }, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-            )
+            if (fname == ctx.resources.getString(R.string.default_attachment_name)){
+                fname = TextHelper.getFileNameFromUrl(data["ref"] as String)
+            }
+            val bHas = TextHelper.hasDownloadFile(fname)
+
+            if (bHas){
+                saveLink.append(
+                    ctx.resources.getString(R.string.open_attachment),
+                    object : ClickableSpan() {
+                        override fun onClick(widget: View) {
+                            mClicker.onClick("EX", data, null)
+                        }
+                    }, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
+            }else{
+                // Clickable "save".
+                saveLink.append(
+                    ctx.resources.getString(R.string.download_attachment),
+                    object : ClickableSpan() {
+                        override fun onClick(widget: View) {
+                            mClicker.onClick("EX", data, null)
+                        }
+                    }, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
+            }
+
         } else {
             // Grayed-out "unavailable".
             saveLink.append(
@@ -598,6 +623,29 @@ class FullFormatter(private val mContainer: TextView, private val mClicker: Clic
             Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
         )
         // Append thin space after the link, otherwise the whole line to the right is clickable.
+        result.append('\u2009')
+
+        // --- 添加下载进度显示 ---
+        try {
+            val curObj = data["cur"]
+            val curProgress = when (curObj) {
+                is Number -> curObj.toInt()
+                is String -> curObj.toIntOrNull() ?: 0
+                else -> 0
+            }
+
+            if (curProgress in 1..99) { // 0 和 100 不显示
+                result.append("\n")
+                val progressText = ctx.getString(R.string.downloading, curProgress)
+                result.append(
+                    progressText,
+                    ForegroundColorSpan(Color.BLUE), // 可自定义颜色
+                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
+            }
+        } catch (ignored: Exception) {
+            // 忽略异常
+        }
         result.append('\u2009')
         return result
     }
