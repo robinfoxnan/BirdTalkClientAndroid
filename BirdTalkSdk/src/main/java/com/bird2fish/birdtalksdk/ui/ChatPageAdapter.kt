@@ -1,6 +1,7 @@
 package com.bird2fish.birdtalksdk.ui
 
 import FullscreenImageDialog
+import android.animation.ArgbEvaluator
 import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
@@ -125,7 +126,7 @@ class ChatPageViewHolder  constructor(itemView: View, val mViewType: Int) : Recy
 
                 // Make click position available to spannable.
                 mText.setTag(com.bird2fish.birdtalksdk.R.id.click_coordinates, Point(x, y))
-                //itemView.performClick()
+                itemView.performClick()
                 Log.d("TouchEvent", "gesture  ACTION_DOWN")
                 return true
 
@@ -383,7 +384,7 @@ class ChatPageAdapter(private val dataList: List<MessageContent>) : RecyclerView
             formatter.setQuoteFormatter(QuoteFormatter(holder.mText, holder.mText.textSize))
             var text  = item.content!!.format(formatter) as Spanned
             // 打印
-            logSpannedDetails("birdtalksdk-debug text:", text)
+            //logSpannedDetails("birdtalksdk-debug text:", text)
 
             if (TextUtils.isEmpty(text)) {
                 text =
@@ -432,9 +433,9 @@ class ChatPageAdapter(private val dataList: List<MessageContent>) : RecyclerView
                 when (ev?.action) {
                     MotionEvent.ACTION_DOWN -> {
                         Log.d("TouchEvent", "ACTION_DOWN")
-                        //holder.mText.callOnClick()
+                        holder.mText.callOnClick()
                         // 这里是没有办法的办法，调试时候可以，在运行时候总是得到一个cancel，估计是小米的BUG
-                        Thread.sleep(100)
+                        //Thread.sleep(100)
                     }
                     MotionEvent.ACTION_UP -> Log.d("TouchEvent", "ACTION_UP")
                     MotionEvent.ACTION_MOVE -> Log.d("TouchEvent", "ACTION_MOVE")
@@ -482,7 +483,7 @@ class ChatPageAdapter(private val dataList: List<MessageContent>) : RecyclerView
                 //mSelectionMode = fragment!!.startSupportActionMode(mSelectionModeCallback)
             }
 
-            //toggleSelectionAt(pos)
+            toggleSelectionAt(pos)
             notifyItemChanged(pos)
             updateSelectionMode()
             true
@@ -497,48 +498,7 @@ class ChatPageAdapter(private val dataList: List<MessageContent>) : RecyclerView
                 notifyItemChanged(pos)
                 updateSelectionMode()
             } else {
-                animateMessageBubble(holder, item.inOut, true)
-//                val replySeq: Int = UiUtils.parseSeqReference(m.getStringHeader("reply"))
-//                if (replySeq > 0) {
-//                    // A reply message was clicked. Scroll original into view and animate.
-//                    val pos: Int =
-//                        co.tinode.tindroid.MessagesAdapter.findInCursor(mCursor, replySeq)
-//                    if (pos >= 0) {
-//                        val mm: StoredMessage = getMessage(pos)
-//                        if (mm != null) {
-//                            val lm =
-//                                mRecyclerView.getLayoutManager() as LinearLayoutManager
-//                            if (lm != null && pos >= lm.findFirstCompletelyVisibleItemPosition() && pos <= lm.findLastCompletelyVisibleItemPosition()
-//                            ) {
-//                                // Completely visible, animate now.
-//                                animateMessageBubble(
-//                                    mRecyclerView.findViewHolderForAdapterPosition(pos) as co.tinode.tindroid.MessagesAdapter.ViewHolder,
-//                                    mm.isMine(), false
-//                                )
-//                            } else {
-//                                // Scroll then animate.
-//                                mRecyclerView.clearOnScrollListeners()
-//                                mRecyclerView.addOnScrollListener(object :
-//                                    RecyclerView.OnScrollListener() {
-//                                    override fun onScrollStateChanged(
-//                                        recyclerView: RecyclerView,
-//                                        newState: Int
-//                                    ) {
-//                                        super.onScrollStateChanged(recyclerView, newState)
-//                                        if (newState == RecyclerView.SCROLL_STATE_IDLE) {
-//                                            recyclerView.removeOnScrollListener(this)
-//                                            animateMessageBubble(
-//                                                mRecyclerView.findViewHolderForAdapterPosition(pos) as co.tinode.tindroid.MessagesAdapter.ViewHolder,
-//                                                mm.isMine(), false
-//                                            )
-//                                        }
-//                                    }
-//                                })
-//                                mRecyclerView.smoothScrollToPosition(pos)
-//                            }
-//                        }
-//                    }
-//                }
+                //animateMessageBubble(holder, item.inOut, true)
             }
         } //end
 //
@@ -547,6 +507,10 @@ class ChatPageAdapter(private val dataList: List<MessageContent>) : RecyclerView
 
 
     private fun toggleSelectionAt(pos: Int) {
+        if (mSelectedItems == null){
+            Log.d("toggleSelectionAt", "toggleSelectionAt mSelectedItems = null")
+            return
+        }
         if (mSelectedItems!![pos]) {
             mSelectedItems!!.delete(pos)
         } else {
@@ -570,27 +534,30 @@ class ChatPageAdapter(private val dataList: List<MessageContent>) : RecyclerView
     }
 
     // 动画显示消息气泡
-    private fun animateMessageBubble(vh: ChatPageViewHolder?, isMine: Boolean, light: Boolean) {
-        if (vh == null) {
-            return
-        }
-        val from: Int = vh.mMessageBubble.getResources().getColor(
-            if (isMine) R.color.colorMessageBubbleMine else R.color.colorMessageBubbleOther,
-            null
-        )
-        val to: Int = vh.mMessageBubble.getResources().getColor(
-            if (isMine) (if (light) R.color.colorMessageBubbleMineFlashingLight else R.color.colorMessageBubbleMineFlashing) else (if (light) R.color.colorMessageBubbleOtherFlashingLight else R.color.colorMessageBubbleOtherFlashing),
-            null
-        )
-        val colorAnimation = ValueAnimator.ofArgb(from, to, from)
-        colorAnimation.setDuration((if (light) MESSAGE_BUBBLE_ANIMATION_SHORT else MESSAGE_BUBBLE_ANIMATION_LONG).toLong())
-        colorAnimation.addUpdateListener { animator: ValueAnimator ->
-            vh.mMessageBubble.setBackgroundTintList(
-                ColorStateList.valueOf(animator.animatedValue as Int)
-            )
-        }
-        colorAnimation.start()
-    }
+    // 在小米上测试，发现毛用没有，只刷新首尾2次，不如直接设置背景色
+//    private fun animateMessageBubble(vh: ChatPageViewHolder?, isMine: Boolean, light: Boolean) {
+//        if (vh == null) {
+//            return
+//        }
+//        val from: Int = vh.mMessageBubble.getResources().getColor(
+//            if (isMine) R.color.colorMessageBubbleMine else R.color.colorMessageBubbleOther,
+//            null
+//        )
+//        val to: Int = vh.mMessageBubble.getResources().getColor(
+//            if (isMine) (if (light) R.color.colorMessageBubbleMineFlashingLight else R.color.colorMessageBubbleMineFlashing) else (if (light) R.color.colorMessageBubbleOtherFlashingLight else R.color.colorMessageBubbleOtherFlashing),
+//            null
+//        )
+//        val colorAnimation = ValueAnimator.ofArgb(to, to, from)
+//
+//        colorAnimation.setDuration(2000)
+//        //colorAnimation.setDuration((if (light) MESSAGE_BUBBLE_ANIMATION_SHORT else MESSAGE_BUBBLE_ANIMATION_LONG).toLong())
+//        colorAnimation.addUpdateListener { animator: ValueAnimator ->
+//            Log.d("BubbleAnim", "color=${animator.animatedValue}")
+//            vh.mMessageBubble.setBackgroundTintList(ColorStateList.valueOf(animator.animatedValue as Int))
+//            //vh.mMessageBubble.setBackgroundColor(animator.animatedValue as Int)
+//        }
+//        colorAnimation.start()
+//    }
 
     // 返回数据项数量
     override fun getItemCount(): Int {

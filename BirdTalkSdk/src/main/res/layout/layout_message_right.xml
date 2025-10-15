@@ -84,7 +84,7 @@
             android:id="@+id/overlay"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:background="?android:selectableItemBackground"
+            android:background="@drawable/ripple_overlay"
             android:clickable="false"
             android:focusable="false" />
     </FrameLayout>

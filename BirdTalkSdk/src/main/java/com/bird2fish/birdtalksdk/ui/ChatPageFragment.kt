@@ -1206,33 +1206,6 @@ class ChatPageFragment : Fragment() , StatusCallback {
     }
 
 
-    // 真正发送消息函数，执行发送消息
-    private fun sendMessage(content: MessageContent, replyTo: Int): Boolean {
-
-        if (activity != null) {
-            val done: Boolean = true
-            if (done) {
-                scrollToBottom(false)
-            }
-            return done
-        }
-        return false
-    }
-
-    /**
-     * 从 Uri 读取文件为 ByteArray
-     * @param context Android 上下文
-     * @param uri 图片的 Uri
-     * @return 文件内容的字节数组
-     * @throws IOException 如果无法读取文件
-     */
-    @Throws(IOException::class)
-    fun readUriAsByteArray(context: Context, uri: Uri): ByteArray {
-        val inputStream = context.contentResolver.openInputStream(uri)
-            ?: throw IOException("Unable to open InputStream for URI: $uri")
-
-        return inputStream.use { it.readBytes() } // 自动关闭 InputStream
-    }
 
     fun testSendImage(){
         val contentResolver: ContentResolver = requireContext().contentResolver
@@ -1344,8 +1317,6 @@ class ChatPageFragment : Fragment() , StatusCallback {
             null, // URI("https://lx-sycdn.kuwo.cn/c7aff93e02882b90b34e8f45387b4436/6755728e/resource/n2/3/57/2049851017.mp3?")
             sz.toLong())
         ChatSessionManager.sendAudioOut(this.mChatIdLong, requireContext(), draft)
-
-
 
     }
 

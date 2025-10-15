@@ -1,0 +1,6 @@
+<ripple xmlns:android="http://schemas.android.com/apk/res/android"
+    android:color="#33A8E6A1"> <!-- 淡绿色，33 表示透明度 -->
+
+    <!-- 默认背景颜色，这里可以保持白色或透明 -->
+    <item android:drawable="@android:color/white" /> 
+</ripple>
