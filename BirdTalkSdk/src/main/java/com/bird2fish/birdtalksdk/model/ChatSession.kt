@@ -32,11 +32,21 @@ class ChatSession (val sessionId:Long)
     var sessionTitle:String = ""
     var sessionIcon :String = ""
     init {
+        // 将TOPIC和用户的信息对应起来
         if (sessionId > 0){
            this.sessionType = SessionType.PRIVATE_CHAT
             val friend = SdkGlobalData.getMutualFriendLocal(sessionId)
-            this.sessionTitle = friend?.nick ?: ""
-            this.sessionIcon = friend?.icon ?: ""
+            if (friend != null){
+                // 确保这个Topic 应该有，这里图标与用户保持一致就可以了
+                val topic = SdkGlobalData.getTopic(friend!!)
+
+                this.sessionTitle = friend.nick ?: ""
+                this.sessionIcon = friend.icon?: ""
+                if (sessionTitle.isEmpty()){
+                    sessionTitle = friend.id.toString()
+                }
+            }
+
 
         }else{
            this.sessionType = SessionType.GROUP_CHAT
@@ -239,9 +249,15 @@ object ChatSessionManager {
         // 2）加入列表
         chatSession?.addMessageNewOut(msg)
 
+        // 更新最新消息
+        SdkGlobalData.updateSession(msg)
+
         // 3）发送到服务器
         val chatType = if (sessionId > 0) ChatType.ChatTypeP2P else ChatType.ChatTypeGroup
         MsgEncocder.sendChatMsg(msgId, uid, chatType, ChatMsgType.TEXT, message, refMsgId)
+
+        // 4 设置最新消息
+        SdkGlobalData.updateSession(msg)
         return  msgId
     }
 
@@ -387,6 +403,9 @@ object ChatSessionManager {
         Log.d("send audio drafty", txt)
 
         MsgEncocder.sendChatMsg(msgId, uId, chatType, ChatMsgType.VOICE, txt, 0L)
+
+        // 4 设置最新消息
+        SdkGlobalData.updateSession(msg)
         return  msgId
     }
 
@@ -489,6 +508,9 @@ object ChatSessionManager {
             Log.d("send image or file drafty", txt)
 
             MsgEncocder.sendChatMsg(msg!!.msgId, msg!!.userId, chatType, ChatMsgType.IMAGE, txt, 0L)
+
+            // 4 设置最新消息
+            SdkGlobalData.updateSession(msg!!)
             return
         }
 
@@ -516,7 +538,8 @@ object ChatSessionManager {
                 0L
             )
 
-
+            // 4 设置最新消息
+            SdkGlobalData.updateSession(msg!!)
 
             return
         }
@@ -550,7 +573,7 @@ object ChatSessionManager {
 
     // 处理收到的数据，
     // 1）保存数据库，2）回执，回执后更新数据库，3）添加到会话的消息列表中
-    fun onRecvChatMsg(chatMsg: com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass.MsgChat){
+    fun onRecvChatMsg(chatMsg: com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass.MsgChat):MessageContent{
 
         //2）接受回执，回执后更新数据库
         val fid = chatMsg.fromId
@@ -574,7 +597,7 @@ object ChatSessionManager {
 
             msg = MessageContent(chatMsg.msgId,
                 sId, chatSession.sessionTitle, chatSession.sessionIcon,
-                UserStatus.ONLINE, MessageStatus.OK, true, false, false, utf8String, null)
+                UserStatus.ONLINE, MessageStatus.OK, true, false, false, utf8String, null, chatMsg.tm)
 
         }else if (chatMsg.msgType == MsgOuterClass.ChatMsgType.IMAGE){
             val txt = chatMsg.data.toString(Charsets.UTF_8)
@@ -585,7 +608,7 @@ object ChatSessionManager {
 
             msg = MessageContent(chatMsg.msgId,
                 sId, chatSession.sessionTitle, chatSession.sessionIcon,
-                UserStatus.ONLINE, MessageStatus.OK, true, false, false, "", draft)
+                UserStatus.ONLINE, MessageStatus.OK, true, false, false, "", draft, chatMsg.tm)
         }
         else if (chatMsg.msgType == MsgOuterClass.ChatMsgType.VOICE){
 
@@ -596,7 +619,7 @@ object ChatSessionManager {
 
             msg = MessageContent(chatMsg.msgId,
                 sId, chatSession.sessionTitle, chatSession.sessionIcon,
-                UserStatus.ONLINE, MessageStatus.OK, true, false, false, "", draft)
+                UserStatus.ONLINE, MessageStatus.OK, true, false, false, "", draft, chatMsg.tm)
         }
         else if (chatMsg.msgType == MsgOuterClass.ChatMsgType.FILE){
             val txt = chatMsg.data.toString(Charsets.UTF_8)
@@ -606,10 +629,14 @@ object ChatSessionManager {
 
             msg = MessageContent(chatMsg.msgId,
                 sId, chatSession.sessionTitle, chatSession.sessionIcon,
-                UserStatus.ONLINE, MessageStatus.OK, true, false, false, "", draft)
+                UserStatus.ONLINE, MessageStatus.OK, true, false, false, "", draft, chatMsg.tm)
         }
 
         chatSession!!.addMessageToTail(msg!!)
+
+        // 需要创建topic 并设置最新消息
+        SdkGlobalData.updateSession(msg!!)
+        return msg!!
     }
 
     // 回执, 先写到数据库，然后同步到内存，区别私聊和群聊，群聊只有一个回执

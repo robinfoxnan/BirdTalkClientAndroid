@@ -24,6 +24,7 @@ import com.bird2fish.birdtalksdk.ui.ContactFragment
 import com.bird2fish.birdtalksdk.ui.LoginCodeFragment
 import com.bird2fish.birdtalksdk.ui.LoginFragment
 import com.bird2fish.birdtalksdk.ui.ProfileFragment
+import com.bird2fish.birdtalksdk.uihelper.TextHelper
 
 
 enum class AppPageCode {
@@ -40,6 +41,13 @@ enum class AppPageCode {
     //CHAT,
 }
 
+/*
+目前是将所有的页面都加载的界面里面了，然后使用显示或者隐藏的方式来切换；
+好处是：效率高，避免频繁的构造和销毁；
+缺点是：没有了onPause() 和onResume(), 在消息界面的内部，还有多个页面，onHidden()也不能用；
+
+所以目前的消息注册都是在onCreateView中，
+ */
 class MainActivity : AppCompatActivity() , StatusCallback {
     private lateinit var binding: ActivityMainBinding
 
@@ -194,8 +202,13 @@ class MainActivity : AppCompatActivity() , StatusCallback {
     override fun onEvent(eventType: MsgEventType, msgType:Int, msgId:Long, fid:Long, params:Map<String, String>){
 
         if (eventType == MsgEventType.APP_NOTIFY_SEND_MSG){
-                SdkGlobalData.currentChatFid = fid
-                switchFragment(CHAT_SDK)
+            if (SdkGlobalData.currentChatFid == 0L){
+                TextHelper.showToast(this, "会话列表为空，请先创建一个聊天会话")
+            }
+
+            switchFragment(CHAT_SDK)
+
+
 
         }else if (eventType == MsgEventType.RECONNECTING){
             if (msgType == 0){

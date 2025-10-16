@@ -1,5 +1,7 @@
 package com.bird2fish.birdtalksdk.ui
 import android.app.Activity
+import android.graphics.Color
+import android.graphics.PorterDuff
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -16,6 +18,8 @@ import com.bird2fish.birdtalksdk.R
 import com.bird2fish.birdtalksdk.SdkGlobalData
 import com.bird2fish.birdtalksdk.StatusCallback
 import com.bird2fish.birdtalksdk.model.Topic
+import com.bird2fish.birdtalksdk.model.User
+import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass
 import com.bird2fish.birdtalksdk.uihelper.AvatarHelper
 import com.bird2fish.birdtalksdk.uihelper.ImagesHelper
 import com.bird2fish.birdtalksdk.uihelper.TextHelper
@@ -119,10 +123,21 @@ class ChatSessionFragment : Fragment()  , StatusCallback {
         //friendList?.n
     }
 
-
-    fun onClickItem(index: Int){
+    // 发送信息，这里需要跳转
+    fun switchSendMsgPage(t:Topic){
+        // 通过消息方式通知上层界面切换到消息发送
+        SdkGlobalData.checkSession(t)
+        if (t.type == MsgOuterClass.ChatType.ChatTypeP2P.number)
+        {
+            SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(MsgEventType.APP_NOTIFY_SEND_MSG,
+                0, 0, t.tid, mapOf("page" to "followedFragment" ) )
+        }else{
+            SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(MsgEventType.APP_NOTIFY_SEND_MSG,
+                0, 0, -t.tid, mapOf("page" to "followedFragment" ) )
+        }
 
     }
+
 }
 
 
@@ -154,7 +169,9 @@ class ChatSessionAdapter(private val dataMap: LinkedHashMap<Long, Topic>) : Recy
             itemView.setOnClickListener {
                 // 处理点击事件
                 if (fragment != null){
-                    fragment!!.onClickItem(index)
+                    val list = dataMap.values.toList()
+                    val t = list[index]
+                    fragment!!.switchSendMsgPage(t)
                 }
             }
         }
@@ -181,9 +198,13 @@ class ChatSessionAdapter(private val dataMap: LinkedHashMap<Long, Topic>) : Recy
 
         if (item.lastMsg == null){
             holder.tvDes.setText("")
+            holder.tvTime.setText("")
         }else{
+            // 时间
             val tm = TextHelper.millisToTime1(item.lastMsg.tm)
             holder.tvTime.setText(tm)
+
+            // 最后的消息
             if (item.lastMsg.content == null){
                 holder.tvDes.setText(item.lastMsg.text)
             }else{
@@ -191,8 +212,10 @@ class ChatSessionAdapter(private val dataMap: LinkedHashMap<Long, Topic>) : Recy
             }
         }
 
+        // 静音
         if (item.mute == 0){
             holder.tvState.setImageResource(android.R.drawable.ic_lock_silent_mode_off)
+            holder.tvState.setColorFilter(Color.GRAY, PorterDuff.Mode.SRC_IN)
         }else{
             holder.tvState.setImageResource(android.R.drawable.ic_lock_silent_mode)
         }
@@ -206,14 +229,14 @@ class ChatSessionAdapter(private val dataMap: LinkedHashMap<Long, Topic>) : Recy
 //        }
 
         // 根据选中状态更新背景
-        holder.itemView.isSelected = (position == holder.selectedPosition)
-
-        holder.itemView.setOnClickListener {
-            // 更新选中状态
-            notifyItemChanged(holder.selectedPosition)
-            holder.selectedPosition = holder.adapterPosition
-            notifyItemChanged(holder.selectedPosition)
-        }
+//        holder.itemView.isSelected = (position == holder.selectedPosition)
+//
+//        holder.itemView.setOnClickListener {
+//            // 更新选中状态
+//            notifyItemChanged(holder.selectedPosition)
+//            holder.selectedPosition = holder.adapterPosition
+//            notifyItemChanged(holder.selectedPosition)
+//        }
     }
 
     // 返回数据项数量

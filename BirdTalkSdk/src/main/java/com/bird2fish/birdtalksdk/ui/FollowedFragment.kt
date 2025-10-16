@@ -60,7 +60,7 @@ class FollowedFragment : Fragment() , StatusCallback {
 
 
     // 发送信息，这里需要跳转
-    fun sendMsgTo(f: User){
+    fun switchSendMsgPage(f: User){
         // 通过消息方式通知上层界面切换到消息发送
         SdkGlobalData.addNewSession(f)
         SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(MsgEventType.APP_NOTIFY_SEND_MSG,
@@ -165,7 +165,7 @@ class FollowedItemAdapter(private val dataList: List<User>) : RecyclerView.Adapt
         // 可以添加其他逻辑...
         holder.btnSendMsg.setOnClickListener{
             if (fragment != null){
-                fragment!!.sendMsgTo(item)
+                fragment!!.switchSendMsgPage(item)
             }
         }
         holder.btnSendMsg.isEnabled = true

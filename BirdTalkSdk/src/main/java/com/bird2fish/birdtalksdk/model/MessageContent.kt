@@ -1,6 +1,7 @@
 package com.bird2fish.birdtalksdk.model
 
 import android.net.Uri
+import com.bird2fish.birdtalksdk.uihelper.TextHelper
 
 // 解析后的用于界面所显示的类的
 class MessageContent(
@@ -17,11 +18,12 @@ class MessageContent(
 
     val text :String,
     var content :Drafty?,
-    var tm :Long = 0,
+    var tm :Long = System.currentTimeMillis(),
     var fileUri: Uri? = null,  // 上传文件使用的
     var mime : String? = "",
     var fileSz:Long = 0L,
-    var fileHashCode:String = ""
+    var fileHashCode:String = "",
+    var isP2p :Boolean = true
 //    var tm1:Long =0,
 //    var tm2:Long =0 ,
 

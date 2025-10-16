@@ -18,6 +18,7 @@ import android.util.Log
 import com.bird2fish.birdtalksdk.db.SeqDbHelper
 import com.bird2fish.birdtalksdk.db.TopicDbHelper
 import com.bird2fish.birdtalksdk.db.UserDbHelper
+import com.bird2fish.birdtalksdk.model.MessageContent
 import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass
 import com.bird2fish.birdtalksdk.uihelper.TextHelper
 
@@ -36,7 +37,12 @@ data class PlatformInfo(
 )
 
 
-
+/*
+备注：
+1) 会话列表中，用户的chatSessionId = fid, 群组的chatSessionId = -gid;
+   这是为了管理起来简单化；
+2) 数据库存储的topic.tid 都是正数；
+*/
 
 class SdkGlobalData {
 
@@ -80,7 +86,7 @@ class SdkGlobalData {
         private var searchFriendList : LinkedList<User> = LinkedList<User>()
 
         // 当前会话列表
-        var chatSessionList :LinkedHashMap<Long, Topic> = LinkedHashMap()
+        var chatTopicList :LinkedHashMap<Long, Topic> = LinkedHashMap()
 
         // 当前显示的消息界面，如果是负数，就是群组
         var currentChatFid = 0L
@@ -89,27 +95,79 @@ class SdkGlobalData {
             this.userCallBackManager.invokeOnEventCallbacks(eventType, msgType, msgId, fid, params)
         }
 
-        // 每次收到消息，或者跳转界面时候都需要确认对话已经在
-        fun addNewSession(f: User){
-            val t = Topic(f.id, 0, 0, MsgOuterClass.ChatType.ChatTypeP2P.number, 1, f.nick, f.icon)
+        // 切换前需要更改当前的消息索引；
+        fun beforeSwitchToChat(fid:Long, isP2p:Boolean){
+            if (isP2p){
+                SdkGlobalData.currentChatFid = fid
+            }else{
+                SdkGlobalData.currentChatFid = -fid
+            }
 
-            addNewSession(t, true)
         }
 
+        // chatSession 与这个图标应该对应起来
+        fun getTopic(friend:User):Topic {
+            val sessionId = friend.id
+            synchronized(chatTopicList){
+                if (chatTopicList.containsKey(sessionId))
+                    return chatTopicList[sessionId]!!
+            }
+
+            return addNewSession(friend)
+        }
+
+
+        // 从那个对话列表中跳转到这里
+        fun checkSession(t: Topic){
+            if (t.type == MsgOuterClass.ChatType.ChatTypeP2P.number){
+                val f = getMutualFriendLocal(t.tid)
+                if (f != null) {
+                    addNewSession(f)
+                }
+            }
+        }
+
+        // 每次收到消息，都要设置最后的消息
+        fun updateSession(msg:MessageContent){
+            if (msg.isP2p){
+                val fid = msg.userId
+                synchronized(chatTopicList){
+                    if (!chatTopicList.containsKey(fid)){
+                        val t = Topic(fid, 0, 0, MsgOuterClass.ChatType.ChatTypeP2P.number, 1, msg.nick, msg.iconUrl)
+                        chatTopicList[fid] = t
+                        TopicDbHelper.insertOrReplacePTopic(t)
+                    }
+                    chatTopicList[fid]!!.lastMsg = msg
+                }
+            }else{
+                val gid = msg.userId
+            }
+
+            // 收到消息了，自然要更新会话界面；
+            userCallBackManager.invokeOnEventCallbacks(MsgEventType.FRIEND_CHAT_SESSION, 0, msg.msgId, msg.userId, mapOf("msg" to "p2p"))
+        }
+
+        // 从双向关注界面跳转，时候都需要确认对话已经在
+        fun addNewSession(f: User):Topic{
+            val t = Topic(f.id, 0, 0, MsgOuterClass.ChatType.ChatTypeP2P.number, 1, f.nick, f.icon)
+            addNewSession(t, true)
+
+            return t
+        }
+
+        // 确保对话时存在的
         fun addNewSession(t:Topic, isP2p:Boolean){
-            synchronized(chatSessionList){
+            synchronized(chatTopicList){
                 if (isP2p){
-                    if (!chatSessionList.containsKey(t.tid)) {
-                        chatSessionList[t.tid] = t
+                    if (!chatTopicList.containsKey(t.tid)) {
+                        chatTopicList[t.tid] = t
                         TopicDbHelper.insertOrReplacePTopic(t)
                         userCallBackManager.invokeOnEventCallbacks(MsgEventType.FRIEND_CHAT_SESSION, 0, 0, 0, mapOf("t" to "p2p"))
-                    }else{
-                        //
                     }
                 }
                 else{
-                    if (!chatSessionList.containsKey(-t.tid)) {
-                        chatSessionList[-t.tid] = t
+                    if (!chatTopicList.containsKey(-t.tid)) {
+                        chatTopicList[-t.tid] = t
                         TopicDbHelper.insertOrReplaceGTopic(t)
                         userCallBackManager.invokeOnEventCallbacks(MsgEventType.FRIEND_CHAT_SESSION, 0, 0, 0, mapOf("t" to "group"))
                     }
@@ -119,8 +177,8 @@ class SdkGlobalData {
         }
         // 给那个对话的界面使用的
         fun getChatSessionMap() :java.util.LinkedHashMap<Long, Topic>{
-            synchronized(chatSessionList){
-                return chatSessionList
+            synchronized(chatTopicList){
+                return chatTopicList
             }
         }
 
@@ -266,7 +324,7 @@ class SdkGlobalData {
         // 尝试加载用户的好友和粉丝等各种预加载信息
         fun initLoad(uid:Long){
             BaseDb.changeToDB(this.context, uid.toString())
-            debugClean()
+            //debugClean()
 
             if (BaseDb.getInstance() == null) {
                 Log.e(TAG, "BaseDb.changeToDB error")
@@ -321,15 +379,21 @@ class SdkGlobalData {
 
 
             // 重连时候不加载数据库
-            synchronized(chatSessionList){
-                if (chatSessionList.isEmpty()){
+            synchronized(chatTopicList){
+                if (chatTopicList.isEmpty()){
                     val p2pTopics = TopicDbHelper.getAllPTopics()
                     val gTopics = TopicDbHelper.getAllGTopics()
                     for (t in p2pTopics){
-                        chatSessionList[t.tid] = t
+                        chatTopicList[t.tid] = t
+                        if (SdkGlobalData.currentChatFid == 0L){
+                            SdkGlobalData.currentChatFid = t.tid
+                        }
                     }
                     for (t in gTopics){
-                        chatSessionList[-t.tid] = t
+                        chatTopicList[-t.tid] = t
+                        if (SdkGlobalData.currentChatFid == 0L){
+                            SdkGlobalData.currentChatFid = -t.tid
+                        }
                     }
                 }
 
