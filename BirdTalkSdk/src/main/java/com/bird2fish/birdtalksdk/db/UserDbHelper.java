@@ -710,7 +710,7 @@ public class UserDbHelper {
 
 
     // 向 TABLE_ACCOUNT 表中插入或替换数据
-    public static void insertOrReplaceAccount(User user) {
+    public static Boolean insertOrReplaceAccount(User user){
         ContentValues values = new ContentValues();
         values.put(COLUMN_ID, user.getId());
         values.put(COLUMN_NICK, user.getNick());
@@ -727,9 +727,11 @@ public class UserDbHelper {
 
         if (result == -1) {
             // 插入或替换失败
+            return false;
         } else {
             // 插入或替换成功
         }
+        return true;
     }
 
     // 根据 id 查询 User

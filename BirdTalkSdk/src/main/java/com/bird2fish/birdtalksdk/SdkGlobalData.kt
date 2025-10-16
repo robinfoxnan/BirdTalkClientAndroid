@@ -2,6 +2,7 @@ package com.bird2fish.birdtalksdk
 
 import android.content.Context
 import android.os.Build
+import com.bird2fish.birdtalksdk.db.BaseDb
 import com.bird2fish.birdtalksdk.model.User
 import com.bird2fish.birdtalksdk.model.Topic
 import com.bird2fish.birdtalksdk.net.CRC64
@@ -11,8 +12,14 @@ import com.bird2fish.birdtalksdk.uihelper.UserHelper
 import com.squareup.picasso.OkHttp3Downloader
 import com.squareup.picasso.Picasso
 import java.util.LinkedList
-import java.util.TreeMap
 import java.util.concurrent.atomic.AtomicLong
+import android.provider.Settings;
+import android.util.Log
+import com.bird2fish.birdtalksdk.db.SeqDbHelper
+import com.bird2fish.birdtalksdk.db.TopicDbHelper
+import com.bird2fish.birdtalksdk.db.UserDbHelper
+import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass
+import com.bird2fish.birdtalksdk.uihelper.TextHelper
 
 
 data class PlatformInfo(
@@ -35,6 +42,20 @@ class SdkGlobalData {
 
     companion object{
 
+        private const val TAG = "SdkGlobalData"
+        // 创建实例
+        val basicInfo = PlatformInfo(
+            platform = "${Build.MANUFACTURER}",
+            os = "${Build.BRAND}",
+            osVersion = android.os.Build.VERSION.RELEASE,
+            programmingLang = "Kotlin",
+            langVersion = "1.8.20",
+            deviceModel = "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}",
+            appVersion = "0.1",
+            deviceId = ""
+
+        )
+
         var context :Context? = null
         // 个人信息
         val selfUserinfo :com.bird2fish.birdtalksdk.model.User = User()
@@ -46,7 +67,7 @@ class SdkGlobalData {
 
         // 互相关注
         var mutualFollowingList : MutableMap<Long, User> = LinkedHashMap()
-        // 关注
+        // 关注 保持插入顺序
         var followingList : MutableMap<Long, User> = LinkedHashMap()
 
         // 粉丝
@@ -59,13 +80,48 @@ class SdkGlobalData {
         private var searchFriendList : LinkedList<User> = LinkedList<User>()
 
         // 当前会话列表
-        var chatSessionList :LinkedList<Topic> = LinkedList<Topic>()
+        var chatSessionList :LinkedHashMap<Long, Topic> = LinkedHashMap()
 
         // 当前显示的消息界面，如果是负数，就是群组
         var currentChatFid = 0L
 
         fun  invokeOnEventCallbacks(eventType: MsgEventType, msgType: Int, msgId: Long, fid: Long, params:Map<String, String>){
             this.userCallBackManager.invokeOnEventCallbacks(eventType, msgType, msgId, fid, params)
+        }
+
+        // 每次收到消息，或者跳转界面时候都需要确认对话已经在
+        fun addNewSession(f: User){
+            val t = Topic(f.id, 0, 0, MsgOuterClass.ChatType.ChatTypeP2P.number, 1, f.nick, f.icon)
+
+            addNewSession(t, true)
+        }
+
+        fun addNewSession(t:Topic, isP2p:Boolean){
+            synchronized(chatSessionList){
+                if (isP2p){
+                    if (!chatSessionList.containsKey(t.tid)) {
+                        chatSessionList[t.tid] = t
+                        TopicDbHelper.insertOrReplacePTopic(t)
+                        userCallBackManager.invokeOnEventCallbacks(MsgEventType.FRIEND_CHAT_SESSION, 0, 0, 0, mapOf("t" to "p2p"))
+                    }else{
+                        //
+                    }
+                }
+                else{
+                    if (!chatSessionList.containsKey(-t.tid)) {
+                        chatSessionList[-t.tid] = t
+                        TopicDbHelper.insertOrReplaceGTopic(t)
+                        userCallBackManager.invokeOnEventCallbacks(MsgEventType.FRIEND_CHAT_SESSION, 0, 0, 0, mapOf("t" to "group"))
+                    }
+                }
+
+            }
+        }
+        // 给那个对话的界面使用的
+        fun getChatSessionMap() :java.util.LinkedHashMap<Long, Topic>{
+            synchronized(chatSessionList){
+                return chatSessionList
+            }
         }
 
         // 是否对方与自己双向关注
@@ -104,9 +160,11 @@ class SdkGlobalData {
 
             synchronized(followingList) {
                 if (!followingList.containsKey(f.userId)) {
-
                     followingList[f.userId] = friend
                 }
+
+                UserDbHelper.insertOrUpdateUser(friend)
+                UserDbHelper.insertFollow(friend.id.toInt(), friend.nick)
             }
 
             var b  = false
@@ -130,6 +188,9 @@ class SdkGlobalData {
                 if (!fanList.containsKey(f.userId)){
                     fanList.set(f.userId, friend)
                 }
+
+                UserDbHelper.insertOrUpdateUser(friend)
+                UserDbHelper.insertFan(friend.id.toInt(), friend.nick)
             }
 
             var b  = false
@@ -170,18 +231,7 @@ class SdkGlobalData {
             }
         }
 
-        // 创建实例
-        val basicInfo = PlatformInfo(
-            platform = "${Build.MANUFACTURER}",
-            os = "${Build.BRAND}",
-            osVersion = android.os.Build.VERSION.RELEASE,
-            programmingLang = "Kotlin",
-            langVersion = "1.8.20",
-            deviceModel = "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}",
-            appVersion = "0.1",
-            deviceId = ""
 
-        )
 
         // 添加事件的跟踪器
         fun addCallback(callback: StatusCallback) {
@@ -209,15 +259,92 @@ class SdkGlobalData {
 
         }
 
+        fun debugClean(){
+            TopicDbHelper.deleteFromPTopic(0)
+            TopicDbHelper.deleteFromPTopic(10006)
+        }
         // 尝试加载用户的好友和粉丝等各种预加载信息
-        fun initLoad(){
+        fun initLoad(uid:Long){
+            BaseDb.changeToDB(this.context, uid.toString())
+            debugClean()
+
+            if (BaseDb.getInstance() == null) {
+                Log.e(TAG, "BaseDb.changeToDB error")
+                TextHelper.showToast(context!!, "BaseDb.changeToDB error")
+            }
+
+            val ret = UserDbHelper.insertOrReplaceAccount(selfUserinfo)
+            if (!ret) {
+                Log.e(TAG, "UserDbHelper.insertOrReplaceAccount FAIL")
+            }
+
+
+            // 重连时候不加载数据库
+            synchronized(followingList) {
+                if (followingList.isEmpty())
+                {
+                    val follows = UserDbHelper.queryFollowsFromView(uid.toInt(), 1000)
+                    for (f in follows) {
+                        followingList[f.id] = f
+                    }
+                }
+            }
+
+            // 重连时候不加载数据库
+            synchronized(fanList) {
+                if (fanList.isEmpty())
+                {
+                    val fans = UserDbHelper.queryFansFromView(uid.toInt(), 1000)
+                    for (f in fans) {
+                        fanList[f.id] = f
+                    }
+                }
+            }
+
+            // 重连时候不加载数据库
+            synchronized(mutualFollowingList) {
+                if (mutualFollowingList.isEmpty())
+                {
+                    val mutuals = UserDbHelper.queryMutualFromView(uid.toInt(), 1000)
+                    for (f in mutuals) {
+                        mutualFollowingList[f.id] = f
+                    }
+                }
+
+            }
+
+
+
+            // 向服务器申请重新更新好友列表
             MsgEncocder.sendListFriend("follows")
             MsgEncocder.sendListFriend("fans")
+
+
+            // 重连时候不加载数据库
+            synchronized(chatSessionList){
+                if (chatSessionList.isEmpty()){
+                    val p2pTopics = TopicDbHelper.getAllPTopics()
+                    val gTopics = TopicDbHelper.getAllGTopics()
+                    for (t in p2pTopics){
+                        chatSessionList[t.tid] = t
+                    }
+                    for (t in gTopics){
+                        chatSessionList[-t.tid] = t
+                    }
+                }
+
+            }
+
+            // 申请同步数据消息
         }
 
         fun nextId():Long{
-
-            return msgId.addAndGet(1)
+            if (BaseDb.getInstance() == null){
+                return msgId.addAndGet(1)
+            }
+            else{
+                return SeqDbHelper.getNextSeq()
+            }
         }
 
         // TODO: 设备唯一编码，用于同一个账户的不同终端
@@ -229,15 +356,8 @@ class SdkGlobalData {
             deviceInfo.append("Manufacturer: ${Build.MANUFACTURER}, ")
             deviceInfo.append("Model: ${Build.MODEL}, ")
             deviceInfo.append("Fingerprint: ${Build.FINGERPRINT}, ")
-
-
-
-            // 获取 Android ID
-//            val androidId = Settings.Secure.getString(context!!.contentResolver, Settings.Secure.ANDROID_ID)
-
-            // 操作系统版本
-            deviceInfo.append("OS Version: ${Build.VERSION.RELEASE}, ")
-            deviceInfo.append("SDK Version: ${Build.VERSION.SDK_INT}, ")
+            val androidId = Settings.Secure.getString(context!!.contentResolver, Settings.Secure.ANDROID_ID)
+            deviceInfo.append("AndroidId: $androidId, ")
 
             // 使用 CRC64 计算设备的唯一 ID
             val deviceInfoBytes = deviceInfo.toString().toByteArray()
@@ -246,25 +366,6 @@ class SdkGlobalData {
             // 将 CRC64 值转为十六进制字符串
             return crc64ToHex(crc64Value)
         }
-
-        fun getDeviceFingerprint(): String {
-            val deviceInfo = StringBuilder()
-
-            // 提取设备的硬件特征码
-            //deviceInfo.append("Brand: ${Build.BRAND}, ")
-            //deviceInfo.append("Model: ${Build.MODEL}, ")
-            deviceInfo.append("Manufacturer: ${Build.MANUFACTURER}, ")
-            deviceInfo.append("Device: ${Build.DEVICE}, ")
-            //deviceInfo.append("Product: ${Build.PRODUCT}, ")
-            //deviceInfo.append("Board: ${Build.BOARD}, ")
-            //deviceInfo.append("Version: ${VERSION.RELEASE}, ")
-            //deviceInfo.append("SDK: ${VERSION.SDK_INT}, ")
-            //deviceInfo.append("Fingerprint: ${Build.FINGERPRINT}")
-
-            return deviceInfo.toString()
-        }
-
-
 
         fun crc64ToHex(crc64Value: Long): String {
             return String.format("%016X", crc64Value)
@@ -275,22 +376,22 @@ class SdkGlobalData {
             val osInfo = StringBuilder()
 
             // Android 版本
-            osInfo.append("OS Version: ${Build.VERSION.RELEASE}, ")
+            osInfo.append("OSVersion: ${Build.VERSION.RELEASE}, ")
 
             // SDK 版本
-            osInfo.append("SDK Version: ${Build.VERSION.SDK_INT}, ")
+            osInfo.append("SDKVersion: ${Build.VERSION.SDK_INT}, ")
 
             // 系统版本号
-            osInfo.append("OS Code Name: ${Build.VERSION.CODENAME}, ")
+            osInfo.append("OSCodeName: ${Build.VERSION.CODENAME}, ")
 
             // 操作系统类型（比如 `android`）
             osInfo.append("OS: ${Build.BRAND}, ")
 
             // 系统构建版本
-            osInfo.append("Build ID: ${Build.ID}, ")
+            osInfo.append("BuildID: ${Build.ID}, ")
 
             // 系统版本的安全补丁等级
-            osInfo.append("Security Patch Level: ${Build.VERSION.SECURITY_PATCH}")
+            osInfo.append("SecurityPatchLevel: ${Build.VERSION.SECURITY_PATCH}")
 
             return osInfo.toString()
         }

@@ -108,7 +108,7 @@ class ActionListener :StatusCallback{
             MSG_DOWNLOAD_OK -> doNothing()
             MSG_DOWNLOAD_PROCESS -> doNothing()
             MSG_DOWNLOAD_FAIL -> doNothing()
-
+            FRIEND_CHAT_SESSION -> doNothing()
         }
     }
 }

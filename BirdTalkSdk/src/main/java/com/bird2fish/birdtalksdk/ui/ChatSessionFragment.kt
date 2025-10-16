@@ -1,4 +1,5 @@
 package com.bird2fish.birdtalksdk.ui
+import android.app.Activity
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -9,16 +10,22 @@ import android.widget.TextView
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.bird2fish.birdtalksdk.InterErrorType
+import com.bird2fish.birdtalksdk.MsgEventType
 import com.bird2fish.birdtalksdk.R
 import com.bird2fish.birdtalksdk.SdkGlobalData
+import com.bird2fish.birdtalksdk.StatusCallback
 import com.bird2fish.birdtalksdk.model.Topic
+import com.bird2fish.birdtalksdk.uihelper.AvatarHelper
 import com.bird2fish.birdtalksdk.uihelper.ImagesHelper
+import com.bird2fish.birdtalksdk.uihelper.TextHelper
 
 
-class ChatSessionFragment : Fragment() {
+class ChatSessionFragment : Fragment()  , StatusCallback {
 
     private lateinit var recyclerView: RecyclerView
     private lateinit var adapter: ChatSessionAdapter
+    private lateinit var addBtn : ImageButton
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -36,19 +43,15 @@ class ChatSessionFragment : Fragment() {
 
         recyclerView = view.findViewById(R.id.recycler_view_sessions)
 
-        // 创建示例数据
-        var topic = Topic()
-        topic.title = "群聊2"
-        topic.icon = "sys:11"
-        SdkGlobalData.chatSessionList += topic
+        addBtn = view.findViewById(R.id.btn_add_chat_session)
+        addBtn.setOnClickListener {
+            // 打开新聊天页面或创建聊天会话
+            openNewChatSession()
+        }
 
-        topic = Topic()
-        topic.title = "会话1"
-        topic.icon = "sys:10"
-        SdkGlobalData.chatSessionList += topic
 
         // 初始化适配器
-        val adapter = ChatSessionAdapter(SdkGlobalData.chatSessionList)
+        this.adapter = ChatSessionAdapter(SdkGlobalData.getChatSessionMap())
         adapter.setView(this)
 
         // 配置 RecyclerView
@@ -60,7 +63,50 @@ class ChatSessionFragment : Fragment() {
         val searchButton: ImageButton = view.findViewById<ImageButton>(com.bird2fish.birdtalksdk.R.id.btn_search)
         searchButton.setOnClickListener { v: View? -> }
 
+        SdkGlobalData.userCallBackManager.addCallback(this)
         return view
+    }
+
+    fun openNewChatSession(){
+        //var topic = Topic()
+
+        this.adapter?.notifyDataSetChanged()
+
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        // 取消关注消息
+        SdkGlobalData.userCallBackManager.removeCallback(this)
+    }
+
+    override fun onError(code : InterErrorType, lastAction:String, errType:String, detail:String){
+
+    }
+    // 上传或下载事件
+    // 这里是回调函数，无法操作界面
+    override fun onEvent(eventType: MsgEventType, msgType:Int, msgId:Long, fid:Long, params:Map<String, String>){
+        if (eventType == MsgEventType.FRIEND_CHAT_SESSION){
+
+            (context as? Activity)?.runOnUiThread {
+
+                this.adapter?.notifyDataSetChanged()
+            }
+
+        }
+    }
+
+    fun testData(){
+        // 创建示例数据
+        var topic = Topic()
+        topic.title = "群聊2"
+        topic.icon = "sys:11"
+        //SdkGlobalData.chatSessionList += topic
+
+        topic = Topic()
+        topic.title = "会话1"
+        topic.icon = "sys:10"
+        //SdkGlobalData.chatSessionList += topic
     }
 
     override fun onActivityCreated(savedInstanceState: Bundle?) {
@@ -82,7 +128,7 @@ class ChatSessionFragment : Fragment() {
 
 
 // 双向关注的列表，适配器
-class ChatSessionAdapter(private val dataList: List<Topic>) : RecyclerView.Adapter<ChatSessionAdapter.ChatSessionViewHolder>() {
+class ChatSessionAdapter(private val dataMap: LinkedHashMap<Long, Topic>) : RecyclerView.Adapter<ChatSessionAdapter.ChatSessionViewHolder>() {
 
     private var fragment : ChatSessionFragment? = null
 
@@ -124,14 +170,33 @@ class ChatSessionAdapter(private val dataList: List<Topic>) : RecyclerView.Adapt
 
     // 绑定数据到 ViewHolder
     override fun onBindViewHolder(holder: ChatSessionViewHolder, position: Int) {
+        val dataList = dataMap.values.toList()
         val item = dataList[position]
         holder.index = position
 
-        val id = ImagesHelper.getIconResId(item!!.icon)
-        holder.imgIcon.setImageResource(id)
+        //val id = ImagesHelper.getIconResId(item!!.icon)
+        //holder.imgIcon.setImageResource(id)
+        AvatarHelper.tryLoadAvatar(fragment!!.requireContext(), item.icon, holder.imgIcon, "")
         holder.tvNick.setText(item!!.title)
-        holder.tvDes.setText("[图片]")
-        holder.tvState.setImageResource(android.R.drawable.ic_lock_silent_mode)
+
+        if (item.lastMsg == null){
+            holder.tvDes.setText("")
+        }else{
+            val tm = TextHelper.millisToTime1(item.lastMsg.tm)
+            holder.tvTime.setText(tm)
+            if (item.lastMsg.content == null){
+                holder.tvDes.setText(item.lastMsg.text)
+            }else{
+                holder.tvDes.setText("非文本消息")
+            }
+        }
+
+        if (item.mute == 0){
+            holder.tvState.setImageResource(android.R.drawable.ic_lock_silent_mode_off)
+        }else{
+            holder.tvState.setImageResource(android.R.drawable.ic_lock_silent_mode)
+        }
+
 
         // 可以添加其他逻辑...
 //        holder.tvDelete.setOnClickListener{
@@ -153,7 +218,7 @@ class ChatSessionAdapter(private val dataList: List<Topic>) : RecyclerView.Adapt
 
     // 返回数据项数量
     override fun getItemCount(): Int {
-        return dataList.size
+        return dataMap.size
     }
 
     // 其他方法，例如添加删除项的方法，用于与 ItemTouchHelper 配合实现左滑删除

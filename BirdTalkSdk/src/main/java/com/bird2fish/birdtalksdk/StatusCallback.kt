@@ -30,6 +30,7 @@ enum class MsgEventType {
     FRIEND_UPDATE,    // 好友更新信息
     FRIEND_LIST_FAN,
     FRIEND_LIST_FOLLOW,
+    FRIEND_CHAT_SESSION,
 
 
     MSG_COMING,          // 新消息

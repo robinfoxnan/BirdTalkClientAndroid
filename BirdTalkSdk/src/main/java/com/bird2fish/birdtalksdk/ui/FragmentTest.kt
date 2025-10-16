@@ -186,7 +186,7 @@ class FragmentTest : Fragment() {
     fun testUserDb(){
         // 获取数据库实例
         BaseDb.changeToDB(this.requireActivity(), "1234")
-        //        addUser()
+                addUser()
 //        testAddFuns()
 //       testFindFun()
 //        testFindFollow()

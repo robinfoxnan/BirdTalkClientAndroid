@@ -5,6 +5,8 @@ import android.content.ContentResolver
 import android.content.ContentUris
 import android.content.Context
 import android.database.Cursor
+import android.icu.text.SimpleDateFormat
+import android.icu.util.Calendar
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
@@ -36,6 +38,7 @@ import java.security.MessageDigest
 import java.security.NoSuchAlgorithmException
 import java.security.SecureRandom
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.Date
 
 object  TextHelper {
 
@@ -618,6 +621,23 @@ object  TextHelper {
         val fmt = DecimalFormat.getInstance()
         fmt.maximumFractionDigits = roundTo
         return fmt.format(count) + "\u202F" + sizes[bucket]
+    }
+
+    fun millisToTime1(millis: Long): String {
+        val msgDate = Calendar.getInstance().apply { timeInMillis = millis }
+        val now = Calendar.getInstance()
+
+        return if (msgDate.get(Calendar.YEAR) == now.get(Calendar.YEAR) &&
+            msgDate.get(Calendar.DAY_OF_YEAR) == now.get(Calendar.DAY_OF_YEAR)
+        ) {
+            // 今天，显示 HH:mm:ss
+            val sdf = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+            sdf.format(Date(millis))
+        } else {
+            // 之前的日期，显示 yyyy-MM-dd
+            val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+            sdf.format(Date(millis))
+        }
     }
 
     fun millisToTime(millis: Int): String {

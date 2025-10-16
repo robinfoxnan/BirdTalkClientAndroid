@@ -11,6 +11,7 @@ import okhttp3.WebSocket
 import okio.ByteString
 import java.io.IOException
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 
 class WebSocketClient private constructor() {
     private val TAG = "WebSocketClient"
@@ -28,6 +29,9 @@ class WebSocketClient private constructor() {
     private var reconnectDelaySeconds = 10
 
     private var manuallyClosed = false
+
+    var atomicCounter = AtomicLong(0L)
+    val period = 1 * 30 * 1000L // 30S
 
     init {
         handlerThread.start()
@@ -112,6 +116,14 @@ class WebSocketClient private constructor() {
         SendQueue.instance.enqueue(msg)
     }
 
+    private fun sendHeartBeat(delta:Long){
+        val v = atomicCounter.getAndAdd(delta)
+        if (v > period){
+            MsgEncocder.sendHeartBeat()
+            atomicCounter.set(0L)
+        }
+
+    }
     // 注意，这里千万不能用服务器逻辑一样来发送数据，大文件会把连接卡住，
     private fun startSendTask() {
         handler.post(object : Runnable {
@@ -130,6 +142,7 @@ class WebSocketClient private constructor() {
                 }
 
                 // 50ms 后再执行下一次循环
+                sendHeartBeat(50)
                 handler.postDelayed(this, 50)
             }
         })

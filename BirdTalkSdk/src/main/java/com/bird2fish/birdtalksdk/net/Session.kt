@@ -141,24 +141,26 @@ object Session  {
         return this
     }
 
-    // 加载自己的个人信息
-    // 1） 同步最新的消息，2)同步好友列表  3） 同步所在群  4）同步群消息
-    fun loadOnLogin(){
-        SdkGlobalData.initLoad()
-    }
+
+
 
     // 登录成功，通知界面更改页面
-    fun loginOk(){
+    fun loginOk(uid:Long){
 
         val resultMap = mapOf(
+            "id" to uid.toString(),
             "result" to "ok"
         )
+        // 这里还需要与服务器同步数据
+        // 加载自己的个人信息
+        // 1） 同步最新的消息，2)同步好友列表  3） 同步所在群  4）同步群消息
+        SdkGlobalData.initLoad(uid)
+
         // sdk内部需要与服务器同步数据，然后通知界面跳转并刷新
         SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(MsgEventType.LOGIN_OK, 0,0L, 0L, resultMap)
         updateState(Session.SessionState.READY)
 
-        // 这里还需要与服务器同步数据
-        loadOnLogin()
+
 
     }
 

@@ -307,6 +307,7 @@ class MsgEncocder {
         }
 
         // 关于hello消息应答的效果
+        // 如果登录成功，不在这里返回，而是收到一个用户登陆成功的消息
         fun onHello(hello: MsgHello) {
             when (hello.stage) {
                 "waitlogin" -> {  //  目前的服务端实现是要求必须执行密钥交换
@@ -315,11 +316,6 @@ class MsgEncocder {
                 "needlogin"-> {  //  秘钥交换完成了，但是需要注册或者登录
                     // 这里界面不需要做啥
                     Session.updateState(Session.SessionState.WAIT)
-                }
-                "waitdata"->{    // 秘钥登录完毕，等待数据发送
-
-                    Session.loginOk()
-
                 }
                 else->{
 
@@ -361,7 +357,7 @@ class MsgEncocder {
                             // 解析自己的个人信息
                             UserInfo2DbUser(user)
                             // 设置状态，并跳转
-                            Session.loginOk()
+                            Session.loginOk(user.userId)
                         }else{
                             //
                             Session.loginFail(user.userId.toString(), status)
