@@ -6,6 +6,7 @@ import android.database.SQLException;
 import android.database.sqlite.SQLiteDatabase;
 
 import com.bird2fish.birdtalksdk.model.MessageData;
+import com.bird2fish.birdtalksdk.model.MessageStatus;
 import com.bird2fish.birdtalksdk.model.Topic;
 import com.bird2fish.birdtalksdk.model.User;
 import java.util.ArrayList;
@@ -477,26 +478,58 @@ public class TopicDbHelper {
     // 更新私聊中回执等信息
     public static boolean updatePChatReply(MessageData msg){
         ContentValues values = new ContentValues();
-        String status =  "sending";
+        String status = MessageStatus.SENDING.name();
         values.put("tm1", msg.getTm1());
         values.put("tm2", msg.getTm2());
         values.put("tm3", msg.getTm3());
 
         if (msg.getTm1() > 0){
-            status = "sent";
+            status = MessageStatus.OK.name();
         }
 
         if (msg.getTm2() > 0){
-            status = "recv";
+            status = MessageStatus.RECV.name();
         }
 
         if (msg.getTm3() > 0){
-            status = "seen";
+            status = MessageStatus.SEEN.name();
         }
         values.put("status", status);
 
         String whereClause = "id = ?";
         String[] whereArgs = { String.valueOf(msg.getId()) };
+
+        SQLiteDatabase db = BaseDb.getInstance().getWritableDatabase();
+        int rowsUpdated = db.update(TABLE_PCHAT, values, whereClause, whereArgs);
+        if (rowsUpdated > 0){
+            return true;
+        }else{
+            return false;
+        }
+    }
+
+    public static boolean updatePChatReply(long msgId, long tm1, long tm2, long tm3){
+        ContentValues values = new ContentValues();
+        String status = MessageStatus.SENDING.name();
+
+        if (tm1 > 0){
+            status = MessageStatus.OK.name();
+            values.put("tm1", tm1);
+        }
+
+        if (tm2 > 0){
+            status = MessageStatus.RECV.name();
+            values.put("tm2", tm2);
+        }
+
+        if (tm3 > 0){
+            status = MessageStatus.SEEN.name();
+            values.put("tm3", tm3);
+        }
+        values.put("status", status);
+
+        String whereClause = "id = ?";
+        String[] whereArgs = { String.valueOf(msgId) };
 
         SQLiteDatabase db = BaseDb.getInstance().getWritableDatabase();
         int rowsUpdated = db.update(TABLE_PCHAT, values, whereClause, whereArgs);
@@ -566,6 +599,38 @@ public class TopicDbHelper {
         }
 
         return ret;
+    }
+
+    public static boolean updateGChatReply(long msgId, long tm1){
+        ContentValues values = new ContentValues();
+        String status = MessageStatus.SENDING.name();
+
+        if (tm1 > 0){
+            status = MessageStatus.OK.name();
+            values.put("tm1", tm1);
+        }
+
+//        if (tm2 > 0){
+//            status = MessageStatus.RECV.name();
+//            values.put("tm2", tm2);
+//        }
+//
+//        if (tm3 > 0){
+//            status = MessageStatus.SEEN.name();
+//            values.put("tm3", tm3);
+//        }
+        values.put("status", status);
+
+        String whereClause = "id = ?";
+        String[] whereArgs = { String.valueOf(msgId) };
+
+        SQLiteDatabase db = BaseDb.getInstance().getWritableDatabase();
+        int rowsUpdated = db.update(TABLE_GTOPIC, values, whereClause, whereArgs);
+        if (rowsUpdated > 0){
+            return true;
+        }else{
+            return false;
+        }
     }
 
     // 更新组中某一条的状态标记
@@ -757,6 +822,13 @@ public class TopicDbHelper {
 
     public  static boolean deleteFromPTopic(long tid){
         return deleteTopic(tid, TABLE_PTOPIC);
+    }
+
+    public  static void deleteFromPTopic(){
+        SQLiteDatabase db = BaseDb.getInstance().getWritableDatabase();
+        String sql = "delete from " + TABLE_PTOPIC + " where 1";
+
+        db.execSQL(sql);
     }
 
     public  static boolean deleteFromGTopic(long tid){

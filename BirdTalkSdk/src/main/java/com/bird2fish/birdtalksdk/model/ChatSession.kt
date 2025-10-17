@@ -7,6 +7,7 @@ import android.text.TextUtils
 import android.util.Log
 import com.bird2fish.birdtalksdk.MsgEventType
 import com.bird2fish.birdtalksdk.SdkGlobalData
+import com.bird2fish.birdtalksdk.db.TopicDbHelper
 import com.bird2fish.birdtalksdk.net.MsgEncocder
 import com.bird2fish.birdtalksdk.net.Session
 import com.bird2fish.birdtalksdk.net.WebSocketClient
@@ -14,6 +15,9 @@ import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass
 import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass.ChatMsgType
 import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass.ChatType
 import com.bird2fish.birdtalksdk.uihelper.TextHelper
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 import java.io.FileNotFoundException
 import java.net.URI
 import java.util.LinkedList
@@ -72,14 +76,50 @@ class ChatSession (val sessionId:Long)
         }
     }
 
-    fun setReply(msgId:Long,tm:Long,  tm1:Long, tm2:Long) :Int{
+    // 发送列表中的消息检查是否需要重发，预计不会很长，所以这里不再做拷贝
+    val timeOutMili = 2 * 60 * 1000L
 
+    fun checkResendOrFail(): Boolean {
+
+        var list = LinkedList<Long>()
+        var bUpdate = false
         synchronized(msgSendingList){
-            if (msgSendingList.containsKey(msgId)){
-                //val msg = msgSendingList[msgId]
-                msgSendingList.remove(msgId)
+            for (sid in msgSendingList.keys){
+                val tmNow = System.currentTimeMillis()
+                val msg = msgSendingList[sid]!!
+                if ( msg.msgStatus != MessageStatus.SENDING
+                    && msg.msgStatus != MessageStatus.UPLOADING){
+                    list.add(sid)
+                    continue
+                }
+
+                if (tmNow - msg.tm > timeOutMili){
+                    msg.msgStatus = MessageStatus.FAIL
+                    bUpdate = true
+                    list.add(sid)
+                    Log.d("ChatSession", "timeout msg.....${msg.msgId}")
+                }else{
+                    msg.tmResend = System.currentTimeMillis()
+                    ChatSessionManager.sendMsgContent(sid, msg)
+                    Log.d("ChatSession", "resend msg.....${msg.msgId}")
+                }
             }
         }
+        // 尝试删除相关的KEY
+        synchronized(msgSendingList){
+            for (sid in list){
+                msgSendingList.remove(sid)
+            }
+        }
+
+        return bUpdate
+    }
+
+
+    // 这里的其实是sendId, 并不是服务器给的消息ID
+    fun setReply(msgId:Long,tm:Long,  tm1:Long, tm2:Long) :Int{
+
+        var index = -1;
 
         synchronized(msgList){
             for (i in msgList.indices) {
@@ -94,13 +134,20 @@ class ChatSession (val sessionId:Long)
                     if (tm2 > 0){
                         msgList[i].bRead = true
                     }
-
-                    return i
+                    index = i
+                    break
                 }
             }
-
         }
-        return 0
+
+        synchronized(msgSendingList){
+            if (msgSendingList.containsKey(msgId)){
+                //val msg = msgSendingList[msgId]
+                msgSendingList.remove(msgId)
+            }
+        }
+
+        return  index
     }
 
     // 先发送上传的消息
@@ -229,6 +276,63 @@ object ChatSessionManager {
         }
     }
 
+
+    // 检查所有没有收到回执的消息，如果超时了就设置发送失败
+    fun checkResendOrFail(){
+        val lst = getAllSessions()
+        var bUpdate = false
+        for (s in lst){
+            val b = s.checkResendOrFail()
+            bUpdate = b && bUpdate
+        }
+
+        // 通知界面刷新超时的消息
+        if (bUpdate){
+            val params = mapOf("send" to "fail")
+            SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(MsgEventType.MSG_SEND_ERROR, 0, 0L, 0L, params)
+        }
+    }
+
+    // 提交消息到网络层，重发也在这里
+    fun sendMsgContent(sessionId:Long, msg:MessageContent){
+
+        GlobalScope.launch(Dispatchers.IO) {
+
+            // 1) 先写数据库,更新到发送表
+            val msgData = TextHelper.MsgContentToDbMsg(msg)
+
+            if (msg.isP2p){
+                TopicDbHelper.insertPChatMsg(msgData)
+            }else{
+                TopicDbHelper.insertGChatMsg(msgData)
+            }
+
+            val chatType = if (sessionId > 0) ChatType.ChatTypeP2P else ChatType.ChatTypeGroup
+
+            // 2) 提交到网络
+            if (msg.msgType == ChatMsgType.TEXT) {
+                MsgEncocder.sendChatMsg(
+                    msg.msgId,
+                    msg.userId,
+                    chatType,
+                    ChatMsgType.TEXT,
+                    msg.text,
+                    msg.msgRefId
+                )
+            } else {
+                MsgEncocder.sendChatMsg(
+                    msg.msgId,
+                    msg.userId,
+                    chatType,
+                    msg.msgType,
+                    msg.contentOut,
+                    msg.msgRefId
+                )
+            }
+        }
+
+    }
+
     // 发送文本消息，添加到列表中，同时发送消息
     fun sendTextMessageOut(sessionId:Long, message:String, refMsgId:Long = 0L):Long{
         val msgId = SdkGlobalData.nextId()
@@ -243,6 +347,7 @@ object ChatSessionManager {
             false,
             message,
             null)
+        msg.msgType = ChatMsgType.TEXT
 
         // 1)写入数据库
 
@@ -253,8 +358,7 @@ object ChatSessionManager {
         SdkGlobalData.updateSession(msg)
 
         // 3）发送到服务器
-        val chatType = if (sessionId > 0) ChatType.ChatTypeP2P else ChatType.ChatTypeGroup
-        MsgEncocder.sendChatMsg(msgId, uid, chatType, ChatMsgType.TEXT, message, refMsgId)
+        this.sendMsgContent(sessionId, msg)
 
         // 4 设置最新消息
         SdkGlobalData.updateSession(msg)
@@ -287,6 +391,7 @@ object ChatSessionManager {
             val msg = MessageContent(msgId,
                 chatSession.sessionId, chatSession.sessionTitle, chatSession.sessionIcon,
                 UserStatus.ONLINE, MessageStatus.UPLOADING, false, false, false,"", draft,  0, uri, mime)
+            msg.msgType = ChatMsgType.IMAGE
 
             val sz = TextHelper.getFileSize(context, uri)
             msg.fileSz = sz
@@ -297,6 +402,15 @@ object ChatSessionManager {
             }
             // 异步上传
             Session.uploadSmallFile(context, uri,  uId, msgId)
+
+            // 先写数据库,更新到发送表
+            val msgData = TextHelper.MsgContentToDbMsg(msg)
+
+            if (msg.isP2p){
+                TopicDbHelper.insertPChatMsg(msgData)
+            }else{
+                TopicDbHelper.insertGChatMsg(msgData)
+            }
             // 添加到界面列表
             chatSession!!.addMessageNewOut(msg)
 
@@ -341,6 +455,7 @@ object ChatSessionManager {
             chatSession.sessionId, chatSession.sessionTitle, chatSession.sessionIcon,
             UserStatus.ONLINE, MessageStatus.UPLOADING, false, false, false,"", draft,  0, uri, mime)
         msg.fileSz = sz
+        msg.msgType = ChatMsgType.FILE
 
         val (hasAttach, sz1) = hasAttachment(draft)
         Log.d("SendFile", "文件大小为：${sz1}")
@@ -352,13 +467,23 @@ object ChatSessionManager {
         // 异步上传
         //Session.uploadSmallFile(context, uri,  uId, msgId)
         msg.fileHashCode = Session.uploadFileChunk(context, uri,  uId, msgId, 0, "")
+
+        // 先写数据库,更新到发送表
+        val msgData = TextHelper.MsgContentToDbMsg(msg)
+
+        if (msg.isP2p){
+            TopicDbHelper.insertPChatMsg(msgData)
+        }else{
+            TopicDbHelper.insertGChatMsg(msgData)
+        }
+
         // 添加到界面列表
         chatSession!!.addMessageNewOut(msg)
 
         return msgId
     }
 
-    // 计算上传进度
+    // 计算上传进度, 收到上一片的回执再发送下一片，这里其实是支持并发多个文件的
     fun onUploadFileProcess(msgId:Long, fileName:String, uuid:String, index:Int, params:Map<String, String>){
         var msg:MessageContent? = null
         synchronized(this.uploadingMap){
@@ -388,21 +513,19 @@ object ChatSessionManager {
 
         val uId = if (sessionId > 0) sessionId else -sessionId
 
-        val msg = MessageContent(msgId, SdkGlobalData.selfUserinfo.id, "", "",
+        val msg = MessageContent(msgId, uId, chatSession.sessionTitle, chatSession.sessionIcon,
             UserStatus.ONLINE, MessageStatus.SENDING,false, false, false, "", draft)
-
+        msg.msgType = ChatMsgType.VOICE
+        val txt = TextHelper.serializeDrafty(draft)
+        msg.contentOut = txt
+        Log.d("send audio drafty", txt)
         // 1)写入数据库
 
         // 2）加入列表
         chatSession?.addMessageNewOut(msg)
 
         // 3）发送到服务器
-        val chatType = if (sessionId > 0) ChatType.ChatTypeP2P else ChatType.ChatTypeGroup
-
-        val txt = TextHelper.serializeDrafty(draft)
-        Log.d("send audio drafty", txt)
-
-        MsgEncocder.sendChatMsg(msgId, uId, chatType, ChatMsgType.VOICE, txt, 0L)
+        this.sendMsgContent(sessionId, msg)
 
         // 4 设置最新消息
         SdkGlobalData.updateSession(msg)
@@ -506,8 +629,9 @@ object ChatSessionManager {
 
             val txt = TextHelper.serializeDrafty(draft)
             Log.d("send image or file drafty", txt)
+            msg!!.contentOut = txt
 
-            MsgEncocder.sendChatMsg(msg!!.msgId, msg!!.userId, chatType, ChatMsgType.IMAGE, txt, 0L)
+            this.sendMsgContent(chatSession.sessionId, msg!!)
 
             // 4 设置最新消息
             SdkGlobalData.updateSession(msg!!)
@@ -529,14 +653,8 @@ object ChatSessionManager {
             Log.d("send image or file drafty", txt)
 
             // 发送消息
-            MsgEncocder.sendChatMsg(
-                msg!!.msgId,
-                msg!!.userId,
-                chatType,
-                ChatMsgType.FILE,
-                txt,
-                0L
-            )
+            msg!!.contentOut = txt
+            this.sendMsgContent(chatSession.sessionId, msg!!)
 
             // 4 设置最新消息
             SdkGlobalData.updateSession(msg!!)
@@ -548,7 +666,7 @@ object ChatSessionManager {
 
     }
 
-    // 如果上传文件错误了
+    // 如果上传文件错误了, 这个函数还没有测试过
     fun onUploadFileError(msgId:Long, result:String, detail:String, fileName:String, uuidName:String){
         var msg : MessageContent? = null
         synchronized(this.uploadingMap){
@@ -568,12 +686,31 @@ object ChatSessionManager {
         val chatType = if (msg!!.userId > 0) ChatType.ChatTypeP2P else ChatType.ChatTypeGroup
         var draftMsg = msg!!.content
 
+        // 先写数据库,更新到发送表
+        val msgData = TextHelper.MsgContentToDbMsg(msg!!)
+
+        if (msg!!.isP2p){
+            TopicDbHelper.insertPChatMsg(msgData)
+        }else{
+            TopicDbHelper.insertGChatMsg(msgData)
+        }
+
         setAttachmentProcess(draftMsg, fileName, -1)
     }
 
     // 处理收到的数据，
     // 1）保存数据库，2）回执，回执后更新数据库，3）添加到会话的消息列表中
-    fun onRecvChatMsg(chatMsg: com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass.MsgChat):MessageContent{
+    fun onRecvChatMsg(chatMsg: MsgOuterClass.MsgChat):MessageContent{
+        // 1) 写数据库
+        val msgData = TextHelper.pbMsgToDbMsg(chatMsg)
+
+        if (chatMsg.chatType == ChatType.ChatTypeP2P){
+            TopicDbHelper.insertPChatMsg(msgData)
+
+        }else{
+            TopicDbHelper.insertGChatMsg(msgData)
+        }
+
 
         //2）接受回执，回执后更新数据库
         val fid = chatMsg.fromId
@@ -632,23 +769,34 @@ object ChatSessionManager {
                 UserStatus.ONLINE, MessageStatus.OK, true, false, false, "", draft, chatMsg.tm)
         }
 
+        // 添加到界面的队列中
         chatSession!!.addMessageToTail(msg!!)
 
         // 需要创建topic 并设置最新消息
         SdkGlobalData.updateSession(msg!!)
+
+        val resultMap = mapOf(
+            "status" to "coming",
+        )
+
+        // 通知界面更新消息，已经保存处理完了
+        SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(MsgEventType.MSG_COMING, chatMsg.msgType.number,
+            chatMsg.msgId, chatMsg.fromId, resultMap)
         return msg!!
     }
 
     // 回执, 先写到数据库，然后同步到内存，区别私聊和群聊，群聊只有一个回执
-    fun onChatMsgReply(fid:Long, params:Map<String, String> ?, msgId:Long, tm:Long, tm1:Long, tm2:Long):Int{
+    fun onChatMsgReply(fid:Long, params:Map<String, String> ?, msgId:Long, tmServer:Long, tmRecv:Long, tmRead:Long, extraMsg:String?):Int{
+        // 这里更新回执
+        if (TextUtils.isEmpty(extraMsg)){
+            TopicDbHelper.updatePChatReply(msgId, tmServer, tmRecv, tmRead)
+        }else{
+            TopicDbHelper.updateGChatReply(msgId, tmServer)
+        }
         val chatSession = getSession(fid)
-        val index = chatSession.setReply(msgId, tm, tm1, tm2)
+        val index = chatSession.setReply(msgId, tmServer, tmRecv, tmRead)
         return index
     }
 
 
-    // 点击时候直接设置进度了
-//    fun notifyDownloadProcess(sessionId:Long, msgid:Long, percent:Int, fname:String, url:String){
-//
-//    }
 }

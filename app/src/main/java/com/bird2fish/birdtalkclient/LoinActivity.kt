@@ -31,6 +31,11 @@ class LoinActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        if (GlobalData.userStatus == "loginOk"){
+            SwitchToMain()
+            return
+        }
+
         setContentView(R.layout.activity_loin)
 
         // 设置状态栏颜色
@@ -84,7 +89,8 @@ class LoinActivity : AppCompatActivity() {
         // 观察LiveData，这里登录成功后需要跳转到主页面
         viewModel.message.observe(this) { message ->
             if (message == "loginok") {
-                startActivity(Intent(this, MainActivity::class.java))
+                GlobalData.userStatus = "loginOk"
+                SwitchToMain()
             }
         }
 
@@ -93,14 +99,19 @@ class LoinActivity : AppCompatActivity() {
 
     }
 
+    fun SwitchToMain(){
+        val intent = Intent(this, MainActivity::class.java)
+        // 关键：添加两个标志，清空旧栈 + 新建任务栈
+        intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TASK or Intent.FLAG_ACTIVITY_NEW_TASK
+        startActivity(intent)
+        // （可选）关闭当前 LoginActivity，避免极少数场景下的残留
+        finish()
+    }
+
     override fun onPostCreate(savedInstanceState: Bundle?) {
         super.onPostCreate(savedInstanceState)
         // 配置 ActionBar 选项
         supportActionBar!!.setDisplayHomeAsUpEnabled(true)
-
-
-
-
     }
 
     // 用于切换 Fragment 的方法

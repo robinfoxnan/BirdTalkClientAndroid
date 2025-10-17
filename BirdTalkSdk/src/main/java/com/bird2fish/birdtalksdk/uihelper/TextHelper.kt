@@ -20,24 +20,28 @@ import android.webkit.MimeTypeMap
 import android.widget.Toast
 import androidx.core.net.toFile
 import androidx.core.net.toUri
+import com.bird2fish.birdtalksdk.SdkGlobalData
 import com.bird2fish.birdtalksdk.model.Drafty
+import com.bird2fish.birdtalksdk.model.MessageContent
+import com.bird2fish.birdtalksdk.model.MessageData
 import com.bird2fish.birdtalksdk.net.FileDownloader
+import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass
+import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass.ChatMsgType
 import java.io.File
 import java.net.MalformedURLException
 import java.net.URL
 import java.text.DecimalFormat
-import java.util.Locale
 import kotlin.math.floor
 import kotlin.math.pow
 import com.google.i18n.phonenumbers.PhoneNumberUtil
-import com.google.i18n.phonenumbers.Phonenumber.PhoneNumber
-import java.io.FileInputStream
+
 import java.io.IOException
 import java.io.InputStream
 import java.security.MessageDigest
-import java.security.NoSuchAlgorithmException
 import java.security.SecureRandom
 import com.fasterxml.jackson.databind.ObjectMapper;
+
+import java.util.Locale
 import java.util.Date
 
 object  TextHelper {
@@ -45,6 +49,80 @@ object  TextHelper {
     private val mAppName: String? = "BirdTalk"
     private val mOsVersion:String? = "6.0"
 
+
+    /**
+     * 适配 API 24+，获取当前日期（年月日，格式：yyyy-MM-dd）
+     * 例：2025-10-18
+     * 核心：用 Calendar 类（API 1 就支持）+ SimpleDateFormat 实现，无版本限制
+     */
+    fun getCurrentDateString(): String {
+        try {
+            // 1. 获取当前系统时间的 Calendar 实例（API 1 兼容）
+            val calendar = Calendar.getInstance()
+
+            // 2. 定义日期格式：yyyy-MM-dd，指定 Locale.CHINA 避免系统语言影响（如英文月份）
+            // SimpleDateFormat 虽有线程安全问题，但此处是方法内创建局部对象，无风险
+            val dateFormatter = SimpleDateFormat("yyyy-MM-dd", Locale.CHINA)
+
+            // 3. 将 Calendar 转成 Date 对象，再格式化为字符串
+            return dateFormatter.format(calendar.time)
+        } catch (e: Exception) {
+            // 异常兜底：避免系统时间异常导致崩溃，返回默认日期（可按需修改）
+            e.printStackTrace()
+            return "1970-01-01"
+        }
+    }
+    /*
+    MessageData(
+    long id,
+    long tid,
+    long uid,
+    long sendId,
+
+    String devId,
+
+    int io,
+    String msgType,
+    byte[] data,
+    int isPlain,
+
+    long tm,
+    long tm1,
+    long tm2,
+    long tm3,
+    String cryptType,
+    int print,
+    String status)
+     */
+    // in:0, out:1
+    fun pbMsgToDbMsg(chatMsg: MsgOuterClass.MsgChat):MessageData{
+        val data = chatMsg.data.toByteArray()
+        val isPlain = if (chatMsg.msgType == ChatMsgType.TEXT) 1 else 0
+
+        val msg = MessageData(chatMsg.msgId, chatMsg.fromId, chatMsg.fromId, chatMsg.sendId,
+            chatMsg.devId,
+            0, chatMsg.msgType.name, data, isPlain,
+            chatMsg.tm, 0, System.currentTimeMillis(), 0,
+            chatMsg.encType.name, chatMsg.keyPrint.toInt(), "recv")
+
+        return msg
+    }
+
+    //从给控件用的，转换到数据库用的类，
+    // 由于这里并没有全局的msgid, 这里仅仅使用sendId 代替，
+    fun MsgContentToDbMsg(msg:MessageContent):MessageData{
+        val isPlain = if (msg.msgType == ChatMsgType.TEXT) 1 else 0
+        val data =  if (msg.msgType == ChatMsgType.TEXT) msg.text.toByteArray() else TextHelper.serializeDrafty(msg.content!!).toByteArray()
+
+
+        val msg = MessageData(msg.msgId, msg.userId, msg.userId, msg.msgId,
+            SdkGlobalData.basicInfo.deviceId,
+            1, msg.msgType.name, data, isPlain,
+            msg.tm, 0, 0, 0,
+            "", 0, msg.msgStatus.name)
+
+        return msg
+    }
 
     fun getFileNameFromUrl(url: String): String {
         return try {

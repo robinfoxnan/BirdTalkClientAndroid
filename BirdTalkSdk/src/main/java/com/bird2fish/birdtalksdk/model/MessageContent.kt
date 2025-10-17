@@ -1,6 +1,8 @@
 package com.bird2fish.birdtalksdk.model
 
 import android.net.Uri
+import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass.ChatMsgType
+import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass.ChatType
 import com.bird2fish.birdtalksdk.uihelper.TextHelper
 
 // 解析后的用于界面所显示的类的
@@ -23,7 +25,13 @@ class MessageContent(
     var mime : String? = "",
     var fileSz:Long = 0L,
     var fileHashCode:String = "",
-    var isP2p :Boolean = true
+    var isP2p :Boolean = true,
+    var tmResend :Long = System.currentTimeMillis(),
+    var msgType:ChatMsgType = ChatMsgType.TEXT,
+    var msgRefId:Long = 0L,
+    var contentOut:String = ""
+
+
 //    var tm1:Long =0,
 //    var tm2:Long =0 ,
 
@@ -63,5 +71,7 @@ enum class MessageStatus {
     DOWNLOADING,        //
     DOWNLOADED,
     OK,
+    RECV,
+    SEEN,
 
 }

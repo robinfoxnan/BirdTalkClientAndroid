@@ -21,6 +21,9 @@ import com.bird2fish.birdtalksdk.db.UserDbHelper
 import com.bird2fish.birdtalksdk.model.MessageContent
 import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass
 import com.bird2fish.birdtalksdk.uihelper.TextHelper
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 
 
 data class PlatformInfo(
@@ -198,10 +201,21 @@ class SdkGlobalData {
 
         }
 
-        fun setSearchFriendRet(ret:LinkedList<User>){
+        // 设置当前搜索的结果
+        fun setSearchFriendRet(ret:LinkedList<User>, result:String, status:String){
             // 使用同步代码块，锁定当前对象
             synchronized(this) {
                 this.searchFriendList = ret
+            }
+            // 通知界面更新
+            userCallBackManager.invokeOnEventCallbacks(MsgEventType.SEARCH_FRIEND_RET,
+                0, 0, 0L, mapOf("result"  to result, "status" to status ) )
+
+            // 关键：用 IO 子线程执行编码操作，主线程不阻塞
+            GlobalScope.launch(Dispatchers.IO) {
+                for (user in ret) {
+                    UserDbHelper.insertOrUpdateUser(user)
+                }
             }
         }
 
@@ -239,6 +253,7 @@ class SdkGlobalData {
 
         }
 
+        // 服务端返回的粉丝
         fun updateAddNewFan(f:com.bird2fish.birdtalksdk.pbmodel.User.UserInfo){
             val friend = UserHelper.pbUserInfo2LocalUser(f)
 
@@ -320,7 +335,10 @@ class SdkGlobalData {
         fun debugClean(){
             TopicDbHelper.deleteFromPTopic(0)
             TopicDbHelper.deleteFromPTopic(10006)
+            TopicDbHelper.deleteFromPTopic()
         }
+
+        // 登录成功后操作
         // 尝试加载用户的好友和粉丝等各种预加载信息
         fun initLoad(uid:Long){
             BaseDb.changeToDB(this.context, uid.toString())
@@ -336,6 +354,26 @@ class SdkGlobalData {
                 Log.e(TAG, "UserDbHelper.insertOrReplaceAccount FAIL")
             }
 
+            // 重连时候不加载数据库
+            synchronized(chatTopicList){
+                if (chatTopicList.isEmpty()){
+                    val p2pTopics = TopicDbHelper.getAllPTopics()
+                    val gTopics = TopicDbHelper.getAllGTopics()
+                    for (t in p2pTopics){
+                        chatTopicList[t.tid] = t
+                        if (SdkGlobalData.currentChatFid == 0L){
+                            SdkGlobalData.currentChatFid = t.tid
+                        }
+                    }
+                    for (t in gTopics){
+                        chatTopicList[-t.tid] = t
+                        if (SdkGlobalData.currentChatFid == 0L){
+                            SdkGlobalData.currentChatFid = -t.tid
+                        }
+                    }
+                }
+
+            }
 
             // 重连时候不加载数据库
             synchronized(followingList) {
@@ -366,6 +404,9 @@ class SdkGlobalData {
                     val mutuals = UserDbHelper.queryMutualFromView(uid.toInt(), 1000)
                     for (f in mutuals) {
                         mutualFollowingList[f.id] = f
+                        if (SdkGlobalData.currentChatFid == 0L){
+                            SdkGlobalData.currentChatFid = f.id
+                        }
                     }
                 }
 
@@ -378,26 +419,7 @@ class SdkGlobalData {
             MsgEncocder.sendListFriend("fans")
 
 
-            // 重连时候不加载数据库
-            synchronized(chatTopicList){
-                if (chatTopicList.isEmpty()){
-                    val p2pTopics = TopicDbHelper.getAllPTopics()
-                    val gTopics = TopicDbHelper.getAllGTopics()
-                    for (t in p2pTopics){
-                        chatTopicList[t.tid] = t
-                        if (SdkGlobalData.currentChatFid == 0L){
-                            SdkGlobalData.currentChatFid = t.tid
-                        }
-                    }
-                    for (t in gTopics){
-                        chatTopicList[-t.tid] = t
-                        if (SdkGlobalData.currentChatFid == 0L){
-                            SdkGlobalData.currentChatFid = -t.tid
-                        }
-                    }
-                }
 
-            }
 
             // 申请同步数据消息
         }

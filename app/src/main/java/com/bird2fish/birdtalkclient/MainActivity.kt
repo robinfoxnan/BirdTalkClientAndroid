@@ -1,6 +1,7 @@
 package com.bird2fish.birdtalkclient
 
 import android.app.Activity
+import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.view.View
@@ -226,6 +227,38 @@ class MainActivity : AppCompatActivity() , StatusCallback {
             showText("服务器重连完毕")
         }
     }// end onEvent
+
+    // 重写返回键点击事件
+    override fun onBackPressed() {
+        // 关键：创建“回到桌面”的 Intent，模拟按 Home 键的效果
+        val intent = Intent(Intent.ACTION_MAIN)
+        intent.addCategory(Intent.CATEGORY_HOME) // 指定目标为“桌面”
+        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK // 确保在新任务栈中启动桌面
+        startActivity(intent)
+
+        // 注意：不要调用 super.onBackPressed()！
+        // 因为 super 会执行默认逻辑（销毁当前 Activity），会导致退到登录页或退出 App
+    }
+
+//    private var lastBackTime: Long = 0 // 记录上一次按返回键的时间
+
+//    override fun onBackPressed() {
+//        val currentTime = System.currentTimeMillis()
+//        // 两次返回键间隔 < 2 秒：真正退出 App（销毁 MainActivity）
+//        if (currentTime - lastBackTime < 2000) {
+//            super.onBackPressed() // 执行默认逻辑，销毁当前 Activity
+//            return
+//        }
+//        // 两次返回键间隔 ≥ 2 秒：提示“再按一次返回退出”，并回桌面
+//        Toast.makeText(this, "再按一次返回退出", Toast.LENGTH_SHORT).show()
+//        lastBackTime = currentTime // 更新上一次按返回键的时间
+//
+//        // 跳转到桌面（退到后台）
+//        val intent = Intent(Intent.ACTION_MAIN)
+//        intent.addCategory(Intent.CATEGORY_HOME)
+//        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+//        startActivity(intent)
+//    }
 
 
 }

@@ -291,6 +291,8 @@ class ChatPageAdapter(private val dataList: List<MessageContent>) : RecyclerView
         }
 
         val v = LayoutInflater.from(parent.context).inflate(layoutId, parent, false)
+
+        // 这里计算是否需要显示日期
         if (v != null) {
             val dateBubble = v.findViewById<View>(R.id.dateDivider)
             if (dateBubble != null) {
@@ -313,6 +315,7 @@ class ChatPageAdapter(private val dataList: List<MessageContent>) : RecyclerView
         val msg = dataList[position]
         if (msg.inOut) {
             val result = VIEW_TYPE_AVATAR  or VIEW_TYPE_TIP or VIEW_TYPE_SIDE_LEFT
+            // VIEW_TYPE_DATE
             return result
         }
         else{
@@ -353,23 +356,30 @@ class ChatPageAdapter(private val dataList: List<MessageContent>) : RecyclerView
                 AvatarHelper.tryLoadAvatar(this.fragment!!.requireContext(), chatSession.sessionIcon, holder.mAvatar, "")
             }
         }
+        // 私聊不显示用户名，群聊才显示
         if ( holder.mUserName != null){
-            holder.mUserName.text = item.nick
+            if (item.isP2p){
+                holder.mUserName.visibility = View.GONE
+            }else
+            {
+                holder.mUserName.text = item.nick
+            }
+
         }
 
         if (holder.mDateDivider != null){
             //holder.mDateDivider?.visibility = View.VISIBLE
-            holder.mDateDivider?.text = "2024 10 21"
+            holder.mDateDivider?.text = TextHelper.getCurrentDateString()
         }
 
         //holder.mRippleOverlay?.visibility = View.GONE
 
-        holder.mMeta.text = "19:36"
+        holder.mMeta.text = TextHelper.millisToTime1(item.tm)
 
         holder.mText.text = item.text
 
         val hasAttachment =  item!!.content != null &&  item.content?.getEntReferences() != null
-        val uploadingAttachment = hasAttachment &&  item.isPending()
+        val uploadingAttachment = item.msgStatus == MessageStatus.UPLOADING
         val uploadFailed = hasAttachment && ( item.msgStatus === MessageStatus.FAIL)
 
 
@@ -388,7 +398,7 @@ class ChatPageAdapter(private val dataList: List<MessageContent>) : RecyclerView
 
             if (TextUtils.isEmpty(text)) {
                 text =
-                    if (item.msgStatus === MessageStatus.DRAFT || item.msgStatus === MessageStatus.QUEUED || item.msgStatus === MessageStatus.SENDING) {
+                    if (item.msgStatus === MessageStatus.SENDING || item.msgStatus == MessageStatus.UPLOADING) {
                         serviceContentSpanned(
                             this.fragment!!.requireContext(),
                             R.drawable.ic_schedule_gray,

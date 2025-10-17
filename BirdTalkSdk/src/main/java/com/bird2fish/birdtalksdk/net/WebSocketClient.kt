@@ -4,6 +4,8 @@ import android.content.Context
 import android.os.Handler
 import android.os.HandlerThread
 import android.util.Log
+import com.bird2fish.birdtalksdk.model.ChatSession
+import com.bird2fish.birdtalksdk.model.ChatSessionManager
 import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass.Msg
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -30,8 +32,10 @@ class WebSocketClient private constructor() {
 
     private var manuallyClosed = false
 
-    var atomicCounter = AtomicLong(0L)
-    val period = 1 * 30 * 1000L // 30S
+    var atomicCounterHeart = AtomicLong(0L)
+    var atomicCounterCheck = AtomicLong(0L)
+    val periodHeart = 1 * 30 * 1000L     // 30S
+    val periodCheck = 10 * 1000L         // 10S
 
     init {
         handlerThread.start()
@@ -117,12 +121,20 @@ class WebSocketClient private constructor() {
     }
 
     private fun sendHeartBeat(delta:Long){
-        val v = atomicCounter.getAndAdd(delta)
-        if (v > period){
+        val v = atomicCounterHeart.getAndAdd(delta)
+        if (v > periodHeart){
             MsgEncocder.sendHeartBeat()
-            atomicCounter.set(0L)
+            atomicCounterHeart.set(0L)
         }
 
+    }
+
+    private fun checkResend(delta:Long){
+        val v = atomicCounterCheck.getAndAdd(delta)
+        if (v > periodCheck){
+            ChatSessionManager.checkResendOrFail()
+            atomicCounterCheck.set(0L)
+        }
     }
     // 注意，这里千万不能用服务器逻辑一样来发送数据，大文件会把连接卡住，
     private fun startSendTask() {
@@ -143,6 +155,7 @@ class WebSocketClient private constructor() {
 
                 // 50ms 后再执行下一次循环
                 sendHeartBeat(50)
+                checkResend(50)
                 handler.postDelayed(this, 50)
             }
         })

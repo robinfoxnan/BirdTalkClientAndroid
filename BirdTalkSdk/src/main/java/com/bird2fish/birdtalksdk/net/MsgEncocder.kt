@@ -5,6 +5,7 @@ import android.telephony.mbms.FileInfo
 import com.bird2fish.birdtalksdk.InterErrorType
 import com.bird2fish.birdtalksdk.MsgEventType
 import com.bird2fish.birdtalksdk.SdkGlobalData
+import com.bird2fish.birdtalksdk.db.TopicDbHelper
 import com.bird2fish.birdtalksdk.model.ChatSessionManager
 import com.bird2fish.birdtalksdk.model.Drafty
 import com.bird2fish.birdtalksdk.pbmodel.*
@@ -141,23 +142,17 @@ class MsgEncocder {
         // 当收到消息的时候
         fun onRecvChatMsg(msg: MsgOuterClass.Msg){
             val chatMsg = msg.plainMsg.chatData
-            // 保存，处理
+
+            // 添加到各个对话
             ChatSessionManager.onRecvChatMsg(chatMsg)
 
-            val resultMap = mapOf(
-                "status" to "coming",
-            )
-
-            // 通知界面更新消息，已经保存处理完了
-            SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(MsgEventType.MSG_COMING, chatMsg.msgType.number,
-                chatMsg.msgId, chatMsg.fromId, resultMap)
         }
 
-        // 聊天的回执
+        // 聊天的回执，
         fun onRecvChatReply(msg: MsgOuterClass.Msg){
             val reply = msg.plainMsg.chatReply
 
-            val index = ChatSessionManager.onChatMsgReply(reply.fromId,  reply.paramsMap, reply.sendId, reply.sendOk,reply.recvOk, reply.readOk)
+            val index = ChatSessionManager.onChatMsgReply(reply.fromId,  reply.paramsMap, reply.sendId, reply.sendOk,reply.recvOk, reply.readOk, reply.extraMsg)
 
             val resultMap = mapOf(
                 "status" to "reply",
@@ -551,12 +546,7 @@ class MsgEncocder {
                 }
             }
 
-
-
-            SdkGlobalData.setSearchFriendRet(lst)
-            SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(MsgEventType.SEARCH_FRIEND_RET,
-                    0, 0, 0L, mapOf("result"  to result, "status" to status ) )
-
+            SdkGlobalData.setSearchFriendRet(lst, result, status)
         }
 
         /*
@@ -1205,8 +1195,8 @@ class MsgEncocder {
 
             reply.msgId = refMsgId
             reply.sendId = sendId
-            reply.userId = fid
-            reply.fromId = SdkGlobalData.selfUserinfo.id
+            reply.userId = fid                              // 发给谁
+            reply.fromId = SdkGlobalData.selfUserinfo.id    // 从哪来， 这个用户发的的
             reply.recvOk = timestamp
             if (bRead){
                 reply.readOk = timestamp

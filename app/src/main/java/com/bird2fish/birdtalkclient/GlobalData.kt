@@ -23,6 +23,7 @@ class GlobalData  {
         val eventListener : ActionListener = ActionListener()
         var loginActivity: AppCompatActivity? = null
         var mainActivity :AppCompatActivity?=null
+        var userStatus:String = ""
 
         fun init(ctx: Context, domain:String){
             // 设置与sdk的通知接口
@@ -59,8 +60,6 @@ class ActionListener :StatusCallback{
     override fun onEvent(eventType: MsgEventType, msgType: Int, msgId: Long, fid: Long, params:Map<String, String>) {
         // 处理事件逻辑
         Log.d("GlobalData", "Event: $eventType, MsgType: $msgType, MsgId: $msgId, Fid: $fid")
-
-
 
         // 可以添加其他事件处理逻辑，如更新UI或发送通知
         when (eventType){
