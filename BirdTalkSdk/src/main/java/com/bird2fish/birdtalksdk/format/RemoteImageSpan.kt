@@ -1,5 +1,6 @@
 package com.bird2fish.birdtalksdk.format
 
+import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
@@ -11,9 +12,14 @@ import android.text.style.ReplacementSpan
 import android.util.Log
 import android.view.View
 import androidx.annotation.IntRange
+import com.bird2fish.birdtalksdk.uihelper.ImagesHelper
+import com.bird2fish.birdtalksdk.uihelper.TextHelper
 import com.squareup.picasso.Picasso
 import com.squareup.picasso.Picasso.LoadedFrom
 import com.squareup.picasso.Target
+import java.io.File
+import java.io.FileOutputStream
+import java.io.IOException
 import java.lang.ref.WeakReference
 import java.net.URL
 
@@ -33,6 +39,7 @@ class RemoteImageSpan(
     private var mOriginalHeight = 0 // 图片原始高度
     private var mScaledWidth = 0
     private var mScaledHeight = 0
+    private var fileName = ""
 
 
     // 初始化：给初始占位图设置bounds（关键！避免getSize()获取到0）
@@ -42,13 +49,25 @@ class RemoteImageSpan(
         }
         // 错误图提前设置bounds，避免加载失败时尺寸异常
         mOnError.setBounds(0, 0, mTargetWidth, mTargetHeight)
+
     }
 
     fun load(from: URL) {
+
+        val parent = mParentRef.get() ?: return
+
         mSource = from
+        this.fileName = TextHelper.getFileNameFromUrl(from.toString())
+
+        val bitmap = ImagesHelper.loadBitmapFromAppDir(parent.context, "cache", this.fileName)
+        if (bitmap != null) {
+            drawImage(bitmap)
+            return
+        }
+
         val temp = Uri.parse(from.toString())
         var req = Picasso.get().load(temp)
-        //.resize(mWidth, mHeight)。
+
         if (mCropCenter) {
             req = req.centerCrop()
         }
@@ -84,8 +103,60 @@ class RemoteImageSpan(
 //        }
 //    }
 
+    /**
+     * 保存Bitmap到文件
+     */
+    fun saveBitmapToAppDir(
+        context: Context,
+        bitmap: Bitmap,
+        dirName: String,
+        fileName: String
+    ): String? {
+        return try {
+            // 创建目录
+            val dir = File(context.getExternalFilesDir(null), dirName)
+            if (!dir.exists()) {
+                if (!dir.mkdirs()) {
+                    throw IOException("无法创建目录")
+                }
+            }
+
+            // 创建文件
+            val file = File(dir, fileName)
+            if (file.exists()) {
+                file.delete()
+            }
+
+            // 保存Bitmap
+            val outputStream = FileOutputStream(file)
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 100, outputStream)
+            outputStream.flush()
+            outputStream.close()
+
+            // 返回文件路径
+            file.absolutePath
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
     // 自定义缩放：不依赖Picasso，手动计算缩放后的Bitmap
     override fun onBitmapLoaded(bitmap: Bitmap, from: LoadedFrom) {
+        val parent = mParentRef.get() ?: return
+
+        // 0. 保存到本地
+        saveBitmapToAppDir(
+            parent.context,
+            bitmap = bitmap,
+            dirName = "cache",
+            fileName = fileName
+        )
+        drawImage(bitmap)
+    }
+
+    fun drawImage(bitmap: Bitmap){
+
         val parent = mParentRef.get() ?: return
 
         // 1. 保存原始图片尺寸

@@ -65,6 +65,7 @@ class ActionListener :StatusCallback{
         when (eventType){
             // 跳转，加载用户信息，然后跳转到主界面
             LOGIN_OK ->{
+                GlobalData.userStatus = "loginOk"
                 // 在后台组件中获取ViewModel实例并发送消息
                 if (GlobalData.loginActivity != null){
                     val viewModel = ViewModelProvider(GlobalData.loginActivity!!).get(LoginViewMode::class.java)

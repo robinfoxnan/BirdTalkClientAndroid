@@ -1,11 +1,8 @@
 package com.bird2fish.birdtalksdk.ui
 
 import FullscreenImageDialog
-import android.animation.ArgbEvaluator
-import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
-import android.content.res.ColorStateList
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Color
@@ -37,24 +34,22 @@ import androidx.appcompat.content.res.AppCompatResources
 import androidx.appcompat.view.ActionMode
 import androidx.appcompat.widget.AppCompatImageButton
 import androidx.appcompat.widget.AppCompatImageView
+import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.bird2fish.birdtalksdk.MsgEventType
+import com.bird2fish.birdtalksdk.R
+import com.bird2fish.birdtalksdk.SdkGlobalData
 import com.bird2fish.birdtalksdk.format.FullFormatter
 import com.bird2fish.birdtalksdk.format.QuoteFormatter
+import com.bird2fish.birdtalksdk.model.ChatSessionManager
 import com.bird2fish.birdtalksdk.model.MessageContent
 import com.bird2fish.birdtalksdk.model.MessageStatus
+import com.bird2fish.birdtalksdk.net.FileDownloader
+import com.bird2fish.birdtalksdk.uihelper.AvatarHelper
 import com.bird2fish.birdtalksdk.uihelper.ImagesHelper
 import com.bird2fish.birdtalksdk.uihelper.TextHelper
 import com.bird2fish.birdtalksdk.widgets.MediaControl
 import java.io.IOException
-import java.net.MalformedURLException
-import java.net.URL
-import com.bird2fish.birdtalksdk.R
-import com.bird2fish.birdtalksdk.SdkGlobalData
-import com.bird2fish.birdtalksdk.model.ChatSessionManager
-import com.bird2fish.birdtalksdk.net.FileDownloader
-import com.bird2fish.birdtalksdk.net.MsgEncocder
-import com.bird2fish.birdtalksdk.uihelper.AvatarHelper
 
 
 // 每个消息条目的内容布局部分
@@ -154,6 +149,8 @@ class ChatPageAdapter(private val dataList: List<MessageContent>) : RecyclerView
 
     private val MESSAGE_BUBBLE_ANIMATION_SHORT: Int = 150
     private val MESSAGE_BUBBLE_ANIMATION_LONG: Int = 600
+
+
 
     private val mSelectionModeCallback: ActionMode.Callback = object : ActionMode.Callback {
             override fun onPrepareActionMode(actionMode: ActionMode, menu: Menu): Boolean {
@@ -475,10 +472,7 @@ class ChatPageAdapter(private val dataList: List<MessageContent>) : RecyclerView
         // 发送成功图标
         if (holder.mDeliveredIcon != null) {
             if ((holder.mViewType and VIEW_TYPE_SIDE_RIGHT) != 0) {
-                ImagesHelper.setMessageStatusIcon(
-                    holder.mDeliveredIcon, item.msgStatus,
-                    item.bRead, item.bRecv
-                )
+                ImagesHelper.setMessageStatusIcon(holder.mDeliveredIcon, item.msgStatus, item.bRead, item.bRecv)
             }
         }
 

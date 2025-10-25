@@ -266,7 +266,7 @@ class FragmentTest : Fragment() {
 
         TopicDbHelper.updateGChatStatus(201, 10, "sending")
 
-        val lst = TopicDbHelper.getGChatMessagesFromId(201, 9, 100, true)
+        val lst = TopicDbHelper.getGChatMessagesById(201, 9, 100, true)
         for (item in lst){
             showInfo(item.toString())
         }
@@ -311,7 +311,7 @@ class FragmentTest : Fragment() {
         msg.tm1 =  System.currentTimeMillis()
         msg.tm2 = System.currentTimeMillis()
 
-        TopicDbHelper.updatePChatReply(msg)
+        TopicDbHelper.updatePChatReply(msg.id, 0L, 0L ,0L)
 
         msg.id = 5
         msg.status = "ok"
@@ -328,7 +328,7 @@ class FragmentTest : Fragment() {
         TopicDbHelper.deleteFromPChatUnread(2)
         val dataMap = TopicDbHelper.getUnreadCountsByUid()
         for (key in dataMap.keys) {
-            val value: Int = dataMap.getValue(key)
+            val value: Long = dataMap.getValue(key)
             println("Key: $key, Value: $value")
             showInfo("fid=$key, count=$value")
         }

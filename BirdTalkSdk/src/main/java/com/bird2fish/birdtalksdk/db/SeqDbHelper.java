@@ -50,7 +50,7 @@ public class SeqDbHelper {
             cursor = db.rawQuery("SELECT COUNT(*) FROM " + TABLE_NAME + " WHERE " + COL_ID + " = 1", null);
             boolean hasRecord = false;
             if (cursor.moveToFirst()) {
-                hasRecord = cursor.getInt(0) > 0;
+                hasRecord = cursor.getLong(0) > 0;
             }
             if (!hasRecord) {
                 // 插入起始行，初始seq从1000开始

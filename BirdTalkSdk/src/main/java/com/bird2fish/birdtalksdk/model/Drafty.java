@@ -590,11 +590,11 @@ public class Drafty implements Serializable {
      */
     @SuppressWarnings("UnusedReturnValue")
     public Drafty insertImage(int at, String mime, byte[] bits, int width, int height, String fname) {
-        return insertImage(at, mime, bits, width, height, fname, null, 0);
+        return insertImage(at, mime, bits, width, height, fname, null, null, 0);
     }
 
     // robin add 这里是对图片缩放后然后加在字节流中
-    public Drafty insertLocalImage(Context context, ContentResolver contentResolver, android.net.Uri uri, String fName){
+    public Drafty insertLocalImage(Context context, ContentResolver contentResolver, android.net.Uri uri, String fName, String mime){
         try {
             // 获取屏幕宽高
             DisplayMetrics displayMetrics = context.getResources().getDisplayMetrics();
@@ -652,14 +652,34 @@ public class Drafty implements Serializable {
             finalBitmap.recycle(); // 释放最终 Bitmap 内存
 
             //
-            return insertImage(0, "image/jpeg", byteArray, (int) (originalWidth / scaleFactor),
-                    (int) (originalHeight / scaleFactor), fName, null, 0);
+            return insertImage(0, mime, byteArray, (int) (originalWidth / scaleFactor),
+                    (int) (originalHeight / scaleFactor), fName, null, localUri2URI(uri), 0);
 
         } catch (Exception e) {
             e.printStackTrace();
             return null;
         }
 
+    }
+
+    private  URI localUri2URI(Uri uri){
+        // 假设已有一个 android.net.Uri 对象\
+        // "content://com.example.provider/data/123"
+        Uri androidUri = uri;
+
+        try {
+            // 1. 将 android.net.Uri 转为字符串
+            String uriString = androidUri.toString();
+
+            // 2. 用字符串构造 java.net.URI 对象
+            URI javaUri = new URI(uriString);
+
+            // 转换完成，可使用 javaUri
+        } catch (Exception e) {
+            // 处理 URI 格式错误（例如字符串不符合 URI 规范）
+            e.printStackTrace();
+        }
+        return null;
     }
 
     /**
@@ -681,6 +701,7 @@ public class Drafty implements Serializable {
                               byte[] bits, int width, int height,
                               @Nullable String fname,
                               @Nullable URI refurl,
+                              @Nullable URI localurl,
                               long size) {
         if (bits == null && refurl == null) {
             throw new IllegalArgumentException("Either image bits or reference URL must not be null.");
@@ -695,6 +716,10 @@ public class Drafty implements Serializable {
         if (refurl != null) {
             addOrSkip(data, "ref", refurl.toString());
         }
+        if (localurl != null) {
+            addOrSkip(data, "local", refurl.toString());
+        }
+
         if (size > 0) {
             data.put("size", size);
         }

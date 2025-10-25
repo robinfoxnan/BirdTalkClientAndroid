@@ -89,7 +89,6 @@ class LoinActivity : AppCompatActivity() {
         // 观察LiveData，这里登录成功后需要跳转到主页面
         viewModel.message.observe(this) { message ->
             if (message == "loginok") {
-                GlobalData.userStatus = "loginOk"
                 SwitchToMain()
             }
         }

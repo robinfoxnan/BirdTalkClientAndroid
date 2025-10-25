@@ -300,9 +300,43 @@ class ChatPageFragment : Fragment() , StatusCallback {
         }
     }
 
+    // 外部调用：设置RecyclerView的滚动监听，用于检测可见项
+    fun setupScrollListener(recyclerView: RecyclerView) {
+        recyclerView.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+            override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
+                super.onScrollStateChanged(recyclerView, newState)
+                // 当滚动停止时处理（避免滚动过程中频繁触发）
+                if (newState == RecyclerView.SCROLL_STATE_IDLE) {
+                    markVisibleItemsAsRead(recyclerView)
+                }
+            }
+
+            override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+                super.onScrolled(recyclerView, dx, dy)
+                // 可选：如果需要在滚动过程中实时标记，可在此处调用（但可能影响性能）
+                // markVisibleItemsAsRead(recyclerView);
+            }
+        })
+    }
+
+    // 标记可见条目为已读
+    private fun markVisibleItemsAsRead(recyclerView: RecyclerView) {
+        val layoutManager = recyclerView.layoutManager as? LinearLayoutManager
+            ?: return  // 仅处理LinearLayoutManager（其他布局管理器类似）
+
+        val linearManager = layoutManager as LinearLayoutManager
+        // 获取可见范围（这里用“完全可见”作为判断，根据需求调整）
+        val firstVisible = linearManager.findFirstCompletelyVisibleItemPosition()
+        val lastVisible = linearManager.findLastCompletelyVisibleItemPosition()
+
+        //val txt = "滚动的位置：" + firstVisible.toString() + " to " + lastVisible.toString()
+        //TextHelper.showToast(requireContext(), txt)
+        ChatSessionManager.markSessionReadItems(this.mChatIdLong, firstVisible, lastVisible)
+
+    }
+
+
     // 设置聊天的对方是谁，如果是正数就是私聊，如果是负数就是群组号码
-
-
     fun setParent(p:ChatManagerFragment){
         this.parentView = p
     }
@@ -331,29 +365,29 @@ class ChatPageFragment : Fragment() , StatusCallback {
 
     fun testInitData(){
         // 初始化
-        val msg = MessageContent(1, 1001, "飞鸟", "sys:3", UserStatus.ONLINE, MessageStatus.OK, true,
-            true, true, "昨天你去哪里了呢？", null)
-        chatSession?.addMessageToTail(msg)
-
-        val msg1 = MessageContent(2, 1002, "我", "sys:4", UserStatus.ONLINE, MessageStatus.SENDING, false,
-            false, false, "发送中，服务器还没有回执", null)
-        chatSession?.addMessageToTail(msg1)
-
-        val msg2 = MessageContent(3, 1002, "我", "sys:4", UserStatus.ONLINE, MessageStatus.OK, false,
-            false, false, "服务器给回执了", null)
-        chatSession?.addMessageToTail(msg2)
-
-        val msg3 = MessageContent(4, 1002, "我", "sys:4", UserStatus.OFFLINE, MessageStatus.OK, false,
-            false, true, "用户接收回执", null)
-        chatSession?.addMessageToTail(msg3)
-
-        val msg4 = MessageContent(5, 1002, "我", "sys:4", UserStatus.OFFLINE, MessageStatus.OK, false,
-            true, true, "用户阅读回执", null)
-        chatSession?.addMessageToTail(msg4)
-
-        val msg5 = MessageContent(6, 1002, "我", "sys:4", UserStatus.OFFLINE, MessageStatus.FAIL, false,
-            false, false, "发送失败的", null)
-        chatSession?.addMessageToTail(msg5)
+//        val msg = MessageContent(1, 1001, 1001,"飞鸟", "sys:3", UserStatus.ONLINE, MessageStatus.OK, true,
+//            true, true, "昨天你去哪里了呢？", null)
+//        chatSession?.addMessageToTail(msg)
+//
+//        val msg1 = MessageContent(2, 1002, 1002,"我", "sys:4", UserStatus.ONLINE, MessageStatus.SENDING, false,
+//            false, false, "发送中，服务器还没有回执", null)
+//        chatSession?.addMessageToTail(msg1)
+//
+//        val msg2 = MessageContent(3, 1002, "我", "sys:4", UserStatus.ONLINE, MessageStatus.OK, false,
+//            false, false, "服务器给回执了", null)
+//        chatSession?.addMessageToTail(msg2)
+//
+//        val msg3 = MessageContent(4, 1002, "我", "sys:4", UserStatus.OFFLINE, MessageStatus.OK, false,
+//            false, true, "用户接收回执", null)
+//        chatSession?.addMessageToTail(msg3)
+//
+//        val msg4 = MessageContent(5, 1002, "我", "sys:4", UserStatus.OFFLINE, MessageStatus.OK, false,
+//            true, true, "用户阅读回执", null)
+//        chatSession?.addMessageToTail(msg4)
+//
+//        val msg5 = MessageContent(6, 1002, "我", "sys:4", UserStatus.OFFLINE, MessageStatus.FAIL, false,
+//            false, false, "发送失败的", null)
+//        chatSession?.addMessageToTail(msg5)
     }
 
     override fun onCreateView(
@@ -427,10 +461,8 @@ class ChatPageFragment : Fragment() , StatusCallback {
 
         mRecyclerView?.layoutManager = LinearLayoutManager(context)
         mRecyclerView?.setAdapter(mMessagesAdapter);
+        setupScrollListener(mRecyclerView!!)
         // 刷新动作
-
-
-
 
         mRefresher?.setOnRefreshListener(OnRefreshListener {
             mRefresher?.setRefreshing(false)
@@ -1217,8 +1249,8 @@ class ChatPageFragment : Fragment() , StatusCallback {
         //draft.insertImage(0,"image/jpeg", null, 884, 535, "",
 //        draft.insertImage(0,"image/jpeg", null, 0, 0, "",
 //            URI(url), 417737)
-        draft.insertImage(0,"image/jpeg", null, 0, 0, "",
-            URI(url), 0)
+//        draft.insertImage(0,"image/jpeg", null, 0, 0, "",
+//            URI(url), 0)
 
         //二进制方式
 
@@ -1228,7 +1260,7 @@ class ChatPageFragment : Fragment() , StatusCallback {
 //            }
 
         Log.d("文件内容", "draft: ${draft.toPlainText()}")
-        val msg2 = MessageContent(2, 1002, "我", "sys:4",
+        val msg2 = MessageContent(2, 1002, 1002, "我", "sys:4",
             UserStatus.ONLINE, MessageStatus.UPLOADING, false, false, false, "", draft)
         chatSession!!.addMessageToTail(msg2)
 

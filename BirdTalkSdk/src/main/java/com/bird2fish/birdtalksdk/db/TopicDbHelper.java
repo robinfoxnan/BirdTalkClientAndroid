@@ -86,7 +86,8 @@ public class TopicDbHelper {
                     COLUMN_TM3 + " INTEGER," +
                     COLUMN_CRYPT_TYPE + " TEXT," +
                     COLUMN_PRINT + " INTEGER," +
-                    COLUMN_STATUS + " TEXT);";
+                    COLUMN_STATUS + " TEXT," +  // 注意这里多一个逗号，因为后面要加索引
+                    "INDEX idx_tm (" + COLUMN_TM + "));"; // 为 TM 字段创建名为 idx_tm 的索引
 
     private static final String SQL_CREATE_PCHAT_UNREAD_TABLE =
             "CREATE TABLE IF NOT EXISTS " + TABLE_PCHAT_UNREAD + " (" +
@@ -165,6 +166,83 @@ public class TopicDbHelper {
         BaseDb.getInstance().setGTable(tableName);
     }
     /////////////////////////////////////////////////////////////////////////////////
+    // 第二次插入的时候，需要删除之前的消息
+    public static boolean  insertPChatMsgAgain(MessageData messageData) {
+        SQLiteDatabase db = BaseDb.getInstance().getWritableDatabase();
+        ContentValues values = new ContentValues();
+
+        // 基础数据表；
+        values.put("id", messageData.getId());
+        values.put("tid", messageData.getTid());
+        values.put("uid", messageData.getUid());
+        values.put("send_id", messageData.getSendId());
+        values.put("dev_id", messageData.getDevId());
+        values.put("io", messageData.getIo());
+        values.put("msg_type", messageData.getMsgType());
+        values.put("data", messageData.getData());
+        values.put("is_plain", messageData.getIsPlain());
+        values.put("tm", messageData.getTm());
+        values.put("tm1", messageData.getTm1());
+        values.put("tm2", messageData.getTm2());
+        values.put("tm3", messageData.getTm3());
+        values.put("crypt_type", messageData.getCryptType());
+        values.put("print", messageData.getPrint());
+        values.put("status", messageData.getStatus());
+
+        // 会话表
+        ContentValues values2 = new ContentValues();
+        values2.put("id", messageData.getId());
+
+        // 对方未读，或者自己未读
+        ContentValues values3 = new ContentValues();
+        values3.put("id", messageData.getId());
+        values3.put("uid", messageData.getUid());
+        values3.put("io", messageData.getIo());
+
+        long row1 = 0;
+        long row2 = 0;
+        long row3 = 0;
+
+        boolean ret = false;
+        try {
+            db.beginTransaction();
+
+            row1 = db.insertWithOnConflict(TABLE_PCHAT, null, values, SQLiteDatabase.CONFLICT_REPLACE);
+
+            long tid = messageData.getTid();
+            createPChatTable(tid);
+            row2 = db.insertWithOnConflict(getPChatName(tid), null, values2, SQLiteDatabase.CONFLICT_REPLACE);
+
+            if (messageData.getTm3() == 0L)
+            {
+                row3 = db.insertWithOnConflict(TABLE_PCHAT_UNREAD, null, values3, SQLiteDatabase.CONFLICT_REPLACE);
+            }
+            // 删除之前的行
+            String selection = "id = ?";
+            String[] selectionArgs = { String.valueOf(messageData.getSendId()) };
+            int deletedRows = db.delete(TABLE_PCHAT, selection, selectionArgs);
+
+            deletedRows = db.delete(getPChatName(tid), selection, selectionArgs);
+
+            deletedRows = db.delete(TABLE_PCHAT_UNREAD, selection, selectionArgs);
+
+            // 所有操作成功
+            db.setTransactionSuccessful();
+
+            if (row1 != -1 && row2 != -1 && row3 != -1) {
+                ret = true;
+            } else {
+                // 发生了至少一个插入失败的情况
+                //Log.e("Transaction", "Failed to insert or replace data");
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }finally {
+            db.endTransaction();
+        }
+
+        return ret;
+    }
     // 收发P2P数据，同时写3个表，pchat, pchat..., pchat_unread
     public static boolean  insertPChatMsg(MessageData messageData) {
         SQLiteDatabase db = BaseDb.getInstance().getWritableDatabase();
@@ -255,10 +333,10 @@ public class TopicDbHelper {
 
                     // 从 Cursor 中提取数据并创建 MessageData 对象
                     MessageData message = new MessageData();
-                    message.setId(cursor.getInt(cursor.getColumnIndexOrThrow("id")));
-                    message.setTid(cursor.getInt(cursor.getColumnIndexOrThrow("tid")));
-                    message.setUid(cursor.getInt(cursor.getColumnIndexOrThrow("uid")));
-                    message.setSendId(cursor.getInt(cursor.getColumnIndexOrThrow("send_id")));
+                    message.setId(cursor.getLong(cursor.getColumnIndexOrThrow("id")));
+                    message.setTid(cursor.getLong(cursor.getColumnIndexOrThrow("tid")));
+                    message.setUid(cursor.getLong(cursor.getColumnIndexOrThrow("uid")));
+                    message.setSendId(cursor.getLong(cursor.getColumnIndexOrThrow("send_id")));
                     message.setDevId(cursor.getString(cursor.getColumnIndexOrThrow("dev_id")));
                     message.setIo(cursor.getInt(cursor.getColumnIndexOrThrow("io")));
                     message.setMsgType(cursor.getString(cursor.getColumnIndexOrThrow("msg_type")));
@@ -289,8 +367,8 @@ public class TopicDbHelper {
     }
 
     // 方法用于从数据库中获取各个 uid 的未读消息数，并以 Map 形式返回
-    public  static Map<Integer, Integer> getUnreadCountsByUid() {
-        Map<Integer, Integer> unreadCounts = new HashMap<>();
+    public  static Map<Long, Long> getUnreadCountsByUid() {
+        Map<Long, Long> unreadCounts = new HashMap<>();
         SQLiteDatabase db = BaseDb.getInstance().getReadableDatabase();
         Cursor cursor = null;
 
@@ -302,8 +380,8 @@ public class TopicDbHelper {
             // 遍历结果集并添加到 Map 中
             if (cursor != null && cursor.moveToFirst()) {
                 do {
-                    int uid = cursor.getInt(cursor.getColumnIndexOrThrow("uid"));
-                    int count = cursor.getInt(cursor.getColumnIndexOrThrow("count"));
+                    Long uid = cursor.getLong(cursor.getColumnIndexOrThrow("uid"));
+                    Long count = cursor.getLong(cursor.getColumnIndexOrThrow("count"));
                     unreadCounts.put(uid, count);
                 } while (cursor.moveToNext());
             }
@@ -338,10 +416,10 @@ public class TopicDbHelper {
             // Iterate through the cursor and populate the MessageData list
             while (cursor.moveToNext()) {
                 MessageData message = new MessageData();
-                message.setId(cursor.getInt(cursor.getColumnIndexOrThrow("id")));
-                message.setTid(cursor.getInt(cursor.getColumnIndexOrThrow("tid")));
-                message.setUid(cursor.getInt(cursor.getColumnIndexOrThrow("uid")));
-                message.setSendId(cursor.getInt(cursor.getColumnIndexOrThrow("send_id")));
+                message.setId(cursor.getLong(cursor.getColumnIndexOrThrow("id")));
+                message.setTid(cursor.getLong(cursor.getColumnIndexOrThrow("tid")));
+                message.setUid(cursor.getLong(cursor.getColumnIndexOrThrow("uid")));
+                message.setSendId(cursor.getLong(cursor.getColumnIndexOrThrow("send_id")));
                 message.setDevId(cursor.getString(cursor.getColumnIndexOrThrow("dev_id")));
                 message.setIo(cursor.getInt(cursor.getColumnIndexOrThrow("io")));
                 message.setMsgType(cursor.getString(cursor.getColumnIndexOrThrow("msg_type")));
@@ -369,8 +447,45 @@ public class TopicDbHelper {
     }
 
 
+    // 查询当前所有消息最后一条数据
+    public static long getPChatLastTm(){
+        SQLiteDatabase db = BaseDb.getInstance().getWritableDatabase();
+        Cursor cursor = null;
+        String sqlQuery = "SELECT pchat.* LIMIT";
+
+        cursor = db.rawQuery("SELECT MAX(tm) AS max_tm FROM pchat", null);
+        long maxTm = 0; // 默认值
+
+        if (cursor.moveToFirst()) {
+            // 读取 max_tm 列的值，若为 NULL 则返回 -1（可根据需求调整默认值）
+            maxTm = cursor.getLong(cursor.getColumnIndexOrThrow("max_tm"));
+        }
+
+        cursor.close(); // 记得关闭 Cursor
+
+        return maxTm;
+
+    }
+
+    public static long getPChatLastId(){
+        SQLiteDatabase db = BaseDb.getInstance().getWritableDatabase();
+        Cursor cursor = null;
+
+        cursor = db.rawQuery("SELECT MAX(id) AS max_id FROM pchat", null);
+        long maxTm = 0; // 默认值
+
+        if (cursor.moveToFirst()) {
+            // 读取 max_tm 列的值，若为 NULL 则返回 -1（可根据需求调整默认值）
+            maxTm = cursor.getLong(cursor.getColumnIndexOrThrow("max_id"));
+        }
+
+        cursor.close(); // 记得关闭 Cursor
+
+        return maxTm;
+
+    }
     // 查询某个会话中的数据
-    public  static List<MessageData> getMessagesFromTopic(long fid, long startId, int limit, boolean forward) {
+    public  static List<MessageData> getPChatMessagesById(long fid, long startId, int limit, boolean forward) {
         List<MessageData> messages = new ArrayList<>();
 
         SQLiteDatabase db = BaseDb.getInstance().getWritableDatabase();
@@ -385,7 +500,7 @@ public class TopicDbHelper {
                     " FROM " + tableName +
                     " LEFT JOIN pchat ON " + tableName + ".id = pchat.id " +
                     " WHERE " + tableName + ".id <= ? " +
-                    "ORDER BY pchat.id DESC " +
+                    "ORDER BY pchat.tm ASC " +
                     " LIMIT ?";
 
             if (forward){
@@ -393,7 +508,7 @@ public class TopicDbHelper {
                         " FROM " + tableName +
                         " LEFT JOIN pchat ON " + tableName + ".id = pchat.id " +
                         " WHERE " + tableName + ".id >= ? " +
-                        "ORDER BY pchat.id ASC " +
+                        "ORDER BY pchat.tm ASC " +
                         " LIMIT ?";
             }
 
@@ -405,10 +520,10 @@ public class TopicDbHelper {
             // Iterate through the cursor and populate the MessageData list
             while (cursor.moveToNext()) {
                 MessageData message = new MessageData();
-                message.setId(cursor.getInt(cursor.getColumnIndexOrThrow("id")));
-                message.setTid(cursor.getInt(cursor.getColumnIndexOrThrow("tid")));
-                message.setUid(cursor.getInt(cursor.getColumnIndexOrThrow("uid")));
-                message.setSendId(cursor.getInt(cursor.getColumnIndexOrThrow("send_id")));
+                message.setId(cursor.getLong(cursor.getColumnIndexOrThrow("id")));
+                message.setTid(cursor.getLong(cursor.getColumnIndexOrThrow("tid")));
+                message.setUid(cursor.getLong(cursor.getColumnIndexOrThrow("uid")));
+                message.setSendId(cursor.getLong(cursor.getColumnIndexOrThrow("send_id")));
                 message.setDevId(cursor.getString(cursor.getColumnIndexOrThrow("dev_id")));
                 message.setIo(cursor.getInt(cursor.getColumnIndexOrThrow("io")));
                 message.setMsgType(cursor.getString(cursor.getColumnIndexOrThrow("msg_type")));
@@ -476,37 +591,37 @@ public class TopicDbHelper {
     }
 
     // 更新私聊中回执等信息
-    public static boolean updatePChatReply(MessageData msg){
-        ContentValues values = new ContentValues();
-        String status = MessageStatus.SENDING.name();
-        values.put("tm1", msg.getTm1());
-        values.put("tm2", msg.getTm2());
-        values.put("tm3", msg.getTm3());
-
-        if (msg.getTm1() > 0){
-            status = MessageStatus.OK.name();
-        }
-
-        if (msg.getTm2() > 0){
-            status = MessageStatus.RECV.name();
-        }
-
-        if (msg.getTm3() > 0){
-            status = MessageStatus.SEEN.name();
-        }
-        values.put("status", status);
-
-        String whereClause = "id = ?";
-        String[] whereArgs = { String.valueOf(msg.getId()) };
-
-        SQLiteDatabase db = BaseDb.getInstance().getWritableDatabase();
-        int rowsUpdated = db.update(TABLE_PCHAT, values, whereClause, whereArgs);
-        if (rowsUpdated > 0){
-            return true;
-        }else{
-            return false;
-        }
-    }
+//    public static boolean updatePChatReply(MessageData msg){
+//        ContentValues values = new ContentValues();
+//        String status = MessageStatus.SENDING.name();
+//        values.put("tm1", msg.getTm1());
+//        values.put("tm2", msg.getTm2());
+//        values.put("tm3", msg.getTm3());
+//
+//        if (msg.getTm1() > 0){
+//            status = MessageStatus.OK.name();
+//        }
+//
+//        if (msg.getTm2() > 0){
+//            status = MessageStatus.RECV.name();
+//        }
+//
+//        if (msg.getTm3() > 0){
+//            status = MessageStatus.SEEN.name();
+//        }
+//        values.put("status", status);
+//
+//        String whereClause = "id = ?";
+//        String[] whereArgs = { String.valueOf(msg.getId()) };
+//
+//        SQLiteDatabase db = BaseDb.getInstance().getWritableDatabase();
+//        int rowsUpdated = db.update(TABLE_PCHAT, values, whereClause, whereArgs);
+//        if (rowsUpdated > 0){
+//            return true;
+//        }else{
+//            return false;
+//        }
+//    }
 
     public static boolean updatePChatReply(long msgId, long tm1, long tm2, long tm3){
         ContentValues values = new ContentValues();
@@ -678,7 +793,7 @@ public class TopicDbHelper {
     }
 
     // 正向或者反向查找数据
-    public  static List<MessageData> getGChatMessagesFromId(long gid, long startId, int limit, boolean forward) {
+    public  static List<MessageData> getGChatMessagesById(long gid, long startId, int limit, boolean forward) {
         List<MessageData> messages = new ArrayList<>();
         SQLiteDatabase db = BaseDb.getInstance().getWritableDatabase();
         Cursor cursor = null;
@@ -701,10 +816,10 @@ public class TopicDbHelper {
                 do {
                     // 从 Cursor 中提取数据并创建 MessageData 对象
                     MessageData message = new MessageData();
-                    message.setId(cursor.getInt(cursor.getColumnIndexOrThrow("id")));
-                    message.setTid(cursor.getInt(cursor.getColumnIndexOrThrow("tid")));
-                    message.setUid(cursor.getInt(cursor.getColumnIndexOrThrow("uid")));
-                    message.setSendId(cursor.getInt(cursor.getColumnIndexOrThrow("send_id")));
+                    message.setId(cursor.getLong(cursor.getColumnIndexOrThrow("id")));
+                    message.setTid(cursor.getLong(cursor.getColumnIndexOrThrow("tid")));
+                    message.setUid(cursor.getLong(cursor.getColumnIndexOrThrow("uid")));
+                    message.setSendId(cursor.getLong(cursor.getColumnIndexOrThrow("send_id")));
                     message.setDevId(cursor.getString(cursor.getColumnIndexOrThrow("dev_id")));
                     message.setIo(cursor.getInt(cursor.getColumnIndexOrThrow("io")));
                     message.setMsgType(cursor.getString(cursor.getColumnIndexOrThrow("msg_type")));
@@ -831,6 +946,23 @@ public class TopicDbHelper {
         db.execSQL(sql);
     }
 
+    public static void clearPChatData(Long tid){
+        SQLiteDatabase db = BaseDb.getInstance().getWritableDatabase();
+        String tableName = getPChatName(tid);
+        String sql = "delete from " + tableName + " where 1";
+
+        db.execSQL(sql);
+    }
+
+    public static void clearPChatData(){
+        SQLiteDatabase db = BaseDb.getInstance().getWritableDatabase();
+        String sql = "delete from " + TABLE_PCHAT + " where 1";
+        db.execSQL(sql);
+
+        sql = "delete from " + TABLE_PCHAT_UNREAD + " where 1";
+        db.execSQL(sql);
+    }
+
     public  static boolean deleteFromGTopic(long tid){
         return deleteTopic(tid, TABLE_PTOPIC);
     }
@@ -845,9 +977,9 @@ public class TopicDbHelper {
             if (cursor.moveToFirst()) {
                 do {
                     Topic topic = new Topic();
-                    topic.setTid(cursor.getInt(cursor.getColumnIndexOrThrow("tid")));
-                    topic.setSyncId(cursor.getInt(cursor.getColumnIndexOrThrow("sync_id")));
-                    topic.setReadId(cursor.getInt(cursor.getColumnIndexOrThrow("read_id")));
+                    topic.setTid(cursor.getLong(cursor.getColumnIndexOrThrow("tid")));
+                    topic.setSyncId(cursor.getLong(cursor.getColumnIndexOrThrow("sync_id")));
+                    topic.setReadId(cursor.getLong(cursor.getColumnIndexOrThrow("read_id")));
                     topic.setType(cursor.getInt(cursor.getColumnIndexOrThrow("type")));
                     topic.setVisible(cursor.getInt(cursor.getColumnIndexOrThrow("visible")));
                     topic.setTitle(cursor.getString(cursor.getColumnIndexOrThrow("title")));

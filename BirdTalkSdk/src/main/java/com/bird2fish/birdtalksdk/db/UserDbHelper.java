@@ -326,7 +326,7 @@ public class UserDbHelper {
             user.setFans(cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_FANS)));
             user.setIntroduction(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_INTRODUCTION)));
             user.setLastLoginTime(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_LAST_LOGIN_TIME)));
-            user.setOnline(cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_IS_ONLINE)) == 1);
+            user.setOnline(cursor.getLong(cursor.getColumnIndexOrThrow(COLUMN_IS_ONLINE)) == 1);
             user.setMask(cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_MASK)));
             user.setCryptKey(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CRYPT_KEY)));
             user.setCryptType(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CRYPT_TYPE)));
@@ -400,7 +400,7 @@ public class UserDbHelper {
                 user.setFans(cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_FANS)));
                 user.setIntroduction(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_INTRODUCTION)));
                 user.setLastLoginTime(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_LAST_LOGIN_TIME)));
-                user.setOnline(cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_IS_ONLINE)) == 1);
+                user.setOnline(cursor.getLong(cursor.getColumnIndexOrThrow(COLUMN_IS_ONLINE)) == 1);
                 user.setMask(cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_MASK)));
                 user.setCryptKey(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CRYPT_KEY)));
                 user.setCryptType(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CRYPT_TYPE)));
@@ -506,7 +506,7 @@ public class UserDbHelper {
                 user.setFans(cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_FANS)));
                 user.setIntroduction(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_INTRODUCTION)));
                 user.setLastLoginTime(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_LAST_LOGIN_TIME)));
-                user.setOnline(cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_IS_ONLINE)) == 1);
+                user.setOnline(cursor.getLong(cursor.getColumnIndexOrThrow(COLUMN_IS_ONLINE)) == 1);
                 user.setMask(cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_MASK)));
                 user.setCryptKey(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CRYPT_KEY)));
                 user.setCryptType(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CRYPT_TYPE)));
@@ -558,7 +558,7 @@ public class UserDbHelper {
                 user.setFans(cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_FANS)));
                 user.setIntroduction(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_INTRODUCTION)));
                 user.setLastLoginTime(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_LAST_LOGIN_TIME)));
-                user.setOnline(cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_IS_ONLINE)) == 1);
+                user.setOnline(cursor.getLong(cursor.getColumnIndexOrThrow(COLUMN_IS_ONLINE)) == 1);
                 user.setMask(cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_MASK)));
                 user.setCryptKey(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CRYPT_KEY)));
                 user.setCryptType(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CRYPT_TYPE)));
@@ -610,7 +610,7 @@ public class UserDbHelper {
                 user.setFans(cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_FANS)));
                 user.setIntroduction(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_INTRODUCTION)));
                 user.setLastLoginTime(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_LAST_LOGIN_TIME)));
-                user.setOnline(cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_IS_ONLINE)) == 1);
+                user.setOnline(cursor.getLong(cursor.getColumnIndexOrThrow(COLUMN_IS_ONLINE)) == 1);
                 user.setMask(cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_MASK)));
                 user.setCryptKey(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CRYPT_KEY)));
                 user.setCryptType(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CRYPT_TYPE)));
@@ -694,7 +694,7 @@ public class UserDbHelper {
                 user.setFans(cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_FANS)));
                 user.setIntroduction(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_INTRODUCTION)));
                 user.setLastLoginTime(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_LAST_LOGIN_TIME)));
-                user.setOnline(cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_IS_ONLINE)) == 1);
+                user.setOnline(cursor.getLong(cursor.getColumnIndexOrThrow(COLUMN_IS_ONLINE)) == 1);
                 user.setMask(cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_MASK)));
                 user.setCryptKey(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CRYPT_KEY)));
                 user.setCryptType(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CRYPT_TYPE)));

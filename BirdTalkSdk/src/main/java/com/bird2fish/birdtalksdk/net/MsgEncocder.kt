@@ -22,6 +22,7 @@ import com.bird2fish.birdtalksdk.pbmodel.User.UserOperationType.*
 import com.bird2fish.birdtalksdk.uihelper.TextHelper
 import com.bird2fish.birdtalksdk.uihelper.UserHelper
 import com.google.protobuf.ByteString
+import java.util.LinkedHashMap
 import java.util.LinkedList
 
 // 按照格式编码，用于产生各种消息
@@ -152,13 +153,14 @@ class MsgEncocder {
         fun onRecvChatReply(msg: MsgOuterClass.Msg){
             val reply = msg.plainMsg.chatReply
 
-            val index = ChatSessionManager.onChatMsgReply(reply.fromId,  reply.paramsMap, reply.sendId, reply.sendOk,reply.recvOk, reply.readOk, reply.extraMsg)
+            ChatSessionManager.onChatMsgReply(reply.msgId, reply.sendId, reply.fromId,  reply.paramsMap,
+                reply.sendOk,reply.recvOk, reply.readOk, reply.extraMsg)
 
             val resultMap = mapOf(
                 "status" to "reply",
             )
             // 通知界面更新消息，已经保存处理完了
-            SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(MsgEventType.MSG_SEND_OK, index,
+            SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(MsgEventType.MSG_SEND_OK, 0,
                 reply.msgId, reply.fromId, resultMap)
         }
 
@@ -1193,17 +1195,41 @@ class MsgEncocder {
             val timestamp = System.currentTimeMillis()
             var reply = MsgChatReply.newBuilder()
 
+            reply.extraMsg = "ok"
             reply.msgId = refMsgId
             reply.sendId = sendId
             reply.userId = fid                              // 发给谁
             reply.fromId = SdkGlobalData.selfUserinfo.id    // 从哪来， 这个用户发的的
             reply.recvOk = timestamp
+
             if (bRead){
                 reply.readOk = timestamp
+            }else{
+                reply.readOk = 0L
             }
+            reply.putParams("gid", "0")
 
             val plainMsg = MsgPlain.newBuilder().setChatReply(reply)
             val msg = wrapMsg(plainMsg, timestamp, MsgTChatReply)
+            sendMsg(msg)
+        }
+
+        // 发送申请，同步那个私聊的数据
+        fun sendSynPChatDataForward(msgId:Long ){
+            val timestamp = System.currentTimeMillis()
+            val msgQ = MsgQuery.newBuilder()
+
+            msgQ.userId = SdkGlobalData.selfUserinfo.id
+            msgQ.groupId = 0
+            msgQ.littleId = msgId
+            msgQ.bigId = Long.MAX_VALUE
+            msgQ.synType = SynType.SynTypeForward
+
+            msgQ.queryType = QueryDataType.QueryDataTypeChatData
+            msgQ.chatType = ChatType.ChatTypeP2P
+
+            val plainMsg = MsgPlain.newBuilder().setCommonQuery(msgQ)
+            val msg = wrapMsg(plainMsg, timestamp, MsgTQuery)
             sendMsg(msg)
         }
 

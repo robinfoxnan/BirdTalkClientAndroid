@@ -24,6 +24,11 @@ import com.bird2fish.birdtalksdk.SdkGlobalData
 import com.bird2fish.birdtalksdk.model.Drafty
 import com.bird2fish.birdtalksdk.model.MessageContent
 import com.bird2fish.birdtalksdk.model.MessageData
+import com.bird2fish.birdtalksdk.model.MessageInOut
+import com.bird2fish.birdtalksdk.model.MessageStatus
+import com.bird2fish.birdtalksdk.model.SessionType
+import com.bird2fish.birdtalksdk.model.Topic
+import com.bird2fish.birdtalksdk.model.UserStatus
 import com.bird2fish.birdtalksdk.net.FileDownloader
 import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass
 import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass.ChatMsgType
@@ -95,33 +100,82 @@ object  TextHelper {
     String status)
      */
     // in:0, out:1
+
     fun pbMsgToDbMsg(chatMsg: MsgOuterClass.MsgChat):MessageData{
         val data = chatMsg.data.toByteArray()
         val isPlain = if (chatMsg.msgType == ChatMsgType.TEXT) 1 else 0
+        val inout:Int = MessageInOut.IN.ordinal
 
         val msg = MessageData(chatMsg.msgId, chatMsg.fromId, chatMsg.fromId, chatMsg.sendId,
             chatMsg.devId,
-            0, chatMsg.msgType.name, data, isPlain,
-            chatMsg.tm, 0, System.currentTimeMillis(), 0,
-            chatMsg.encType.name, chatMsg.keyPrint.toInt(), "recv")
+            inout, chatMsg.msgType.name, data, isPlain,
+            chatMsg.tm, chatMsg.tm, System.currentTimeMillis(), 0,
+            chatMsg.encType.name, chatMsg.keyPrint.toInt(), MessageStatus.RECV.name)
 
         return msg
     }
 
     //从给控件用的，转换到数据库用的类，
     // 由于这里并没有全局的msgid, 这里仅仅使用sendId 代替，
-    fun MsgContentToDbMsg(msg:MessageContent):MessageData{
+    fun MsgContentToDbMsg(msg:MessageContent, sid:Long):MessageData{
         val isPlain = if (msg.msgType == ChatMsgType.TEXT) 1 else 0
-        val data =  if (msg.msgType == ChatMsgType.TEXT) msg.text.toByteArray() else TextHelper.serializeDrafty(msg.content!!).toByteArray()
+        val data =  if (msg.msgType == ChatMsgType.TEXT) msg.text.toByteArray(Charsets.UTF_8) else serializeDrafty(msg.content!!).toByteArray(Charsets.UTF_8)
+        val inout:Int = MessageInOut.OUT.ordinal
 
-
-        val msg = MessageData(msg.msgId, msg.userId, msg.userId, msg.msgId,
+        val tid = if (sid > 0) sid else -sid
+        val msg = MessageData(msg.msgId, msg.userId, tid, msg.sendId,
             SdkGlobalData.basicInfo.deviceId,
-            1, msg.msgType.name, data, isPlain,
-            msg.tm, 0, 0, 0,
+            inout, msg.msgType.name, data, isPlain,
+            msg.tm, msg.tm1, msg.tm2, msg.tm3,
             "", 0, msg.msgStatus.name)
 
         return msg
+    }
+
+    // 数据库加载数据后
+    fun MsgContentFromDbMessage(msg: MessageData, topic: Topic): MessageContent{
+
+        var txt = ""
+        var content:Drafty? = null
+
+        val plain = String(msg.data, Charsets.UTF_8)
+        if (msg.msgType  == ChatMsgType.TEXT.name){
+            txt =  plain
+        }else{
+            try {
+                content = deserializeDrafty(plain)
+            }
+            catch (e:Exception){
+                Log.e("Sdk", e.toString())
+                txt = "解析错误"
+            }finally {
+
+            }
+
+        }
+
+        var inOut = (msg.io == MessageInOut.IN.ordinal)
+
+        var msgStatus = MessageStatus.SENDING
+        try {
+            msgStatus = MessageStatus.valueOf(msg.status)
+        }catch (e:Exception){
+            Log.e("Sdk", e.toString())
+        }
+        val msgContent = MessageContent(msg.id, msg.sendId, msg.uid, topic.title, topic.icon,
+            UserStatus.ONLINE,
+            msgStatus,
+            inOut,
+            msg.tm3 > 0,
+            msg.tm2 > 0,
+            txt,
+            content, msg.tm)
+
+
+        msgContent.isP2p = (topic.type == MsgOuterClass.ChatType.ChatTypeP2P.number)
+        msgContent.msgType = ChatMsgType.valueOf(msg.msgType)
+
+        return msgContent
     }
 
     fun getFileNameFromUrl(url: String): String {

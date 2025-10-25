@@ -7,7 +7,8 @@ import com.bird2fish.birdtalksdk.uihelper.TextHelper
 
 // 解析后的用于界面所显示的类的
 class MessageContent(
-    val msgId : Long,
+    var msgId : Long,
+    var sendId:Long,
     val userId: Long,         // 用户的唯一ID
     val nick: String,           // 用户的昵称
     var iconUrl: String?,       // 用户图标的URL，可以为空
@@ -29,11 +30,11 @@ class MessageContent(
     var tmResend :Long = System.currentTimeMillis(),
     var msgType:ChatMsgType = ChatMsgType.TEXT,
     var msgRefId:Long = 0L,
-    var contentOut:String = ""
-
-
-//    var tm1:Long =0,
-//    var tm2:Long =0 ,
+    var contentOut:String = "",
+       // 开始时候为0，服务器应答后，这里改为自己发送的ID
+    var tm1:Long =0L,
+    var tm2:Long =0L,
+    var tm3:Long  = 0L,
 
 
 ) {

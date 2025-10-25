@@ -18,6 +18,7 @@ import android.util.Log
 import com.bird2fish.birdtalksdk.db.SeqDbHelper
 import com.bird2fish.birdtalksdk.db.TopicDbHelper
 import com.bird2fish.birdtalksdk.db.UserDbHelper
+import com.bird2fish.birdtalksdk.model.ChatSessionManager
 import com.bird2fish.birdtalksdk.model.MessageContent
 import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass
 import com.bird2fish.birdtalksdk.uihelper.TextHelper
@@ -419,9 +420,20 @@ class SdkGlobalData {
             MsgEncocder.sendListFriend("fans")
 
 
-
-
             // 申请同步数据消息
+            try {
+                // for Test
+                //TopicDbHelper.clearPChatData(10006)
+                //TopicDbHelper.clearPChatData()
+
+                synchronized(chatTopicList){
+                    ChatSessionManager.loadMessageOnLogin(chatTopicList)
+                }
+            }catch (e:Exception){
+                Log.e("SdkGlobalData", e.toString())
+            }
+
+
         }
 
         fun nextId():Long{
