@@ -227,6 +227,16 @@ class SdkGlobalData {
             }
         }
 
+        // 查询所有用户的信息的时候，返回数据已经保存数据库了，这个时候还是应该更新TOPIC里面的数据
+        private fun updateTopicAndChatSession(friend :User){
+            synchronized(chatTopicList){
+               if (chatTopicList.containsKey(friend.id)){
+                   val topic = chatTopicList[friend.id]
+                   topic!!.icon = friend.icon
+               }
+            }
+        }
+
         // 更新关注好友返回的信息
         fun updateAddNewFollow(f:com.bird2fish.birdtalksdk.pbmodel.User.UserInfo){
             val friend = UserHelper.pbUserInfo2LocalUser(f)
@@ -237,7 +247,8 @@ class SdkGlobalData {
                 }
 
                 UserDbHelper.insertOrUpdateUser(friend)
-                UserDbHelper.insertFollow(friend.id.toInt(), friend.nick)
+                UserDbHelper.insertFollow(friend.id, friend.nick)
+                updateTopicAndChatSession(friend)
             }
 
             var b  = false
@@ -264,7 +275,8 @@ class SdkGlobalData {
                 }
 
                 UserDbHelper.insertOrUpdateUser(friend)
-                UserDbHelper.insertFan(friend.id.toInt(), friend.nick)
+                UserDbHelper.insertFan(friend.id, friend.nick)
+                updateTopicAndChatSession(friend)
             }
 
             var b  = false
@@ -380,7 +392,7 @@ class SdkGlobalData {
             synchronized(followingList) {
                 if (followingList.isEmpty())
                 {
-                    val follows = UserDbHelper.queryFollowsFromView(uid.toInt(), 1000)
+                    val follows = UserDbHelper.queryFollowsFromView(uid, 1000)
                     for (f in follows) {
                         followingList[f.id] = f
                     }
@@ -391,7 +403,7 @@ class SdkGlobalData {
             synchronized(fanList) {
                 if (fanList.isEmpty())
                 {
-                    val fans = UserDbHelper.queryFansFromView(uid.toInt(), 1000)
+                    val fans = UserDbHelper.queryFansFromView(uid, 1000)
                     for (f in fans) {
                         fanList[f.id] = f
                     }
@@ -402,7 +414,7 @@ class SdkGlobalData {
             synchronized(mutualFollowingList) {
                 if (mutualFollowingList.isEmpty())
                 {
-                    val mutuals = UserDbHelper.queryMutualFromView(uid.toInt(), 1000)
+                    val mutuals = UserDbHelper.queryMutualFromView(uid, 1000)
                     for (f in mutuals) {
                         mutualFollowingList[f.id] = f
                         if (SdkGlobalData.currentChatFid == 0L){

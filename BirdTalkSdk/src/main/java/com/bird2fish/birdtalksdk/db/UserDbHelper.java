@@ -415,7 +415,7 @@ public class UserDbHelper {
     }
 
     // 插入粉丝关系
-    public static  long insertFan(int userId, String nick) {
+    public static  long insertFan(long userId, String nick) {
         ContentValues values = new ContentValues();
         values.put(COLUMN_ID, userId);  // 这里假设粉丝表的用户 id 列名为 "id"
         values.put(COLUMN_NICK2, nick); // 假设粉丝表的昵称列名为 "nick2"
@@ -432,7 +432,7 @@ public class UserDbHelper {
     }
 
     // 插入关注关系
-    public static long insertFollow(int userId, String nick) {
+    public static long insertFollow(long userId, String nick) {
         ContentValues values = new ContentValues();
         values.put(COLUMN_ID, userId);  // 这里假设粉丝表的用户 id 列名为 "id"
         values.put(COLUMN_NICK1, nick); // 假设粉丝表的昵称列名为 "nick2"
@@ -471,24 +471,24 @@ public class UserDbHelper {
     }
 
     // 查询视图中从某个 id 开始的若干条 User 记录
-    public static  List<User> queryFollowsFromView(int userId, int limit) {
+    public static  List<User> queryFollowsFromView(long userId, int limit) {
         List<User> userList = new ArrayList<>();
 
         // 查询条件
-        String selection = COLUMN_ID + " >= ?";
-        String[] selectionArgs = { String.valueOf(userId) };
+        //String selection = COLUMN_ID + " >= ?";
+        //String[] selectionArgs = { String.valueOf(userId) };
 
         // 排序方式
         String sortOrder = COLUMN_ID + " ASC";
 
         // 构建视图的查询语句
         String viewQuery = "SELECT * FROM " + VIEW_FOLLOWS +
-                " WHERE " + selection +
+                //" WHERE " + selection +
                 " ORDER BY " + sortOrder +
                 " LIMIT " + limit;
 
         // 执行查询操作
-        Cursor cursor = BaseDb.getInstance().getWritableDatabase().rawQuery(viewQuery, selectionArgs);
+        Cursor cursor = BaseDb.getInstance().getWritableDatabase().rawQuery(viewQuery, null);
 
         // 解析查询结果
         if (cursor != null) {
@@ -523,24 +523,24 @@ public class UserDbHelper {
     }
 
     // 查询视图中从某个 id 开始的若干条 User 记录
-    public static  List<User> queryFansFromView(int userId, int limit) {
+    public static  List<User> queryFansFromView(long userId, int limit) {
         List<User> userList = new ArrayList<>();
 
         // 查询条件
-        String selection = COLUMN_ID + " >= ?";
-        String[] selectionArgs = { String.valueOf(userId) };
+        //String selection = COLUMN_ID + " >= ?";
+        //String[] selectionArgs = { String.valueOf(userId) };
 
         // 排序方式
         String sortOrder = COLUMN_ID + " ASC";
 
         // 构建视图的查询语句
         String viewQuery = "SELECT * FROM " + VIEW_FANS +
-                " WHERE " + selection +
+                //" WHERE " + selection +
                 " ORDER BY " + sortOrder +
                 " LIMIT " + limit;
 
         // 执行查询操作
-        Cursor cursor = BaseDb.getInstance().getWritableDatabase().rawQuery(viewQuery, selectionArgs);
+        Cursor cursor = BaseDb.getInstance().getWritableDatabase().rawQuery(viewQuery, null);
 
         // 解析查询结果
         if (cursor != null) {
@@ -574,24 +574,24 @@ public class UserDbHelper {
         return userList;
     }
 
-    public static   List<User> queryMutualFromView(int userId, int limit) {
+    public static   List<User> queryMutualFromView(long userId, int limit) {
         List<User> userList = new ArrayList<>();
 
         // 查询条件
-        String selection = COLUMN_ID + " >= ?";
-        String[] selectionArgs = { String.valueOf(userId) };
+        //String selection = COLUMN_ID + " >= ?";
+        //String[] selectionArgs = { String.valueOf(userId) };
 
         // 排序方式
         String sortOrder = COLUMN_ID + " ASC";
 
         // 构建视图的查询语句
         String viewQuery = "SELECT * FROM " + VIEW_MUTUAL +
-                " WHERE " + selection +
+                //" WHERE " + selection +
                 " ORDER BY " + sortOrder +
                 " LIMIT " + limit;
 
         // 执行查询操作
-        Cursor cursor = BaseDb.getInstance().getWritableDatabase().rawQuery(viewQuery, selectionArgs);
+        Cursor cursor = BaseDb.getInstance().getWritableDatabase().rawQuery(viewQuery, null);
 
         // 解析查询结果
         if (cursor != null) {

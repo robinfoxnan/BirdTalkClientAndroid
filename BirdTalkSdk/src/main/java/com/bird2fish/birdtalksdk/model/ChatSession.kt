@@ -1,5 +1,6 @@
 package com.bird2fish.birdtalksdk.model
 
+import android.app.Activity
 import android.content.ContentResolver
 import android.content.Context
 import android.net.Uri
@@ -8,6 +9,7 @@ import android.util.Log
 import com.bird2fish.birdtalksdk.MsgEventType
 import com.bird2fish.birdtalksdk.SdkGlobalData
 import com.bird2fish.birdtalksdk.db.TopicDbHelper
+import com.bird2fish.birdtalksdk.db.UserDbHelper
 import com.bird2fish.birdtalksdk.net.MsgEncocder
 import com.bird2fish.birdtalksdk.net.Session
 import com.bird2fish.birdtalksdk.net.WebSocketClient
@@ -45,18 +47,31 @@ class ChatSession (val sessionId:Long)
         // 将TOPIC和用户的信息对应起来
         if (sessionId > 0){
            this.sessionType = SessionType.PRIVATE_CHAT
-            val friend = SdkGlobalData.getMutualFriendLocal(sessionId)
-            if (friend != null){
-                // 确保这个Topic 应该有，这里图标与用户保持一致就可以了
-                val topic = SdkGlobalData.getTopic(friend!!)
 
-                this.sessionTitle = friend.nick ?: ""
-                this.sessionIcon = friend.icon?: ""
-                if (sessionTitle.isEmpty()){
-                    sessionTitle = friend.id.toString()
+            // 这里的用户是数据库中搜索出来的，因为建立会话不一定就是好友，比如已经删除了好友，防止出错
+            var friend = UserDbHelper.getUserById(sessionId)
+            if (friend == null){
+
+                SdkGlobalData.userCallBackManager.invokeOnErrorCallbacks(com.bird2fish.birdtalksdk.InterErrorType.FRIEND_INFO_ERROR,
+                    "UserDbHelper.getUserById", "friend", "can't find user info in db")
+            }else{
+                // 确保这个Topic 应该有，这里图标与用户保持一致就可以了
+                val topic = SdkGlobalData.getTopic(friend)
+
+                if (topic != null){
+                    this.sessionTitle = topic.title
+                    this.sessionIcon = topic.icon
+                    if (sessionTitle.isEmpty()){
+                        sessionTitle = friend.id.toString()
+                    }
+                }else{
+                    this.sessionTitle = friend.nick?: ""
+                    this.sessionIcon = friend.icon?: ""
+                    if (sessionTitle.isEmpty()){
+                        sessionTitle = friend.id.toString()
+                    }
                 }
             }
-
 
         }else{
            this.sessionType = SessionType.GROUP_CHAT
@@ -80,9 +95,14 @@ class ChatSession (val sessionId:Long)
         val tempUnRecvList = LinkedList<MessageContent>()
         var tm = 0L
         synchronized(msgList){
+            var i = 0;
             for (msg in lst){
                 val msgContent = TextHelper.MsgContentFromDbMessage(msg, t)
                 msgList.add(msgContent)
+                if (i == lst.size - 1){
+                    t.lastMsg = msgContent
+                }
+                i += 1
 
 
                 if (msg.io == MessageInOut.OUT.ordinal && msg.tm1  == 0L){
@@ -107,6 +127,8 @@ class ChatSession (val sessionId:Long)
             for (item in tempUnReadList){
                 msgUnReadList[item.msgId] = item
             }
+            // 设置未读数量
+            t.unReadCount = tempUnReadList.size.toLong()
         }
 
         // 一会处理重新发送的
@@ -121,6 +143,8 @@ class ChatSession (val sessionId:Long)
             MsgEncocder.sendChatReply(item.userId, item.sendId, item.msgId, false)
             TopicDbHelper.updatePChatReply(item.msgId, 0L, System.currentTimeMillis(), 0L)
         }
+
+
         return tm
     }
 

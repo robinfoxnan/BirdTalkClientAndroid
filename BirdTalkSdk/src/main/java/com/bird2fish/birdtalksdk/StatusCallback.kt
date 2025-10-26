@@ -11,6 +11,7 @@ enum class InterErrorType {
     USER_EMAIL_ERROR,
     USER_PWD_ERROR,
     UPLOAD_FAIL,
+    FRIEND_INFO_ERROR,
 
 }
 
