@@ -2,6 +2,7 @@ package com.bird2fish.birdtalksdk.net
 import android.content.Context
 import android.provider.Settings.Global
 import android.telephony.mbms.FileInfo
+import android.text.TextUtils
 import com.bird2fish.birdtalksdk.InterErrorType
 import com.bird2fish.birdtalksdk.MsgEventType
 import com.bird2fish.birdtalksdk.SdkGlobalData
@@ -13,6 +14,7 @@ import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass.*
 import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass.ComMsgType.*
 import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass.ErrorMsgType.*
 import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass.ErrorMsgType.UNRECOGNIZED
+import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass.QueryDataType.*
 import com.bird2fish.birdtalksdk.pbmodel.User.FriendOpReq
 import com.bird2fish.birdtalksdk.pbmodel.User.GroupInfo
 import com.bird2fish.birdtalksdk.pbmodel.User.UserInfo
@@ -114,7 +116,7 @@ class MsgEncocder {
                 MsgTChatMsg -> onRecvChatMsg(msg)      // 聊天消息
                 MsgTChatReply -> onRecvChatReply(msg)  // 聊天的回执
 
-                MsgTQueryResult -> doNothing()
+                MsgTQueryResult -> onQueryReply(msg)   // 查询消息，查询回执，各种查询
 
                 MsgTUploadReply -> onUploadReply(msg)
                 MsgTDownloadReply -> doNothing()
@@ -137,6 +139,44 @@ class MsgEncocder {
         }
 
         fun doNothing(){
+
+        }
+
+        // 查询消息等返回的结果
+        fun onQueryReply(msg: MsgOuterClass.Msg){
+            val reply = msg.plainMsg.commonQueryRet
+            when (reply.queryType){
+                QueryDataTypeChatData -> onQueryChatDataReply(reply)
+                QueryDataTypeChatReply -> doNothing()
+                QueryDataTypeFriendOP -> doNothing()
+                QueryDataTypeGroupOP -> doNothing()
+                QueryDataType.UNRECOGNIZED -> doNothing()
+            }
+        }
+
+        // 查询消息返回的结果
+        fun onQueryChatDataReply(reply: MsgOuterClass. MsgQueryResult){
+            if (reply.synType == SynType.SynTypeForward){
+                if (reply.chatType == ChatType.ChatTypeP2P){
+                   ChatSessionManager.onQueryPChatDataReplyForward(reply.littleId, reply.bigId, reply.chatDataListList)
+                }else{
+                    ChatSessionManager.onQueryGChatDataReplyForward(reply.groupId, reply.littleId, reply.bigId, reply.chatDataListList)
+                }
+
+            }else if (reply.synType == SynType.SynTypeBackward){
+                if (reply.chatType == ChatType.ChatTypeP2P) {
+                    ChatSessionManager.onQueryPChatDataReplyBackward(reply.littleId, reply.bigId, reply.chatDataListList)
+                }else{
+                    ChatSessionManager.onQueryGChatDataReplyBackward(reply.groupId, reply.littleId, reply.bigId, reply.chatDataListList)
+                }
+            }else{
+                if (reply.chatType == ChatType.ChatTypeP2P) {
+                    ChatSessionManager.onQueryPChatDataReplyBetween(reply.littleId, reply.bigId, reply.chatDataListList)
+                }else{
+                    ChatSessionManager.onQueryGChatDataReplyBetween(reply.groupId, reply.littleId, reply.bigId, reply.chatDataListList)
+                }
+            }
+
 
         }
 
@@ -1191,7 +1231,7 @@ class MsgEncocder {
         }
 
         // 发送回执
-        fun sendChatReply(fid:Long, sendId:Long, refMsgId:Long, bRead:Boolean){
+        fun sendChatReply(fid:Long, sendId:Long, refMsgId:Long, bRead:Boolean, batch:String){
             val timestamp = System.currentTimeMillis()
             var reply = MsgChatReply.newBuilder()
 
@@ -1209,6 +1249,11 @@ class MsgEncocder {
             }
             reply.putParams("gid", "0")
 
+            // 支持批量的回执
+            if (!TextUtils.isEmpty(batch)){
+                reply.putParams("batch", batch)
+            }
+
             val plainMsg = MsgPlain.newBuilder().setChatReply(reply)
             val msg = wrapMsg(plainMsg, timestamp, MsgTChatReply)
             sendMsg(msg)
@@ -1225,7 +1270,25 @@ class MsgEncocder {
             msgQ.bigId = Long.MAX_VALUE
             msgQ.synType = SynType.SynTypeForward
 
-            msgQ.queryType = QueryDataType.QueryDataTypeChatData
+            msgQ.queryType = QueryDataTypeChatData
+            msgQ.chatType = ChatType.ChatTypeP2P
+
+            val plainMsg = MsgPlain.newBuilder().setCommonQuery(msgQ)
+            val msg = wrapMsg(plainMsg, timestamp, MsgTQuery)
+            sendMsg(msg)
+        }
+
+        fun sendSynPChatDataBackward(msgId:Long ){
+            val timestamp = System.currentTimeMillis()
+            val msgQ = MsgQuery.newBuilder()
+
+            msgQ.userId = SdkGlobalData.selfUserinfo.id
+            msgQ.groupId = 0
+            msgQ.littleId = msgId
+            msgQ.bigId = Long.MAX_VALUE
+            msgQ.synType = SynType.SynTypeBackward
+
+            msgQ.queryType = QueryDataTypeChatData
             msgQ.chatType = ChatType.ChatTypeP2P
 
             val plainMsg = MsgPlain.newBuilder().setCommonQuery(msgQ)

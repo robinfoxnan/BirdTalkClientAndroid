@@ -74,5 +74,7 @@ enum class MessageStatus {
     OK,
     RECV,
     SEEN,
-
+    BACKWARD,   // 前侧边界，需要加载
+    FORWARD,    // 后侧边界，需要加载
+    CONTINUOUS,  // 加载整块消息的中间部分
 }

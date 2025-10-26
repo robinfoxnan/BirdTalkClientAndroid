@@ -21,6 +21,8 @@ import android.widget.Toast
 import androidx.core.net.toFile
 import androidx.core.net.toUri
 import com.bird2fish.birdtalksdk.SdkGlobalData
+import com.bird2fish.birdtalksdk.model.ChatSessionManager
+import com.bird2fish.birdtalksdk.model.ChatSessionManager.getSession
 import com.bird2fish.birdtalksdk.model.Drafty
 import com.bird2fish.birdtalksdk.model.MessageContent
 import com.bird2fish.birdtalksdk.model.MessageData
@@ -77,6 +79,79 @@ object  TextHelper {
             return "1970-01-01"
         }
     }
+
+    // 收到的消息也有可能是远端的多端登录发来的啊，
+    fun pbMsg2MessageContent(sId:Long, chatMsg :MsgOuterClass.MsgChat):MessageContent {
+        var msg : MessageContent? = null
+        var inOut  = true
+        if (chatMsg.fromId == SdkGlobalData.selfUserinfo.id){
+            inOut = false
+        }
+
+        val chatSession = ChatSessionManager.getSession(sId)
+        if (chatMsg.msgType == ChatMsgType.TEXT){
+            val utf8String = chatMsg.data.toString(Charsets.UTF_8)
+
+            msg = MessageContent(chatMsg.msgId, chatMsg.sendId,
+                sId, chatSession.sessionTitle, chatSession.sessionIcon,
+                UserStatus.ONLINE, MessageStatus.OK, inOut, false, false, utf8String, null, chatMsg.tm)
+
+        }else if (chatMsg.msgType == ChatMsgType.IMAGE){
+            val txt = chatMsg.data.toString(Charsets.UTF_8)
+
+
+            val draft = TextHelper.deserializeDrafty(txt)
+            Log.d("Image Draty", txt)
+
+            msg = MessageContent(chatMsg.msgId,  chatMsg.sendId,
+                sId, chatSession.sessionTitle, chatSession.sessionIcon,
+                UserStatus.ONLINE, MessageStatus.OK, inOut, false, false, "", draft, chatMsg.tm)
+        }
+        else if (chatMsg.msgType == MsgOuterClass.ChatMsgType.VOICE){
+
+            val txt = chatMsg.data.toString(Charsets.UTF_8)
+
+            val draft = TextHelper.deserializeDrafty(txt)
+            Log.d("Audio Draty", txt)
+
+            msg = MessageContent(chatMsg.msgId, chatMsg.sendId,
+                sId, chatSession.sessionTitle, chatSession.sessionIcon,
+                UserStatus.ONLINE, MessageStatus.OK, inOut, false, false, "", draft, chatMsg.tm)
+        }
+        else if (chatMsg.msgType == MsgOuterClass.ChatMsgType.FILE){
+            val txt = chatMsg.data.toString(Charsets.UTF_8)
+
+            val draft = TextHelper.deserializeDrafty(txt)
+            Log.d("File Draty", txt)
+
+            msg = MessageContent(chatMsg.msgId,  chatMsg.sendId,
+                sId, chatSession.sessionTitle, chatSession.sessionIcon,
+                UserStatus.ONLINE, MessageStatus.OK, inOut, false, false, "", draft, chatMsg.tm)
+        }
+
+        // 如果是收消息，并且没有填写过回执
+        msg!!.tm1 = chatMsg.sendReply
+
+        if (chatMsg.recvReply == 0L)
+        {
+            // 添加到界面的队列中
+            msg!!.bRecv = false
+        }else{
+            msg!!.bRecv = true
+            msg!!.tm2 = chatMsg.recvReply
+        }
+
+        if (chatMsg.readReply == 0L){
+            msg.bRead = false
+        }else
+        {
+            msg.bRead = true
+            msg.tm3 = chatMsg.readReply
+        }
+
+        return msg!!
+    }
+
     /*
     MessageData(
     long id,
@@ -101,15 +176,21 @@ object  TextHelper {
      */
     // in:0, out:1
 
-    fun pbMsgToDbMsg(chatMsg: MsgOuterClass.MsgChat):MessageData{
+    fun pbMsgToDbMsg(tid:Long, chatMsg: MsgOuterClass.MsgChat):MessageData{
         val data = chatMsg.data.toByteArray()
         val isPlain = if (chatMsg.msgType == ChatMsgType.TEXT) 1 else 0
-        val inout:Int = MessageInOut.IN.ordinal
 
-        val msg = MessageData(chatMsg.msgId, chatMsg.fromId, chatMsg.fromId, chatMsg.sendId,
+        // 识别远端自己的账户发来的
+        var inout:Int = MessageInOut.IN.ordinal
+        if (chatMsg.fromId == SdkGlobalData.selfUserinfo.id){
+            inout = MessageInOut.OUT.ordinal
+        }
+
+        // 多终端的情况下，收到的消息，只是同步过来的，不需要回执
+        val msg = MessageData(chatMsg.msgId, tid, chatMsg.fromId, chatMsg.sendId,
             chatMsg.devId,
             inout, chatMsg.msgType.name, data, isPlain,
-            chatMsg.tm, chatMsg.tm, System.currentTimeMillis(), 0,
+            chatMsg.tm, chatMsg.sendReply, chatMsg.recvReply, chatMsg.readReply,
             chatMsg.encType.name, chatMsg.keyPrint.toInt(), MessageStatus.RECV.name)
 
         return msg
@@ -170,6 +251,9 @@ object  TextHelper {
             msg.tm2 > 0,
             txt,
             content, msg.tm)
+        msgContent.tm1 = msg.tm1
+        msgContent.tm2 = msg.tm2
+        msgContent.tm3 = msg.tm3
 
 
         msgContent.isP2p = (topic.type == MsgOuterClass.ChatType.ChatTypeP2P.number)

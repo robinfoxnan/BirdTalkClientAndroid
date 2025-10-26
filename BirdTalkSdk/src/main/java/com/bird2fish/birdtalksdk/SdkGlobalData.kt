@@ -120,6 +120,17 @@ class SdkGlobalData {
             return addNewSession(friend)
         }
 
+        // 当多终端登录时候，某些消息可能找不到好友信息，已经不是好友了，那么消息就过时了
+        fun getPTopic(fid:Long):Topic?{
+            val friend = UserDbHelper.getUserById(fid)
+            if (friend != null){
+                return getTopic(friend)
+            }
+            else {
+                return null
+            }
+        }
+
 
         // 从那个对话列表中跳转到这里
         fun checkSession(t: Topic){

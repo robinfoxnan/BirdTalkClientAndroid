@@ -149,6 +149,7 @@ class ChatPageFragment : Fragment() , StatusCallback {
     private var mReply : MessageContent? = null
 
     private var chatSession: ChatSession? = null
+    private var isScrollByCode :Boolean = false
 
 
     // 临时的一个消息列表
@@ -169,10 +170,16 @@ class ChatPageFragment : Fragment() , StatusCallback {
         else if (eventType == MsgEventType.MSG_UPLOAD_FAIL){
             TextHelper.showDialogInCallback(this.requireContext(), "上传头像失败")
         }
-        // 新消息来了,或者回执来了
-        else if (eventType == MsgEventType.MSG_COMING || eventType == MsgEventType.MSG_SEND_OK
+        // 或者回执来了
+        else if ( eventType == MsgEventType.MSG_SEND_OK
             || eventType == MsgEventType.MSG_RECV_OK || eventType == MsgEventType.MSG_READ_OK) {
             refreshData(msgType)
+
+        }
+        // 新消息来了,
+        else if (eventType == MsgEventType.MSG_COMING){
+            refreshData(msgType)
+            scrollToEnd()
         }
 
         // 上传文件结束了
@@ -300,6 +307,12 @@ class ChatPageFragment : Fragment() , StatusCallback {
         }
     }
 
+    // 代码触发滚动到最后一项
+    fun scrollToEnd() {
+        isScrollByCode = true // 标记为代码触发
+        this.mRecyclerView?.smoothScrollToPosition(this.mMessagesAdapter!!.itemCount - 1)
+    }
+
     // 外部调用：设置RecyclerView的滚动监听，用于检测可见项
     fun setupScrollListener(recyclerView: RecyclerView) {
         recyclerView.addOnScrollListener(object : RecyclerView.OnScrollListener() {
@@ -312,9 +325,14 @@ class ChatPageFragment : Fragment() , StatusCallback {
             }
 
             override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
-                super.onScrolled(recyclerView, dx, dy)
-                // 可选：如果需要在滚动过程中实时标记，可在此处调用（但可能影响性能）
-                // markVisibleItemsAsRead(recyclerView);
+                if (!isScrollByCode)
+                {
+                    super.onScrolled(recyclerView, dx, dy)
+                    // 可选：如果需要在滚动过程中实时标记，可在此处调用（但可能影响性能）
+                    // markVisibleItemsAsRead(recyclerView);
+                }
+                isScrollByCode = false
+
             }
         })
     }
@@ -355,10 +373,12 @@ class ChatPageFragment : Fragment() , StatusCallback {
 
 
     private fun scrollToBottom(smooth: Boolean) {
+        isScrollByCode = true
+        val pos = mMessagesAdapter!!.itemCount -1
         if (smooth) {
-            mRecyclerView!!.smoothScrollToPosition(0)
+            mRecyclerView!!.smoothScrollToPosition(pos)
         } else {
-            mRecyclerView!!.scrollToPosition(0)
+            mRecyclerView!!.scrollToPosition(pos)
         }
     }
 
@@ -692,6 +712,8 @@ class ChatPageFragment : Fragment() , StatusCallback {
         })
 
         setShowHide(true)
+
+        scrollToBottom(true)
         return view
     }
 

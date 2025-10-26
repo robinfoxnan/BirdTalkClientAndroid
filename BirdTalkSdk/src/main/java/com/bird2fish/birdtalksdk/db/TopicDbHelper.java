@@ -5,12 +5,14 @@ import android.database.Cursor;
 import android.database.SQLException;
 import android.database.sqlite.SQLiteDatabase;
 
+import com.bird2fish.birdtalksdk.model.MessageContent;
 import com.bird2fish.birdtalksdk.model.MessageData;
 import com.bird2fish.birdtalksdk.model.MessageStatus;
 import com.bird2fish.birdtalksdk.model.Topic;
 import com.bird2fish.birdtalksdk.model.User;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
@@ -307,6 +309,90 @@ public class TopicDbHelper {
         }
 
         return ret;
+    }
+
+    public static boolean  insertPChatMsgBatch(List<MessageData> messageDataList, LinkedList<MessageData> ret) {
+        SQLiteDatabase db = BaseDb.getInstance().getWritableDatabase();
+
+
+        // 件检查表是否存在
+        HashMap<Long,Long> tempMap = new HashMap<Long,Long>();
+        for (MessageData item : messageDataList){
+            if (!tempMap.containsKey(item.getTid())){
+                tempMap.put(item.getTid(), 1L);
+            }
+        }
+        for (Long tid :tempMap.keySet())
+        {
+            createPChatTable(tid);
+        }
+
+
+        long row1 = 0;
+        long row2 = 0;
+        long row3 = 0;
+
+        boolean isAllOk = true;
+        try {
+            db.beginTransaction();
+            for (MessageData messageData :  messageDataList){
+                // 基础数据表；
+                ContentValues values = new ContentValues();
+                values.put("id", messageData.getId());
+                values.put("tid", messageData.getTid());
+                values.put("uid", messageData.getUid());
+                values.put("send_id", messageData.getSendId());
+                values.put("dev_id", messageData.getDevId());
+                values.put("io", messageData.getIo());
+                values.put("msg_type", messageData.getMsgType());
+                values.put("data", messageData.getData());
+                values.put("is_plain", messageData.getIsPlain());
+                values.put("tm", messageData.getTm());
+                values.put("tm1", messageData.getTm1());
+                values.put("tm2", messageData.getTm2());
+                values.put("tm3", messageData.getTm3());
+                values.put("crypt_type", messageData.getCryptType());
+                values.put("print", messageData.getPrint());
+                values.put("status", messageData.getStatus());
+
+                // 会话表
+                ContentValues values2 = new ContentValues();
+                values2.put("id", messageData.getId());
+
+                // 对方未读，或者自己未读
+                ContentValues values3 = new ContentValues();
+                values3.put("id", messageData.getId());
+                values3.put("uid", messageData.getUid());
+                values3.put("io", messageData.getIo());
+
+                row1 = db.insertWithOnConflict(TABLE_PCHAT, null, values, SQLiteDatabase.CONFLICT_REPLACE);
+
+                long tid = messageData.getTid();
+
+                row2 = db.insertWithOnConflict(getPChatName(tid), null, values2, SQLiteDatabase.CONFLICT_REPLACE);
+
+                row3 = db.insertWithOnConflict(TABLE_PCHAT_UNREAD, null, values3, SQLiteDatabase.CONFLICT_REPLACE);
+
+                if (row1 != -1 && row2 != -1 && row3 != -1) {
+                    // 所有操作成功
+                } else {
+                    // 发生了至少一个插入失败的情况
+                    //Log.e("Transaction", "Failed to insert or replace data");
+                    isAllOk = false;
+                    ret.add(messageData);
+                }
+            }
+
+            db.setTransactionSuccessful();
+        } catch (Exception e) {
+            isAllOk = false;
+            //ret.add(currentMessageData);
+            e.printStackTrace();
+        }finally {
+            db.endTransaction();
+        }
+
+        return isAllOk;
     }
 
 
@@ -623,6 +709,59 @@ public class TopicDbHelper {
 //        }
 //    }
 
+    // 批量的处理同步得到的数据
+    public static boolean updatePChatReplyBatch(List<MessageContent> messageContentList){
+        SQLiteDatabase db = BaseDb.getInstance().getWritableDatabase();
+
+        long row1 = 0;
+        long row2 = 0;
+        long row3 = 0;
+
+        boolean isAllOk = true;
+        try {
+            db.beginTransaction();
+
+            for (MessageContent message : messageContentList) {
+
+                ContentValues values = new ContentValues();
+                String status = MessageStatus.SENDING.name();
+
+                if (message.getTm1() > 0){
+                    status = MessageStatus.OK.name();
+                    values.put("tm1", message.getTm1());
+                }
+
+                if (message.getTm2() > 0){
+                    status = MessageStatus.RECV.name();
+                    values.put("tm2", message.getTm2());
+                }
+
+                if (message.getTm3() > 0){
+                    status = MessageStatus.SEEN.name();
+                    values.put("tm3", message.getTm3());
+                }
+                values.put("status", status);
+
+                String whereClause = "id = ?";
+                String[] whereArgs = { String.valueOf(message.getMsgId()) };
+
+                int rowsUpdated = db.update(TABLE_PCHAT, values, whereClause, whereArgs);
+                if (rowsUpdated > 0){
+
+                }else{
+                    isAllOk = false;
+                }
+            }
+
+            db.setTransactionSuccessful();
+        }catch (Exception e){
+            isAllOk = false;
+        }finally {
+            db.endTransaction();
+        }
+        return isAllOk;
+    }
+
     public static boolean updatePChatReply(long msgId, long tm1, long tm2, long tm3){
         ContentValues values = new ContentValues();
         String status = MessageStatus.SENDING.name();
@@ -716,6 +855,121 @@ public class TopicDbHelper {
         return ret;
     }
 
+    // 针对单条的群聊数据，需要识别是否存在
+    public static boolean insertOrUpdateGChatMsg(MessageData messageData) {
+        SQLiteDatabase db = BaseDb.getInstance().getWritableDatabase();
+        ContentValues values = new ContentValues();
+
+        createGChatTable(messageData.getTid());
+        String tableName = getGChatName(messageData.getTid());
+        // 基础数据表；
+        values.put("id", messageData.getId());
+        values.put("tid", messageData.getTid());
+        values.put("uid", messageData.getUid());
+        values.put("send_id", messageData.getSendId());
+        values.put("dev_id", messageData.getDevId());
+        values.put("io", messageData.getIo());
+        values.put("msg_type", messageData.getMsgType());
+        values.put("data", messageData.getData());
+        values.put("is_plain", messageData.getIsPlain());
+        values.put("tm", messageData.getTm());
+        values.put("tm1", messageData.getTm1());
+        values.put("tm2", messageData.getTm2());
+        values.put("tm3", messageData.getTm3());
+        values.put("crypt_type", messageData.getCryptType());
+        values.put("print", messageData.getPrint());
+        values.put("status", messageData.getStatus());
+
+        long row = 0;
+
+        boolean ret = false;
+
+        try {
+            // 1. 先查询数据是否已存在（假设id是唯一标识）
+            String query = "SELECT id FROM " + tableName + " WHERE id = ?";
+            Cursor cursor = db.rawQuery(query, new String[]{String.valueOf(messageData.getId())});
+            boolean exists = cursor.moveToFirst();
+            cursor.close();
+
+            if (exists)
+            {
+                messageData.setStatus(MessageStatus.CONTINUOUS.name());
+            }else{
+                messageData.setStatus(MessageStatus.FORWARD.name());
+            }
+            // 2. 执行插入或替换
+            row = db.insertWithOnConflict(tableName, null, values, SQLiteDatabase.CONFLICT_REPLACE);
+
+            if (row != -1) {
+                ret = true;
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return ret;
+    }
+
+
+    // 查询返回的数据，除了第一条以外都是一起批量插入的
+    public static boolean insertGChatDataBatch(long tid, List<MessageData> lst, List<MessageData> ret){
+
+        if (lst == null || lst.isEmpty()) {
+            return true; // 空列表无需处理，返回成功
+        }
+
+        SQLiteDatabase db = BaseDb.getInstance().getWritableDatabase();
+
+        createGChatTable(tid);
+        String tableName = getGChatName(tid);
+
+        boolean isAllSuccess = true; // 标记是否全部成功
+
+        long row = 0;
+        db.beginTransaction();
+        try {
+            for (MessageData messageData : lst) {
+                // 执行查询+插入逻辑
+                ContentValues values = new ContentValues();
+
+                // 基础数据表；
+                values.put("id", messageData.getId());
+                values.put("tid", messageData.getTid());
+                values.put("uid", messageData.getUid());
+                values.put("send_id", messageData.getSendId());
+                values.put("dev_id", messageData.getDevId());
+                values.put("io", messageData.getIo());
+                values.put("msg_type", messageData.getMsgType());
+                values.put("data", messageData.getData());
+                values.put("is_plain", messageData.getIsPlain());
+                values.put("tm", messageData.getTm());
+                values.put("tm1", messageData.getTm1());
+                values.put("tm2", messageData.getTm2());
+                values.put("tm3", messageData.getTm3());
+                values.put("crypt_type", messageData.getCryptType());
+                values.put("print", messageData.getPrint());
+                values.put("status", messageData.getStatus());
+                row = db.insertWithOnConflict(tableName, null, values, SQLiteDatabase.CONFLICT_REPLACE);
+
+                if (row == -1) {
+                    isAllSuccess = false;
+                    ret.add(messageData);
+                }
+                // 只有全部成功时，才标记事务成功
+                //if (isAllSuccess)
+                {
+                    db.setTransactionSuccessful();
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            isAllSuccess = false; // 异常时标记失败
+        } finally {
+            db.endTransaction();
+        }
+
+        return isAllSuccess;
+    }
     public static boolean updateGChatReply(long msgId, long tm1){
         ContentValues values = new ContentValues();
         String status = MessageStatus.SENDING.name();
