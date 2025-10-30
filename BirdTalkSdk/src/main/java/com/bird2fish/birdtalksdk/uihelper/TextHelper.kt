@@ -851,7 +851,7 @@ object  TextHelper {
             sdf.format(Date(millis))
         } else {
             // 之前的日期，显示 yyyy-MM-dd
-            val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+            val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
             sdf.format(Date(millis))
         }
     }

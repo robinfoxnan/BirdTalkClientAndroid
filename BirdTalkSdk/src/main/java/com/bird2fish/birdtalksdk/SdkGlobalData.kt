@@ -109,6 +109,7 @@ class SdkGlobalData {
 
         }
 
+        ///////////////////////////////////////////////////////////////////////////////////////////
         // chatSession 与这个图标应该对应起来
         fun getTopic(friend:User):Topic {
             val sessionId = friend.id
@@ -117,33 +118,39 @@ class SdkGlobalData {
                     return chatTopicList[sessionId]!!
             }
 
-            return addNewSession(friend)
+            val t = addNewTopic(friend)
+            ChatSessionManager.getSession(friend.id)
+            return t
         }
 
         // 当多终端登录时候，某些消息可能找不到好友信息，已经不是好友了，那么消息就过时了
+        // 在chatSession 中调用
         fun getPTopic(fid:Long):Topic?{
+            //内存里不一定有这个用户信息，还需要请求服务端数据然后更新
             val friend = UserDbHelper.getUserById(fid)
             if (friend != null){
                 return getTopic(friend)
             }
             else {
-                return null
+                // 如果内存中没有这个用户，肯定不是好友，也是不是粉丝了，那么重新请求一下数据
+                val f = User()
+                f.id = fid
+                f.nick = "正在查询.."
+                f.name = "正在查询.."
+                val t = getTopic(f)
+                MsgEncocder.sendFriendFindMessage("", "id")
+                return t
             }
+
+            ChatSessionManager.getSession(fid)
         }
 
 
-        // 从那个对话列表中跳转到这里
-        fun checkSession(t: Topic){
-            if (t.type == MsgOuterClass.ChatType.ChatTypeP2P.number){
-                val f = getMutualFriendLocal(t.tid)
-                if (f != null) {
-                    addNewSession(f)
-                }
-            }
-        }
+
 
         // 每次收到消息，都要设置最后的消息
-        fun updateSession(msg:MessageContent){
+        // 这里如果是允许提醒，发出声音
+        fun updateTopic(msg:MessageContent){
             if (msg.isP2p){
                 val fid = msg.userId
                 synchronized(chatTopicList){
@@ -155,23 +162,22 @@ class SdkGlobalData {
                     chatTopicList[fid]!!.lastMsg = msg
                 }
             }else{
-                val gid = msg.userId
+                val gid = msg.gid
             }
 
             // 收到消息了，自然要更新会话界面；
             userCallBackManager.invokeOnEventCallbacks(MsgEventType.FRIEND_CHAT_SESSION, 0, msg.msgId, msg.userId, mapOf("msg" to "p2p"))
         }
 
-        // 从双向关注界面跳转，时候都需要确认对话已经在
-        fun addNewSession(f: User):Topic{
-            val t = Topic(f.id, 0, 0, MsgOuterClass.ChatType.ChatTypeP2P.number, 1, f.nick, f.icon)
-            addNewSession(t, true)
 
+        fun addNewTopic(f: User):Topic{
+            val t = Topic(f.id, 0, 0, MsgOuterClass.ChatType.ChatTypeP2P.number, 1, f.nick, f.icon)
+            addNewTopic(t, true)
             return t
         }
 
         // 确保对话时存在的
-        fun addNewSession(t:Topic, isP2p:Boolean){
+        fun addNewTopic(t:Topic, isP2p:Boolean){
             synchronized(chatTopicList){
                 if (isP2p){
                     if (!chatTopicList.containsKey(t.tid)) {
@@ -190,6 +196,21 @@ class SdkGlobalData {
 
             }
         }
+
+        // 查询所有用户的信息的时候，返回数据已经保存数据库了，这个时候还是应该更新TOPIC里面的数据
+        private fun updateTopicAndChatSession(friend :User){
+            synchronized(chatTopicList){
+                if (chatTopicList.containsKey(friend.id)){
+                    val topic = chatTopicList[friend.id]
+                    topic!!.icon = friend.icon
+                    topic!!.title = friend. nick
+                }
+            }
+
+            ChatSessionManager.updateSessionInfo(friend)
+        }
+
+        /////////////////////////////////////////////////////////////////////////
         // 给那个对话的界面使用的
         fun getChatSessionMap() :java.util.LinkedHashMap<Long, Topic>{
             synchronized(chatTopicList){
@@ -238,15 +259,7 @@ class SdkGlobalData {
             }
         }
 
-        // 查询所有用户的信息的时候，返回数据已经保存数据库了，这个时候还是应该更新TOPIC里面的数据
-        private fun updateTopicAndChatSession(friend :User){
-            synchronized(chatTopicList){
-               if (chatTopicList.containsKey(friend.id)){
-                   val topic = chatTopicList[friend.id]
-                   topic!!.icon = friend.icon
-               }
-            }
-        }
+
 
         // 更新关注好友返回的信息
         fun updateAddNewFollow(f:com.bird2fish.birdtalksdk.pbmodel.User.UserInfo){

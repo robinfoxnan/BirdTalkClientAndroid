@@ -364,6 +364,7 @@ class ChatPageAdapter(private val dataList: List<MessageContent>) : RecyclerView
 
         }
 
+        // 这个没有用到
         if (holder.mDateDivider != null){
             //holder.mDateDivider?.visibility = View.VISIBLE
             holder.mDateDivider?.text = TextHelper.getCurrentDateString()
@@ -371,6 +372,7 @@ class ChatPageAdapter(private val dataList: List<MessageContent>) : RecyclerView
 
         //holder.mRippleOverlay?.visibility = View.GONE
 
+        // 消息的时间
         holder.mMeta.text = TextHelper.millisToTime1(item.tm)
 
         holder.mText.text = item.text

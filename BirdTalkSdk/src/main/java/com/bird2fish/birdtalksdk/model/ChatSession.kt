@@ -82,8 +82,10 @@ class ChatSession (val sessionId:Long)
 
     // 用于显示的消息列表
     var msgList: LinkedList<MessageContent> = LinkedList<MessageContent>()
+    // 这个是一个标志，主要是在同步的时候会有重复
+    var msgListMask : MutableMap<Long,MessageContent> = LinkedHashMap()
 
-    // 正在发送的过程中的消息，如果消息超时了，则需要重发
+            // 正在发送的过程中的消息，如果消息超时了，则需要重发
     var msgSendingList: MutableMap<Long, MessageContent> = LinkedHashMap()
 
     var msgUnReadList : MutableMap<Long, MessageContent> = LinkedHashMap()
@@ -100,6 +102,7 @@ class ChatSession (val sessionId:Long)
             for (msg in lst){
                 val msgContent = TextHelper.MsgContentFromDbMessage(msg, t)
                 msgList.add(msgContent)
+                msgListMask[msgContent.msgId] = msgContent
 
                 // 这里是设置会话的最新消息
                 if (i == lst.size - 1){
@@ -155,6 +158,7 @@ class ChatSession (val sessionId:Long)
     fun addMessageNewOut(message: MessageContent) {
         synchronized(msgList){
             msgList.add(message)
+            msgListMask[message.msgId] = message
         }
 
 
@@ -206,16 +210,31 @@ class ChatSession (val sessionId:Long)
     private fun FindMessageAndSetReply(msgid:Long, setToId:Long, tm1:Long,  tm2:Long, tm3:Long) :MessageContent?{
         var msg: MessageContent? = null
 
-            for (item in msgList) {
-                if(item.msgId == msgid){
-                    msg = item
-                    // 在这里设置，防止接收回执太快
-                    if (item.msgId != setToId){
-                        item.msgId = setToId
-                    }
-                    break
-                }
-            }
+        if (!msgListMask.containsKey(msgid)){
+            return null
+        }
+
+        // 收到服务器的应答的时候，这里应该改变一下
+        msg = msgListMask[msgid]
+        if (msg!!.msgId != setToId) {
+            msg.msgId = setToId
+
+            msgListMask[setToId] = msg
+            msgListMask.remove(msgid)
+
+        }
+
+
+//            for (item in msgList) {
+//                if(item.msgId == msgid){
+//                    msg = item
+//                    // 在这里设置，防止接收回执太快
+//                    if (item.msgId != setToId){
+//                        item.msgId = setToId
+//                    }
+//                    break
+//                }
+//            }
 
 
         if (msg != null){
@@ -248,19 +267,30 @@ class ChatSession (val sessionId:Long)
 
         val topic = SdkGlobalData.getPTopic(tid)
         if (topic == null){
+            Log.e("onPRecvBatchMsg", "error getPTopic() return null")
             return
         }
 
         synchronized(msgList){
-            var i = 0
             for (msg in messageLst){
                 if (isForward){
-                    msgList.add(msg)
-                    if (i == messageLst.size -1){
-                        topic.lastMsg = msg
+
+                    if (msgListMask.containsKey(msg.msgId)){
+                        msgListMask[msg.msgId]!!.tm1 = msg.tm1
+                        msgListMask[msg.msgId]!!.tm2 = msg.tm2
+                        msgListMask[msg.msgId]!!.tm3 = msg.tm3
+                    }else{
+                        msgList.add(msg)
                     }
+
                 }else{
-                    msgList.addFirst(msg)
+                    if (msgListMask.containsKey(msg.msgId)){
+                        msgListMask[msg.msgId]!!.tm1 = msg.tm1
+                        msgListMask[msg.msgId]!!.tm2 = msg.tm2
+                        msgListMask[msg.msgId]!!.tm3 = msg.tm3
+                    }else{
+                        msgList.addFirst(msg)
+                    }
                 }
             }
         }
@@ -271,6 +301,12 @@ class ChatSession (val sessionId:Long)
             }
             topic.unReadCount = msgUnReadList.size.toLong()
         }
+
+        // 聊天会话的列表中更新
+        synchronized(msgList){
+            SdkGlobalData.updateTopic(msgList.last())
+        }
+
 
     }
 
@@ -317,6 +353,7 @@ class ChatSession (val sessionId:Long)
     fun addMessageToTail(message: MessageContent) {
         synchronized(msgList) {
             msgList.add(message)
+            msgListMask[message.msgId] = message
         }
 
         synchronized(msgUnReadList){
@@ -377,16 +414,10 @@ class ChatSession (val sessionId:Long)
     fun addMessageToHead(message: MessageContent) {
         synchronized(msgList) {
             msgList.addFirst(message)
+            msgListMask[message.msgId] =message
         }
     }
 
-    // 批量添加历史消息
-    fun addHistoricalMessages(messages: List<MessageContent>) {
-        // 假设消息是按时间正序排列的，需要逆序插入到头部
-        synchronized(msgList) {
-            messages.reversed().forEach { msgList.addFirst(it) }
-        }
-    }
 
     // 获取未读消息数量
     fun getUnreadCount(): Int {
@@ -558,19 +589,17 @@ object ChatSessionManager {
             null)
         msg.msgType = ChatMsgType.TEXT
 
-        // 1)写入数据库
+
 
         // 2）加入列表
         chatSession?.addMessageNewOut(msg)
 
-        // 更新最新消息
-        SdkGlobalData.updateSession(msg)
-
         // 3）发送到服务器
+        // 3.1)写入数据库
         this.sendMsgContent(sessionId, msg)
 
         // 4 设置最新消息
-        SdkGlobalData.updateSession(msg)
+        SdkGlobalData.updateTopic(msg)
         return
     }
 
@@ -731,16 +760,17 @@ object ChatSessionManager {
         val txt = TextHelper.serializeDrafty(draft)
         msg.contentOut = txt
         Log.d("send audio drafty", txt)
-        // 1)写入数据库
+        //
 
         // 2）加入列表
         chatSession?.addMessageNewOut(msg)
 
         // 3）发送到服务器
+        // 3.1)写入数据库
         this.sendMsgContent(sessionId, msg)
 
         // 4 设置最新消息
-        SdkGlobalData.updateSession(msg)
+        SdkGlobalData.updateTopic(msg)
         return  sendId
     }
 
@@ -846,7 +876,7 @@ object ChatSessionManager {
             this.sendMsgContent(chatSession.sessionId, msg!!)
 
             // 4 设置最新消息
-            SdkGlobalData.updateSession(msg!!)
+            SdkGlobalData.updateTopic(msg!!)
             return
         }
 
@@ -869,7 +899,7 @@ object ChatSessionManager {
             this.sendMsgContent(chatSession.sessionId, msg!!)
 
             // 4 设置最新消息
-            SdkGlobalData.updateSession(msg!!)
+            SdkGlobalData.updateTopic(msg!!)
 
             return
         }
@@ -947,7 +977,7 @@ object ChatSessionManager {
         chatSession.addMessageToTail(msg!!)
 
         // 需要创建topic 并设置最新消息
-        SdkGlobalData.updateSession(msg!!)
+        SdkGlobalData.updateTopic(msg!!)
 
         val resultMap = mapOf(
             "status" to "coming",
@@ -1016,11 +1046,11 @@ object ChatSessionManager {
     }
 
 
-    // 重链接成功后需要与服务器
+    // 重链接成功后需要与服务器,
     fun loadPMessageFromServer(lastId:Long){
 
-        // 找出当前私聊或者群聊中最后一条记录
-        val maxId = TopicDbHelper.getPChatLastId()
+        // 找出当前私聊或者群聊中最后一条记录, +1 是为了防止重复
+        val maxId = TopicDbHelper.getPChatLastId() + 1
         if (maxId > 0){
             // 说明此时表中有数据，应该正向查找
             MsgEncocder.sendSynPChatDataForward(maxId)
@@ -1065,6 +1095,7 @@ object ChatSessionManager {
         val msgList = pbChatDataList2MessageContentList(lst)
         // 逐个提交接收回执
         for (msg in msgList){
+            // 必须是别人发给自己的，而且没有提交过，因为可以多终端登录
             if (msg.inOut && msg.tm2 == 0L)
             {
                 // 如果多终端登录的自己的发的消息，不给回执
@@ -1147,6 +1178,17 @@ object ChatSessionManager {
 
     fun onQueryGChatDataReplyBetween(gid:Long, littleId:Long, bigId:Long,  lst: List<MsgOuterClass.MsgChat>){
         // 用不到
+    }
+
+    // 如果用户更新了信息，或者通过同步获得了数据
+    fun updateSessionInfo(friend:User){
+        synchronized(sessions){
+            if (sessions.containsKey(friend.id)){
+                val chatSession = sessions[friend.id]
+                chatSession!!.sessionIcon = friend.icon
+                chatSession!!.sessionTitle = friend.nick
+            }
+        }
     }
 
 

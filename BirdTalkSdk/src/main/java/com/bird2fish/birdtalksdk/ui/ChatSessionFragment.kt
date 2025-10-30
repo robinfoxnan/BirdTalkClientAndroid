@@ -126,7 +126,6 @@ class ChatSessionFragment : Fragment()  , StatusCallback {
     // 发送信息，这里需要跳转
     fun switchSendMsgPage(t:Topic){
         // 通过消息方式通知上层界面切换到消息发送
-        SdkGlobalData.checkSession(t)
         if (t.type == MsgOuterClass.ChatType.ChatTypeP2P.number)
         {
             SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(MsgEventType.APP_NOTIFY_SEND_MSG,

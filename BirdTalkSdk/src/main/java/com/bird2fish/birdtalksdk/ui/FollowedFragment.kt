@@ -62,7 +62,7 @@ class FollowedFragment : Fragment() , StatusCallback {
     // 发送信息，这里需要跳转
     fun switchSendMsgPage(f: User){
         // 通过消息方式通知上层界面切换到消息发送
-        SdkGlobalData.addNewSession(f)
+        SdkGlobalData.getTopic(f)
         SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(MsgEventType.APP_NOTIFY_SEND_MSG,
             0, 0, f.id, mapOf("page" to "followedFragment" ) )
     }

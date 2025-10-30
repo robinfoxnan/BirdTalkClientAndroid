@@ -35,6 +35,7 @@ class MessageContent(
     var tm1:Long =0L,
     var tm2:Long =0L,
     var tm3:Long  = 0L,
+    var gid:Long = 0L,
 
 
 ) {
