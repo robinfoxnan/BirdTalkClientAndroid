@@ -205,7 +205,8 @@ class ChatPageFragment : Fragment() , StatusCallback {
             if (fid == this.mChatIdLong){
                 if (detail == "not friend")
                 {
-                    showMesage("对方目前没有关注您，您不能发消息给对方")
+                    val info = getString(R.string.not_friend)
+                    showMesage(info)
                 }
             }
             refreshData(msgType)

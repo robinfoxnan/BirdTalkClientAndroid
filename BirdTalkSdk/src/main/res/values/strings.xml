@@ -113,4 +113,6 @@
     <string name="btn_ok">ok</string>
     <string name="btn_cancel">cancel</string>
 
+    <string name="not_friend">peer is not your friend, can not send msg yet</string>
+
 </resources>
