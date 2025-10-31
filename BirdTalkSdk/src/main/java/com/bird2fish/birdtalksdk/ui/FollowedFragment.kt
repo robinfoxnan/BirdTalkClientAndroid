@@ -63,6 +63,7 @@ class FollowedFragment : Fragment() , StatusCallback {
     fun switchSendMsgPage(f: User){
         // 通过消息方式通知上层界面切换到消息发送
         SdkGlobalData.getTopic(f)
+        //SdkGlobalData.currentChatFid = f.id
         SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(MsgEventType.APP_NOTIFY_SEND_MSG,
             0, 0, f.id, mapOf("page" to "followedFragment" ) )
     }
@@ -75,19 +76,21 @@ class FollowedFragment : Fragment() , StatusCallback {
     override fun onError(code : InterErrorType, lastAction:String, errType:String, detail:String){
 
     }
+
+    fun refreshAllData(){
+        (context as? Activity)?.runOnUiThread {
+
+            val adapter = FollowedItemAdapter(SdkGlobalData.getMutualFollowList())
+            adapter.setView(this)
+            friendList?.layoutManager = LinearLayoutManager(context)
+            friendList?.setAdapter(adapter);
+        }
+    }
     // 上传或下载事件
     // 这里是回调函数，无法操作界面
     override fun onEvent(eventType: MsgEventType, msgType:Int, msgId:Long, fid:Long, params:Map<String, String>){
         if (eventType == MsgEventType.FRIEND_LIST_FOLLOW || eventType == MsgEventType.FRIEND_LIST_FAN){
-
-            (context as? Activity)?.runOnUiThread {
-
-                val adapter = FollowedItemAdapter(SdkGlobalData.getMutualFollowList())
-                adapter.setView(this)
-                friendList?.layoutManager = LinearLayoutManager(context)
-                friendList?.setAdapter(adapter);
-            }
-
+            refreshAllData()
         }
     }
     // 刷新的时候需要更新个人信息

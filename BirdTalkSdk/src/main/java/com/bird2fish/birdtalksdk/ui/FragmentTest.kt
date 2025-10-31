@@ -311,7 +311,7 @@ class FragmentTest : Fragment() {
         msg.tm1 =  System.currentTimeMillis()
         msg.tm2 = System.currentTimeMillis()
 
-        TopicDbHelper.updatePChatReply(msg.id, 0L, 0L ,0L)
+        TopicDbHelper.updatePChatReply(msg.id, 0L, 0L ,0L, true)
 
         msg.id = 5
         msg.status = "ok"

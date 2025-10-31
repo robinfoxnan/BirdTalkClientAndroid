@@ -128,9 +128,11 @@ class ChatSessionFragment : Fragment()  , StatusCallback {
         // 通过消息方式通知上层界面切换到消息发送
         if (t.type == MsgOuterClass.ChatType.ChatTypeP2P.number)
         {
+            //SdkGlobalData.currentChatFid = t.tid
             SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(MsgEventType.APP_NOTIFY_SEND_MSG,
                 0, 0, t.tid, mapOf("page" to "followedFragment" ) )
         }else{
+            //SdkGlobalData.currentChatFid = -t.tid
             SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(MsgEventType.APP_NOTIFY_SEND_MSG,
                 0, 0, -t.tid, mapOf("page" to "followedFragment" ) )
         }

@@ -106,4 +106,11 @@
     <string name="pwd_not_same">password should be same</string>
     <string name="pwd_need_change">blank means no change</string>
 
+    <string name="confirm_delete">confirm delete</string>
+    <string name="delete_message">make sure to delete?</string>
+    <string name="confirm_unfollow">unfollow</string>
+    <string name="unfollow_message">unfollow %s ?</string>
+    <string name="btn_ok">ok</string>
+    <string name="btn_cancel">cancel</string>
+
 </resources>

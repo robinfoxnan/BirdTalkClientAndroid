@@ -99,4 +99,11 @@
     <string name="login_error">"无法登录该账户： %s"</string>
     <string name="pwd_not_same">两次口令应该一样</string>
     <string name="pwd_need_change">空白即不更改</string>
+
+    <string name="confirm_delete">确认删除</string>
+    <string name="delete_message">确定要删除这项吗？</string>
+    <string name="confirm_unfollow">取消关注</string>
+    <string name="unfollow_message">确定要取消关注 %s 吗？</string>
+    <string name="btn_ok">确定</string>
+    <string name="btn_cancel">取消</string>
 </resources>

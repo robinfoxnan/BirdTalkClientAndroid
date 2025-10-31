@@ -260,6 +260,56 @@ class SdkGlobalData {
         }
 
 
+        // 从关注列表中取消关注
+        fun updateAddDeleteFollow(friend: User){
+
+            synchronized(followingList) {
+                if (followingList.containsKey(friend.id)) {
+                    followingList.remove(friend.id)
+                }
+
+                // 更新数据库
+                UserDbHelper.deleteFromFollows(friend.id)
+                updateTopicAndChatSession(friend)
+            }
+
+
+            synchronized(mutualFollowingList){
+                mutualFollowingList.remove(friend.id)
+            }
+
+            // 提交服务
+            MsgEncocder.sendRemoveFollow(friend.id)
+
+            // 通知界面更新
+            userCallBackManager.invokeOnEventCallbacks(MsgEventType.FRIEND_LIST_FOLLOW,
+                0, 0, 0L, mapOf("type" to "follow" ) )
+        }
+
+        // 服务器通知对方不再关注自己了
+        fun updateAddDeleteFan(fid: Long){
+            var b = false
+
+            synchronized(fanList){
+                if (fanList.containsKey(fid)){
+                    fanList.remove(fid)
+                    b = true
+                }
+            }
+
+            if (b){
+                synchronized(mutualFollowingList){
+                    mutualFollowingList.remove(fid)
+                }
+            }
+
+            UserDbHelper.deleteFromFans(fid)
+
+            // 通知界面更新
+            userCallBackManager.invokeOnEventCallbacks(MsgEventType.FRIEND_LIST_FAN,
+                0, 0, 0L, mapOf("type" to "follow" ) )
+        }
+
 
         // 更新关注好友返回的信息
         fun updateAddNewFollow(f:com.bird2fish.birdtalksdk.pbmodel.User.UserInfo){
@@ -286,7 +336,9 @@ class SdkGlobalData {
                     mutualFollowingList[f.userId] = friend
                 }
             }
-
+            // 通知界面更新
+            userCallBackManager.invokeOnEventCallbacks(MsgEventType.FRIEND_LIST_FOLLOW,
+                0, 0, 0L, mapOf("type" to "follow" ) )
         }
 
         // 服务端返回的粉丝
@@ -315,6 +367,20 @@ class SdkGlobalData {
                 }
             }
 
+            // 通知界面更新
+            userCallBackManager.invokeOnEventCallbacks(MsgEventType.FRIEND_LIST_FAN,
+                0, 0, 0L, mapOf("type" to "fan" ) )
+        }
+
+        // TODO:
+        // 目前如果能从服务器返回粉丝列表，那么这里应该是用服务器的列表，保证已经删除了多余的；
+        fun clearFans(){
+            synchronized(fanList) {
+                fanList.clear()
+            }
+            synchronized(mutualFollowingList){
+                mutualFollowingList.clear()
+            }
         }
 
         // 找本地双向的好友信息
@@ -379,6 +445,7 @@ class SdkGlobalData {
         // 尝试加载用户的好友和粉丝等各种预加载信息
         fun initLoad(uid:Long){
             BaseDb.changeToDB(this.context, uid.toString())
+
             //debugClean()
 
             if (BaseDb.getInstance() == null) {

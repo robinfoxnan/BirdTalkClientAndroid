@@ -6,12 +6,14 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     tools:context=".ui.ProfileFragment">
 
+    <!-- 顶级布局 -->
     <LinearLayout
         android:layout_width="match_parent"
         android:orientation="vertical"
-        android:layout_height="match_parent"
+        android:layout_height="wrap_content"
         >
 
+        <!-- 顶部方框 -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -60,146 +62,158 @@
                         android:paddingTop="@dimen/nav_header_vertical_spacing"
                         android:textAppearance="@style/TextAppearance.AppCompat.Body1" />
                 </LinearLayout>
-
             </LinearLayout>
-
         </LinearLayout>
 
-        <TableLayout
+        <!-- 可滚动部分 -->
+        <ScrollView
             android:layout_width="match_parent"
-            android:layout_height="wrap_content">
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:fillViewport="true">
 
-            <TableRow
+            <LinearLayout
                 android:layout_width="match_parent"
-                android:layout_height="match_parent">
+                android:orientation="vertical"
+                android:layout_height="wrap_content"
+                >
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:background="@null"
-                    android:clickable="false"
-                    android:gravity="center"
-                    android:padding="8dp"
-                    android:text="@string/nick_name"
-                    android:textColor="#000000"
-                    android:textSize="18sp" />
-
-                <EditText
-                    android:id="@+id/tv_nick"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:ems="10"
-                    android:inputType="textPersonName" />
-
-            </TableRow>
-
-            <TableRow
+            <TableLayout
                 android:layout_width="match_parent"
-                android:layout_height="match_parent">
+                android:layout_height="wrap_content">
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:background="@null"
-                    android:clickable="false"
-                    android:gravity="center"
-                    android:padding="8dp"
-                    android:text="@string/age"
-                    android:textColor="#000000"
-                    android:textSize="18sp" />
+                <TableRow
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent">
 
-                <EditText
-                    android:id="@+id/tvAge"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:ems="10"
-                    android:inputType="text" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:background="@null"
+                        android:clickable="false"
+                        android:gravity="center"
+                        android:padding="8dp"
+                        android:text="@string/nick_name"
+                        android:textColor="#000000"
+                        android:textSize="18sp" />
 
-            </TableRow>
+                    <EditText
+                        android:id="@+id/tv_nick"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:ems="10"
+                        android:inputType="textPersonName" />
 
-            <TableRow
-                android:layout_width="match_parent"
-                android:layout_height="match_parent">
+                </TableRow>
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:background="@null"
-                    android:clickable="false"
-                    android:gravity="center"
-                    android:padding="8dp"
-                    android:text="@string/gender"
-                    android:textColor="#000000"
-                    android:textSize="18sp" />
+                <TableRow
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent">
 
-                <EditText
-                    android:id="@+id/tvGender"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:ems="10"
-                    android:inputType="text" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:background="@null"
+                        android:clickable="false"
+                        android:gravity="center"
+                        android:padding="8dp"
+                        android:text="@string/age"
+                        android:textColor="#000000"
+                        android:textSize="18sp" />
 
-            </TableRow>
+                    <EditText
+                        android:id="@+id/tvAge"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:ems="10"
+                        android:inputType="text" />
+
+                </TableRow>
+
+                <TableRow
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:background="@null"
+                        android:clickable="false"
+                        android:gravity="center"
+                        android:padding="8dp"
+                        android:text="@string/gender"
+                        android:textColor="#000000"
+                        android:textSize="18sp" />
+
+                    <EditText
+                        android:id="@+id/tvGender"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:ems="10"
+                        android:inputType="text" />
+
+                </TableRow>
 
 
 
-            <TableRow
-                android:layout_width="match_parent"
-                android:layout_height="match_parent">
+                <TableRow
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent">
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:background="@null"
-                    android:clickable="false"
-                    android:gravity="center"
-                    android:padding="8dp"
-                    android:text="@string/password"
-                    android:textColor="#000000"
-                    android:textSize="18sp" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:background="@null"
+                        android:clickable="false"
+                        android:gravity="center"
+                        android:padding="8dp"
+                        android:text="@string/password"
+                        android:textColor="#000000"
+                        android:textSize="18sp" />
 
-                <EditText
-                    android:id="@+id/tvPass"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:hint="@string/pwd_need_change"
-                    android:ems="10"
-                    android:inputType="textPassword" />
+                    <EditText
+                        android:id="@+id/tvPass"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:hint="@string/pwd_need_change"
+                        android:ems="10"
+                        android:inputType="textPassword" />
 
-            </TableRow>
+                </TableRow>
 
 
-            <TableRow
-                android:layout_width="match_parent"
-                android:layout_height="match_parent">
+                <TableRow
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent">
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:background="@null"
-                    android:clickable="false"
-                    android:gravity="center"
-                    android:padding="8dp"
-                    android:text="@string/introduce"
-                    android:textColor="#000000"
-                    android:textSize="18sp" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:background="@null"
+                        android:clickable="false"
+                        android:gravity="center"
+                        android:padding="8dp"
+                        android:text="@string/introduce"
+                        android:textColor="#000000"
+                        android:textSize="18sp" />
 
-                <EditText
-                    android:id="@+id/tvDes"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:ems="10"
-                    android:inputType="textMultiLine|textCapSentences"
-                    android:minLines="3"
-                    android:maxLines="5"
-                    android:hint="请输入简介（最多5行）"
-                    android:scrollbars="vertical"
+                    <EditText
+                        android:id="@+id/tvDes"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:ems="10"
+                        android:inputType="textMultiLine|textCapSentences"
+                        android:minLines="3"
+                        android:maxLines="5"
+                        android:hint="请输入简介（最多5行）"
+                        android:scrollbars="vertical"
 
-                     />
+                         />
 
-            </TableRow>
+                </TableRow>
 
-        </TableLayout>
+            </TableLayout>
+
 
         <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
@@ -325,6 +339,9 @@
             android:padding="8dp"
             android:textColor="#000000"
             android:textSize="18sp" />
+
+            </LinearLayout>
+        </ScrollView>>
 
     </LinearLayout>
 

@@ -99,6 +99,7 @@ class ProfileFragment : Fragment(), StatusCallback {
                     // 这里应该发送消息，重新设置头像
                     saveUserAvatar(it)
                     this.localUploadName = ""
+                    onHide()
                 }
             }
 
@@ -123,6 +124,7 @@ class ProfileFragment : Fragment(), StatusCallback {
     //        paramsMap.set("Params.title", "经理")
 
     // 上传成功后，需要保存一下
+    // 保存头像
     private fun saveUserAvatar(newIcon:String){
 
         val data = mapOf(
@@ -205,6 +207,9 @@ class ProfileFragment : Fragment(), StatusCallback {
 
                     // 尝试上传
                     this.photoUri?.let{
+                        // 设置关注返回的文件消息
+                        SdkGlobalData.userCallBackManager.addCallback(this)
+
                         this.localUploadName = TextHelper.getFileNameFromUri(requireContext(), this.photoUri)
                         val msgId = SdkGlobalData.nextId()
                         Session.uploadSmallFile(requireContext(), it, 0, msgId)
@@ -271,9 +276,9 @@ class ProfileFragment : Fragment(), StatusCallback {
 
         // 获取权限来加载相册
         permissionsHelper = PermissionsHelper(this.requireActivity())
-
-
         onShow()
+
+
         return view
     }
 
@@ -336,7 +341,7 @@ class ProfileFragment : Fragment(), StatusCallback {
         //this._uuidImageName.postValue(SdkGlobalData.selfUserinfo.icon)
         //loadImage(SdkGlobalData.selfUserinfo.icon)
         // 关注消息
-        SdkGlobalData.userCallBackManager.addCallback(this)
+
     }
 
     fun onHide(){

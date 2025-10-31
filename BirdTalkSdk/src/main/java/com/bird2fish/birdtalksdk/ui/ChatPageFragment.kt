@@ -200,8 +200,24 @@ class ChatPageFragment : Fragment() , StatusCallback {
             refreshData(msgType)
         }
 
+        else if (eventType == MsgEventType.MSG_SEND_ERROR){
+            val detail = params["detail"]
+            if (fid == this.mChatIdLong){
+                if (detail == "not friend")
+                {
+                    showMesage("对方目前没有关注您，您不能发消息给对方")
+                }
+            }
+            refreshData(msgType)
+        }
+
     }
 
+    fun showMesage(str: String){
+        (context as? Activity)?.runOnUiThread{
+            TextHelper.showToast(requireContext(), str)
+        }
+    }
     // 需要在界面线程中处理
     fun refreshData(index:Int){
 
@@ -374,12 +390,16 @@ class ChatPageFragment : Fragment() , StatusCallback {
 
     private fun scrollToBottom(smooth: Boolean) {
         isScrollByCode = true
-        val pos = mMessagesAdapter!!.itemCount -1
-        if (smooth) {
-            mRecyclerView!!.smoothScrollToPosition(pos)
-        } else {
-            mRecyclerView!!.scrollToPosition(pos)
+        if (mMessagesAdapter != null && mMessagesAdapter!!.itemCount > 0)
+        {
+            val pos = mMessagesAdapter!!.itemCount -1
+            if (smooth) {
+                mRecyclerView!!.smoothScrollToPosition(pos)
+            } else {
+                mRecyclerView!!.scrollToPosition(pos)
+            }
         }
+
     }
 
 

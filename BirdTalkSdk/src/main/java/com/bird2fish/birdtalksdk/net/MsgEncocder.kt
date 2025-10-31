@@ -196,12 +196,33 @@ class MsgEncocder {
             ChatSessionManager.onChatMsgReply(reply.msgId, reply.sendId, reply.fromId,  reply.paramsMap,
                 reply.sendOk,reply.recvOk, reply.readOk, reply.extraMsg)
 
+            val result = reply.extraMsg
+            val detail = reply.paramsMap["detail"]
+            val gid = reply.paramsMap["gid"]   // 私聊这里是“0”
+            val fid = reply.fromId
+
             val resultMap = mapOf(
-                "status" to "reply",
+                "result" to result,
+                "detail" to detail!!,
+                "gid" to gid!!,
+                "fid" to fid.toString(),
             )
-            // 通知界面更新消息，已经保存处理完了
-            SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(MsgEventType.MSG_SEND_OK, 0,
-                reply.msgId, reply.fromId, resultMap)
+            if (result == "ok"){
+                // 通知界面更新消息，已经保存处理完了
+                SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(MsgEventType.MSG_SEND_OK, 0,
+                    reply.msgId, reply.fromId, resultMap)
+            }else{
+                // "fail"
+                // 如果发送消息失败，说明对方已经删除了自己
+                if (gid == "0" && detail == "not friend")
+                {
+                    SdkGlobalData.updateAddDeleteFan(fid)
+                    ChatSessionManager.onChatMsgReplyError(reply.fromId, reply.msgId, reply.sendId, detail)
+                }
+                SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(MsgEventType.MSG_SEND_ERROR, 0,
+                    reply.msgId, reply.fromId, resultMap)
+            }
+
         }
 
 
@@ -493,7 +514,7 @@ class MsgEncocder {
 
                 }
                 RemoveFriend -> {
-
+                    onFriendRemoveRet(msg.plainMsg.friendOpRet, result, status)
                 }
                 BlockFriend -> {
 
@@ -534,7 +555,9 @@ class MsgEncocder {
         fun onFriendListFans(retMsg: User.FriendOpResult, result:String, status:String){
 
             if (retMsg.usersList != null && retMsg.usersList.size > 0){
-                val lst = LinkedList<com.bird2fish.birdtalksdk.model.User>()
+                //val lst = LinkedList<com.bird2fish.birdtalksdk.model.User>()
+                // TODO: 以后再修复这里
+                SdkGlobalData.clearFans()
                 for (f in retMsg.usersList){
                     SdkGlobalData.updateAddNewFan(f)
                 }
@@ -572,6 +595,15 @@ class MsgEncocder {
             SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(MsgEventType.FRIEND_REQ_REPLY,
                 0, 0, fid, mapOf("result"  to result, "status" to status ) )
         }
+
+        // 删除好友的结果；当对方删除好友，这里也知道
+        fun onFriendRemoveRet(retMsg: User.FriendOpResult, result:String, status:String){
+            // 不是自己发过来的
+            if (retMsg.user.userId != SdkGlobalData.selfUserinfo.id && result == "notice"){
+                SdkGlobalData.updateAddDeleteFan(retMsg.user.userId)
+            }
+        }
+
         // 好友搜索结果
         private fun onFindFriendRet(retMsg: User.FriendOpResult, result:String, status:String){
             // 设置个人信息完毕
@@ -1102,9 +1134,15 @@ class MsgEncocder {
         fun sendListFriend(mode:String){
             val timestamp = System.currentTimeMillis()
 
+            // TODO: 用户量大了以后，得支持多页查找，目前一次能返回1000个
+            // 从这个用户开始查找
+//            val uinfo = UserInfo.newBuilder()
+//            uinfo.userId = 10000
+
+
             val regOpReq = FriendOpReq.newBuilder()
                 .setOperation(ListFriends)
-                //.setUser(userInfo)
+                //.setUser(uinfo)
                 .putParams("mode", mode)
 
             // 如果 sharedKeyPrint 存在，则执行相应的操作

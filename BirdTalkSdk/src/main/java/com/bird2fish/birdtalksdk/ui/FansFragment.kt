@@ -93,8 +93,9 @@ class FansFragment : Fragment() , StatusCallback {
     }
     // 上传或下载事件
     // 这里是回调函数，无法操作界面
+    // 删除关注的时候，这里双向关注状态也改变了。
     override fun onEvent(eventType: MsgEventType, msgType:Int, msgId:Long, fid:Long, params:Map<String, String>){
-        if (eventType == MsgEventType.FRIEND_LIST_FAN){
+        if (eventType == MsgEventType.FRIEND_LIST_FAN || eventType == MsgEventType.FRIEND_LIST_FOLLOW){
 
             (context as? Activity)?.runOnUiThread {
 

@@ -202,7 +202,12 @@ class MainActivity : AppCompatActivity() , StatusCallback {
 
     override fun onEvent(eventType: MsgEventType, msgType:Int, msgId:Long, fid:Long, params:Map<String, String>){
 
+        // 通知切换到消息
         if (eventType == MsgEventType.APP_NOTIFY_SEND_MSG){
+
+            if (fid != 0L){
+                SdkGlobalData.currentChatFid = fid
+            }
             if (SdkGlobalData.currentChatFid == 0L){
                 TextHelper.showToast(this, "会话列表为空，请先创建一个聊天会话")
             }

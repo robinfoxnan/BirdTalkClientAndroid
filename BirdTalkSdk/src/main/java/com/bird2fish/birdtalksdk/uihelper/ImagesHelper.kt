@@ -31,6 +31,7 @@ import com.bird2fish.birdtalksdk.R
 import com.bird2fish.birdtalksdk.model.MessageStatus
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.FileOutputStream
 import java.io.IOException
 import kotlin.math.max
 import kotlin.math.min
@@ -570,22 +571,68 @@ public object ImagesHelper {
     }
     // 加载圆形的图标
     fun loadRoundAvatar(uri: Uri, context: Context): Bitmap? {
-        val bitmap = getBitmapFromUri(uri, context) ?: return null
+        val (bitmap, file) = getBitmapAndFileFromUri(context, uri)
+        file?.let {
+            Log.d("loadRoundAvatar", "临时文件路径: ${it.absolutePath}")
+        }
+        if (bitmap == null)
+            return null
+
         return getCircularBitmapWithTransparentEdge(bitmap, 3)
     }
 
-    // 从URI加载文件
-    fun getBitmapFromUri(uri: Uri, context: Context): Bitmap? {
+    /**自动识别并兼容老相册与新相册 URI 的 Kotlin 工具函数。
+    它能自动处理：
+    ✅ content://（现代 Android 相册 URI）
+    ✅ file://（旧版 Android 相册 URI）
+    ✅ 沙盒存储（Android 10+，无法直接访问文件时自动复制到缓存）
+    ✅ 返回 Bitmap 同时可选返回对应 File
+     * 从任意 Uri 获取 Bitmap，同时返回对应的 File（如果有）
+     * @return Pair<Bitmap?, File?> => 第一个是 Bitmap，第二个是临时文件
+     */
+    fun getBitmapAndFileFromUri(context: Context, uri: Uri): Pair<Bitmap?, File?> {
         return try {
-            // 打开输入流从 URI 读取文件
-            val inputStream = context.contentResolver.openInputStream(uri)
-            // 使用 BitmapFactory 将输入流解码为 Bitmap
-            BitmapFactory.decodeStream(inputStream)
+            when (uri.scheme) {
+                "file" -> {
+                    // 老式 file:// URI
+                    val file = File(uri.path!!)
+                    val bitmap = BitmapFactory.decodeFile(file.absolutePath)
+                    Pair(bitmap, file)
+                }
+
+                "content" -> {
+                    // 新式 content:// URI
+                    val inputStream = context.contentResolver.openInputStream(uri)
+                    inputStream?.use {
+                        // 复制到临时文件（避免沙盒访问问题）
+                        val tempFile = File(context.cacheDir, "img_${System.currentTimeMillis()}.jpg")
+                        FileOutputStream(tempFile).use { output ->
+                            it.copyTo(output)
+                        }
+                        val bitmap = BitmapFactory.decodeFile(tempFile.absolutePath)
+                        Pair(bitmap, tempFile)
+                    } ?: Pair(null, null)
+                }
+
+                else -> Pair(null, null)
+            }
         } catch (e: Exception) {
             e.printStackTrace()
-            null
+            Pair(null, null)
         }
     }
+    // 从URI加载文件
+//    fun getBitmapFromUri(uri: Uri, context: Context): Bitmap? {
+//        return try {
+//            // 打开输入流从 URI 读取文件
+//            val inputStream = context.contentResolver.openInputStream(uri)
+//            // 使用 BitmapFactory 将输入流解码为 Bitmap
+//            BitmapFactory.decodeStream(inputStream)
+//        } catch (e: Exception) {
+//            e.printStackTrace()
+//            null
+//        }
+//    }
 
 
     // 重新计算圆形的蒙版

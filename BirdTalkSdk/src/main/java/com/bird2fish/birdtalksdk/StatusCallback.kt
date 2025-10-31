@@ -29,7 +29,7 @@ enum class MsgEventType {
     FRIEND_ONLINE,    // 好友上线
     FRIEND_OFFLINE,   // 好友下线
     FRIEND_UPDATE,    // 好友更新信息
-    FRIEND_LIST_FAN,
+    FRIEND_LIST_FAN,    // 更新界面
     FRIEND_LIST_FOLLOW,
     FRIEND_CHAT_SESSION,
 
@@ -56,6 +56,7 @@ enum class MsgEventType {
 
     SEARCH_FRIEND_RET,
     SEARCH_GROUP_RET,
+
 
     APP_NOTIFY_SEND_MSG,  // SDK通知界面
     APP_NOTIFY_REMOVE_SESSION,

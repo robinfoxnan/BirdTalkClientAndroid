@@ -59,6 +59,7 @@ class ImageDownloader {
         val fullUrl = WebSocketClient.instance!!.getRemoteFilePath( remote)
 
 
+        // 这里有个坑，这里需要强引用，避免在设置图片前被回收
         view.tag = object : com.squareup.picasso.Target {
             override fun onBitmapLoaded(bitmap: Bitmap, from: Picasso.LoadedFrom) {
 
@@ -74,7 +75,7 @@ class ImageDownloader {
                 val bitmapRound = ImagesHelper.getRoundAvatar(bitmap, context)
                 view.setImageBitmap(bitmapRound)
                // (context as? Activity)?.runOnUiThread {
-                    Toast.makeText(context, remote, Toast.LENGTH_SHORT).show()
+                    //Toast.makeText(context, remote, Toast.LENGTH_SHORT).show()
                     view.invalidate()
                // }
 

@@ -223,6 +223,7 @@ public class UserDbHelper {
 
 
     public static void onCreate(SQLiteDatabase db) {
+        //SQLiteDatabase db = BaseDb.getInstance().getWritableDatabase();
         // 创建表
         db.execSQL(SQL_CREATE_USERS);
         db.execSQL(SQL_CREATE_FOLLOWS);
@@ -449,7 +450,7 @@ public class UserDbHelper {
     }
 
     // 从粉丝表中删除指定 id 的用户
-    public static  void deleteFromFans(int userId) {
+    public static  void deleteFromFans(long userId) {
         // 删除操作
         int rowsDeleted =  BaseDb.getInstance().getWritableDatabase().delete(TABLE_FANS, "id=?", new String[] { String.valueOf(userId) });
         if (rowsDeleted > 0) {
@@ -460,7 +461,7 @@ public class UserDbHelper {
     }
 
     // 从关注表中删除指定 id 的用户
-    public static  void deleteFromFollows(int userId) {
+    public static  void deleteFromFollows(long userId) {
         // 删除操作
         int rowsDeleted = BaseDb.getInstance().getWritableDatabase().delete(TABLE_FOLLOWS, "id=?", new String[] { String.valueOf(userId) });
         if (rowsDeleted > 0) {

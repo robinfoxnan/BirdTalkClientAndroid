@@ -47,6 +47,7 @@
             android:launchMode="singleTask"
             android:exported="true"
             android:label="@string/app_name"
+            android:windowSoftInputMode="adjustResize|stateHidden"
             android:screenOrientation="portrait"
             android:theme="@style/Theme.BirdTalkClient.NoActionBar"
             tools:ignore="LockedOrientationActivity">

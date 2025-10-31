@@ -88,8 +88,12 @@ public class TopicDbHelper {
                     COLUMN_TM3 + " INTEGER," +
                     COLUMN_CRYPT_TYPE + " TEXT," +
                     COLUMN_PRINT + " INTEGER," +
-                    COLUMN_STATUS + " TEXT," +  // 注意这里多一个逗号，因为后面要加索引
-                    "INDEX idx_tm (" + COLUMN_TM + "));"; // 为 TM 字段创建名为 idx_tm 的索引
+                    COLUMN_STATUS + " TEXT " +
+                    ");";
+
+    // 单独创建索引
+    private static final String SQL_CREATE_PCHAT_TM_INDEX =
+            "CREATE INDEX IF NOT EXISTS idx_tm ON " + TABLE_PCHAT + " (" + COLUMN_TM + ");";
 
     private static final String SQL_CREATE_PCHAT_UNREAD_TABLE =
             "CREATE TABLE IF NOT EXISTS " + TABLE_PCHAT_UNREAD + " (" +
@@ -98,9 +102,12 @@ public class TopicDbHelper {
                     COLUMN_IO + " INTEGER);";
 
     public static void onCreate(SQLiteDatabase db) {
+
+        //SQLiteDatabase db = BaseDb.getInstance().getWritableDatabase();
         // 创建表
         try {
             db.execSQL(SQL_CREATE_PCHAT_TABLE);
+            db.execSQL(SQL_CREATE_PCHAT_TM_INDEX);
             db.execSQL(SQL_CREATE_PCHAT_UNREAD_TABLE);
             db.execSQL(SQL_CREATE_PTOPIC_TABLE);
             db.execSQL(SQL_CREATE_GTOPIC_TABLE);
@@ -762,22 +769,31 @@ public class TopicDbHelper {
         return isAllOk;
     }
 
-    public static boolean updatePChatReply(long msgId, long tm1, long tm2, long tm3){
+    public static boolean updatePChatReply(long msgId, long tm1, long tm2, long tm3, Boolean bOk){
         ContentValues values = new ContentValues();
         String status = MessageStatus.SENDING.name();
 
         if (tm1 > 0){
-            status = MessageStatus.OK.name();
+            if (bOk)
+                status = MessageStatus.OK.name();
+            else
+                status = MessageStatus.FAIL.name();
             values.put("tm1", tm1);
         }
 
         if (tm2 > 0){
-            status = MessageStatus.RECV.name();
+            if (bOk)
+                status = MessageStatus.RECV.name();
+            else
+                status = MessageStatus.FAIL.name();
             values.put("tm2", tm2);
         }
 
         if (tm3 > 0){
-            status = MessageStatus.SEEN.name();
+            if (bOk)
+                status = MessageStatus.SEEN.name();
+            else
+                status = MessageStatus.FAIL.name();
             values.put("tm3", tm3);
         }
         values.put("status", status);
@@ -1222,6 +1238,7 @@ public class TopicDbHelper {
     }
 
     private  static List<Topic> getAllTopics(String tableName) {
+        //onCreate();
         List<Topic> topics = new ArrayList<>();
         SQLiteDatabase db = BaseDb.getInstance().getWritableDatabase();
         String sql = "SELECT * FROM " + tableName;

@@ -10,6 +10,7 @@ import android.widget.Button
 import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.bird2fish.birdtalksdk.InterErrorType
@@ -72,7 +73,22 @@ class FollowingFragment : Fragment(), StatusCallback {
     }
 
 
-    fun onClickItem(index: Int){
+    // 在条目上点击后，就取消关注了
+    fun onClickItem(friend: User){
+
+        val title = getString(R.string.confirm_unfollow)
+        val message = getString(R.string.unfollow_message, friend.nick)
+        val ok = getString(R.string.btn_ok)
+        val cancel = getString(R.string.btn_cancel)
+
+        AlertDialog.Builder(requireContext())
+            .setTitle(title)
+            .setMessage(message)
+            .setPositiveButton(ok) { _, _ ->
+                SdkGlobalData.updateAddDeleteFollow(friend)
+            }
+            .setNegativeButton(cancel, null)
+            .show()
 
     }
 
@@ -81,17 +97,18 @@ class FollowingFragment : Fragment(), StatusCallback {
     }
     // 上传或下载事件
     // 这里是回调函数，无法操作界面
+    fun refreshData(){
+        (context as? Activity)?.runOnUiThread {
+
+            val adapter =  FollowingItemAdapter(SdkGlobalData.getFollowList())
+            adapter.setView(this)
+            friendList?.layoutManager = LinearLayoutManager(context)
+            friendList?.setAdapter(adapter);
+        }
+    }
     override fun onEvent(eventType: MsgEventType, msgType:Int, msgId:Long, fid:Long, params:Map<String, String>){
         if (eventType == MsgEventType.FRIEND_LIST_FOLLOW){
-
-            (context as? Activity)?.runOnUiThread {
-
-                val adapter =  FollowingItemAdapter(SdkGlobalData.getFollowList())
-                adapter.setView(this)
-                friendList?.layoutManager = LinearLayoutManager(context)
-                friendList?.setAdapter(adapter);
-            }
-
+            refreshData()
         }
     }
     // 刷新的时候需要更新个人信息
@@ -139,9 +156,9 @@ class FollowingItemAdapter(private val dataList: List<User>) : RecyclerView.Adap
             // 在构造函数中为整个 ViewHolder 的根视图设置点击事件
             itemView.setOnClickListener {
                 // 处理点击事件
-                if (fragment != null){
-                    fragment!!.onClickItem(index)
-                }
+//                if (fragment != null){
+//                    fragment!!.onClickItem(index)
+//                }
             }
         }
 
@@ -169,7 +186,7 @@ class FollowingItemAdapter(private val dataList: List<User>) : RecyclerView.Adap
         // 可以添加其他逻辑...
         holder.btnUnfollow.setOnClickListener{
             if (fragment != null){
-               // fragment!!.onClickItemShare(holder.tvDelete.tag as Int)
+               fragment!!.onClickItem(item)
             }
         }
 

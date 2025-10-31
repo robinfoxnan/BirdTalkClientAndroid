@@ -111,7 +111,7 @@ class ChatSession (val sessionId:Long)
                 i += 1
 
 
-                if (msg.io == MessageInOut.OUT.ordinal && msg.tm1  == 0L){
+                if (msg.io == MessageInOut.OUT.ordinal && msg.tm1  == 0L && msg.status != MessageStatus.FAIL.name){
                     tempSendingList.add(msgContent)
                 }
 
@@ -147,7 +147,7 @@ class ChatSession (val sessionId:Long)
         // 提交回执，这种情况是刚收到消息没有提交回执就崩溃了，或者睡眠了
         for (item in tempUnRecvList) {
             MsgEncocder.sendChatReply(item.userId, item.sendId, item.msgId, false, "")
-            TopicDbHelper.updatePChatReply(item.msgId, 0L, System.currentTimeMillis(), 0L)
+            TopicDbHelper.updatePChatReply(item.msgId, 0L, System.currentTimeMillis(), 0L, true)
         }
 
 
@@ -207,7 +207,7 @@ class ChatSession (val sessionId:Long)
     }
 
     // 通过ID来找，这个函数没有加锁是因为仅仅为另一个函数setReply而存在
-    private fun FindMessageAndSetReply(msgid:Long, setToId:Long, tm1:Long,  tm2:Long, tm3:Long) :MessageContent?{
+    private fun FindMessageAndSetReply(msgid:Long, setToId:Long, tm1:Long,  tm2:Long, tm3:Long, bOk:Boolean) :MessageContent?{
         var msg: MessageContent? = null
 
         if (!msgListMask.containsKey(msgid)){
@@ -242,20 +242,20 @@ class ChatSession (val sessionId:Long)
             if (msg!!.tm1 == 0L && tm1 >0){
                 msg!!.tm1 = tm1
                 if (msg!!.msgStatus.ordinal < MessageStatus.OK.ordinal)
-                    msg!!.msgStatus = MessageStatus.OK
+                    msg!!.msgStatus = if (bOk) MessageStatus.OK else MessageStatus.FAIL
             }
 
             if (msg!!.tm2 == 0L && tm2 >0){
                 msg!!.bRecv = true
                 msg!!.tm2 = tm2
                 if (msg!!.msgStatus.ordinal < MessageStatus.RECV.ordinal)
-                    msg!!.msgStatus = MessageStatus.RECV
+                    msg!!.msgStatus = if (bOk) MessageStatus.RECV  else MessageStatus.FAIL
             }
             if (msg!!.tm3 == 0L && tm3 >0 ){
                 msg!!.bRead = true
                 msg!!.tm3 = tm3
                 if (msg!!.msgStatus.ordinal < MessageStatus.SEEN.ordinal)
-                    msg!!.msgStatus = MessageStatus.SEEN
+                    msg!!.msgStatus = if (bOk) MessageStatus.SEEN else MessageStatus.FAIL
             }
         }
 
@@ -310,8 +310,9 @@ class ChatSession (val sessionId:Long)
 
     }
 
+
     // 这里的其实是sendId, 并不是服务器给的消息ID
-    fun setReply(msgId:Long, sendId:Long, tm1:Long,  tm2:Long, tm3:Long) :MessageContent?{
+    fun setReply(msgId:Long, sendId:Long, tm1:Long,  tm2:Long, tm3:Long, bOk:Boolean, detail:String) :MessageContent?{
 
         // 只要有回执了，就删除，不再重发了
         synchronized(msgSendingList){
@@ -320,7 +321,7 @@ class ChatSession (val sessionId:Long)
         // 这里必须使用一个原子操作，防止服务回执与用户回执顺序交错，或者同时到达
         synchronized(msgList) {
             // 如果是服务器回执，这时候需要用sendID去找
-            var msg = FindMessageAndSetReply(sendId, msgId, tm1, tm2, tm3)
+            var msg = FindMessageAndSetReply(sendId, msgId, tm1, tm2, tm3, bOk)
             if (msg != null) {  // 通过SENDID找到的情况，是服务器应答的时候
                 val msgData = TextHelper.MsgContentToDbMsg(msg, this.sessionId)
                 TopicDbHelper.insertPChatMsgAgain(msgData)
@@ -330,9 +331,9 @@ class ChatSession (val sessionId:Long)
 
 
             // 内存已经同步了服务器分配的MSGID
-            msg = FindMessageAndSetReply(msgId, msgId, tm1, tm2, tm3)
+            msg = FindMessageAndSetReply(msgId, msgId, tm1, tm2, tm3, bOk)
             if (msg != null) {
-                TopicDbHelper.updatePChatReply(msgId, tm1, tm2, tm3)
+                TopicDbHelper.updatePChatReply(msgId, tm1, tm2, tm3, bOk)
             } else {
                 // 这里出现错误了
                 Log.e("Sdk", "can't find msg by msgid=" + msgId.toString())
@@ -399,7 +400,7 @@ class ChatSession (val sessionId:Long)
         // 更新数据库
         for (msg in lst){
             MsgEncocder.sendChatReply(msg.userId, msg.sendId, msg.msgId, true, "")
-            TopicDbHelper.updatePChatReply(msg.msgId, msg.tm1, msg.tm2, msg.tm3)
+            TopicDbHelper.updatePChatReply(msg.msgId, msg.tm1, msg.tm2, msg.tm3, true)
         }
 
         // 清除未读列表
@@ -961,7 +962,7 @@ object ChatSessionManager {
 
         // 更新第3个选项
         val tm2= System.currentTimeMillis()
-        TopicDbHelper.updatePChatReply(chatMsg.msgId, 0L, tm2, 0L)
+        TopicDbHelper.updatePChatReply(chatMsg.msgId, 0L, tm2, 0L, true)
 
 
         //3）添加到界面的列表里
@@ -1003,10 +1004,17 @@ object ChatSessionManager {
             if (result == "ok")
             {
                 val chatSession = getSession(fid)
-                chatSession.setReply(msgId, sendId, tmServer, tmRecv, tmRead)
+                chatSession.setReply(msgId, sendId, tmServer, tmRecv, tmRead, true, "")
             }
         }
 
+    }
+
+    // 某个消息错误，不能发
+    fun onChatMsgReplyError(fid:Long, msgId:Long, sendId:Long, detail:String){
+
+        val chatSession = getSession(fid)
+        chatSession.setReply(msgId, sendId, System.currentTimeMillis(), 0, 0, false, detail)
     }
 
     // 这里是全局数据的索引

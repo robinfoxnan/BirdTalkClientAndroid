@@ -26,7 +26,6 @@ object AvatarHelper {
                     view.setImageResource(R.drawable.icon19)
                 }
             }
-
             return true
         }
 

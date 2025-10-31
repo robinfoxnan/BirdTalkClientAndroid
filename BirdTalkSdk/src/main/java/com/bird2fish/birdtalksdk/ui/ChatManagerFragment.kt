@@ -13,6 +13,8 @@ import androidx.viewpager2.adapter.FragmentStateAdapter
 import androidx.viewpager2.widget.ViewPager2
 import com.bird2fish.birdtalksdk.R
 import com.bird2fish.birdtalksdk.SdkGlobalData
+import com.bird2fish.birdtalksdk.db.TopicDbHelper
+import com.bird2fish.birdtalksdk.db.UserDbHelper
 import com.bird2fish.birdtalksdk.uihelper.AvatarHelper
 import java.util.LinkedList
 
@@ -100,7 +102,7 @@ class ChatManagerFragment : Fragment() {
 
         // 显示好友的信息
         if (fid > 0){
-            val f = SdkGlobalData.getMutualFriendLocal(fid)
+            val f = UserDbHelper.getUserById(fid)
             if (f != null){
                 this.chatTitle.text = f.nick
                 AvatarHelper.tryLoadAvatar(requireContext(), f.icon, this.chatImage, f.gender)
