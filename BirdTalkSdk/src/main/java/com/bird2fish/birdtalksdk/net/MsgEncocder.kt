@@ -198,9 +198,15 @@ class MsgEncocder {
                 reply.sendOk,reply.recvOk, reply.readOk, reply.extraMsg)
 
             val result = reply.extraMsg
-            val detail = reply.paramsMap["detail"]
-            val gid = reply.paramsMap["gid"]   // 私聊这里是“0”
+            var detail = reply.paramsMap["detail"]
+            var gid = reply.paramsMap["gid"]   // 私聊这里是“0”
             val fid = reply.fromId
+
+            if (detail == null)
+                detail = ""
+            if (gid == null){
+                gid = "0"
+            }
 
             val resultMap = mapOf(
                 "result" to result,
@@ -535,6 +541,8 @@ class MsgEncocder {
                         onFriendListFans(msg.plainMsg.friendOpRet, result, status)
                     }else if (mode == "follows"){
                         onFriendListFollows(msg.plainMsg.friendOpRet, result, status)
+                    }else{
+
                     }
                 }
 

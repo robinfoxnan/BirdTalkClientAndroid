@@ -521,7 +521,7 @@ class SdkGlobalData {
             // 向服务器申请重新更新好友列表
             MsgEncocder.sendListFriend("follows")
             MsgEncocder.sendListFriend("fans")
-
+            MsgEncocder.sendListFriend("friends")
 
             // 申请同步数据消息
             try {
