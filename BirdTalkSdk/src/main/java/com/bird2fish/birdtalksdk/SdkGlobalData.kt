@@ -261,7 +261,7 @@ class SdkGlobalData {
 
 
         // 从关注列表中取消关注
-        fun updateAddDeleteFollow(friend: User){
+        fun updateDeleteFollow(friend: User){
 
             synchronized(followingList) {
                 if (followingList.containsKey(friend.id)) {
@@ -287,7 +287,7 @@ class SdkGlobalData {
         }
 
         // 服务器通知对方不再关注自己了
-        fun updateAddDeleteFan(fid: Long){
+        fun updateDeleteFan(fid: Long){
             var b = false
 
             synchronized(fanList){

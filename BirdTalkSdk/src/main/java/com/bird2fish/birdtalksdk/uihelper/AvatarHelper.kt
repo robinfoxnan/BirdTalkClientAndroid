@@ -43,7 +43,7 @@ object AvatarHelper {
 
         // 从远程加载
         val downloader = ImageDownloader()
-        downloader.downloadAndSaveImage(ctx, remoteName, "avatar", view, R.drawable.icon27)
+        downloader.downloadAndSaveImage(ctx, remoteName, "avatar", view, R.drawable.book_user)
 
     }
 

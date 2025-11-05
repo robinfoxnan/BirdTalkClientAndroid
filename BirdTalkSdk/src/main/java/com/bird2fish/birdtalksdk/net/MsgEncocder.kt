@@ -3,6 +3,7 @@ import android.content.Context
 import android.provider.Settings.Global
 import android.telephony.mbms.FileInfo
 import android.text.TextUtils
+import android.util.Log
 import com.bird2fish.birdtalksdk.InterErrorType
 import com.bird2fish.birdtalksdk.MsgEventType
 import com.bird2fish.birdtalksdk.SdkGlobalData
@@ -216,7 +217,7 @@ class MsgEncocder {
                 // 如果发送消息失败，说明对方已经删除了自己
                 if (gid == "0" && detail == "not friend")
                 {
-                    SdkGlobalData.updateAddDeleteFan(fid)
+                    SdkGlobalData.updateDeleteFan(fid)
                     ChatSessionManager.onChatMsgReplyError(reply.fromId, reply.msgId, reply.sendId, detail)
                 }
                 SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(MsgEventType.MSG_SEND_ERROR, 0,
@@ -578,30 +579,119 @@ class MsgEncocder {
                 0, 0, 0, mapOf("result"  to result, "status" to status ) )
         }
 
-        // 添加好友返回结果
+        // 添加好友返回结果，结果中user是申请者，列表中的第一个元素是被申请的对象
         fun onFriendAddRet(retMsg: User.FriendOpResult, result:String, status:String){
             var fid = 0L
 
-            if (retMsg.usersList != null && retMsg.usersList.size > 0){
-                fid = retMsg.usersList[0].userId
-                if (fid > 0 && result == "ok"){
-                    // 更新好友列表
-                    SdkGlobalData.updateAddNewFollow(retMsg.usersList[0])
-                }
+            val uinfo = retMsg.user
+            if (uinfo == null){
+                Log.e("onFriendAddRet", "user info in friend reply is null")
+                return
             }
+            // 如果是自己关注别人的返回，包括多终端登录的返回
+            if (uinfo.userId == SdkGlobalData.selfUserinfo.id){
+                if (retMsg.usersList != null && retMsg.usersList.size > 0){
+                    fid = retMsg.usersList[0].userId
+                    if (fid > 0){
+                        // 更新好友列表
+                        if (result == "ok" || result == "notice"){
+                            SdkGlobalData.updateAddNewFollow(retMsg.usersList[0])
+                        }else{
+                            // 添加好友失败了
+                        }
 
+                    }else{
+                        Log.e("onFriendAddRet", "friend id  is 0")
+                        return
+                    }
+                }else{
+                    Log.e("onFriendAddRet", "user list  is null")
+                    return
+                }
 
+                SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(MsgEventType.FRIEND_REQ_REPLY,
+                    0, 0, fid, mapOf("result"  to result, "status" to status ) )
+            }
+            // 这里是别人关注了自己，这里是一个通知
+            else{
+                fid = uinfo.userId
+                if (retMsg.usersList != null && retMsg.usersList.size > 0){
+                    val uid = retMsg.usersList[0].userId
+                    if (uid == SdkGlobalData.selfUserinfo.id){
+                        // 更新好友列表
+                        if (result == "ok" || result == "notice"){
+                            SdkGlobalData.updateAddNewFan(uinfo)
+                        }else{
+                            // 别的应该不会有
+                        }
 
-            SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(MsgEventType.FRIEND_REQ_REPLY,
-                0, 0, fid, mapOf("result"  to result, "status" to status ) )
+                    }else{
+                        Log.e("onFriendAddRet", "friend id  is 0")
+                        return
+                    }
+                }else{
+                    Log.e("onFriendAddRet", "user list  is null")
+                    return
+                }
+
+                SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(MsgEventType.FRIEND_ADD_NOTICE,
+                    0, 0, fid, mapOf("result"  to result, "status" to status ) )
+            }// end notice
+
         }
 
-        // 删除好友的结果；当对方删除好友，这里也知道
+        // 删除好友的结果；如果是自己的其他终端删除了关注，这里接收到ok，当对方删除好友，这里也知道notice
         fun onFriendRemoveRet(retMsg: User.FriendOpResult, result:String, status:String){
-            // 不是自己发过来的
-            if (retMsg.user.userId != SdkGlobalData.selfUserinfo.id && result == "notice"){
-                SdkGlobalData.updateAddDeleteFan(retMsg.user.userId)
+            var fid = 0L
+
+            val uinfo = retMsg.user
+            if (uinfo == null){
+                Log.e("onFriendAddRet", "user info in friend reply is null")
+                return
             }
+
+            // 不是自己发过来的，别人删除了关注自己
+            if (retMsg.user.userId != SdkGlobalData.selfUserinfo.id){
+
+                if (result == "notice")
+                {
+                    if (retMsg.usersList != null && retMsg.usersList.size > 0) {
+                        val uid = retMsg.usersList[0].userId
+                        if (uid == SdkGlobalData.selfUserinfo.id){
+                            SdkGlobalData.updateDeleteFan(retMsg.user.userId)
+                        }
+                    }else{
+                        Log.e("onFriendAddRet", "user info in friend reply is null")
+                        return
+                    }
+
+//                    SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(MsgEventType.FRIEND_REMOVE_NOTICE,
+//                        0, 0, fid, mapOf("result"  to result, "status" to status ) )
+                }else{
+                    // 不应该有其他的类型
+                }
+                return
+
+            }else{
+                // 自己获取其他的终端删除了关注
+                if (result == "ok" || result == "notice") {
+                    if (retMsg.usersList != null && retMsg.usersList.size > 0) {
+                        val fid = retMsg.usersList[0].userId
+                        if (fid > 0L){
+                            val friend = UserHelper.pbUserInfo2LocalUser(retMsg.usersList[0])
+                            SdkGlobalData.updateDeleteFollow(friend)
+                        }
+                    }else{
+                        Log.e("onFriendAddRet", "user list in friend reply is null")
+                        return
+                    }
+
+                }else{
+                    // 不应该有其他的类型
+                }
+            }// end of remove follow
+
+            // end of onFriendRemoveRet
         }
 
         // 好友搜索结果

@@ -74,10 +74,10 @@ class ImageDownloader {
                 // 直接获取加载后的Bitmap
                 val bitmapRound = ImagesHelper.getRoundAvatar(bitmap, context)
                 view.setImageBitmap(bitmapRound)
-               // (context as? Activity)?.runOnUiThread {
+                (context as? Activity)?.runOnUiThread {
                     //Toast.makeText(context, remote, Toast.LENGTH_SHORT).show()
                     view.invalidate()
-               // }
+                }
 
 
             }

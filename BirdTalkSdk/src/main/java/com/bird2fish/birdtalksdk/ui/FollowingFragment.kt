@@ -85,7 +85,7 @@ class FollowingFragment : Fragment(), StatusCallback {
             .setTitle(title)
             .setMessage(message)
             .setPositiveButton(ok) { _, _ ->
-                SdkGlobalData.updateAddDeleteFollow(friend)
+                SdkGlobalData.updateDeleteFollow(friend)
             }
             .setNegativeButton(cancel, null)
             .show()

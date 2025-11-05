@@ -26,6 +26,8 @@ enum class MsgEventType {
 
     FRIEND_REQUEST,   // 有好友申请，包括关注和
     FRIEND_REQ_REPLY, // 你申请好友的应答
+    FRIEND_ADD_NOTICE,
+    FRIEND_REMOVE_NOTICE,
     FRIEND_ONLINE,    // 好友上线
     FRIEND_OFFLINE,   // 好友下线
     FRIEND_UPDATE,    // 好友更新信息
