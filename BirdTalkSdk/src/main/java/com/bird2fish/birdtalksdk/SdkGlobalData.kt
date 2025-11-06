@@ -310,6 +310,27 @@ class SdkGlobalData {
                 0, 0, 0L, mapOf("type" to "follow" ) )
         }
 
+        // 服务器返回的双向关注
+        fun updateAddMutual( lst: List<com.bird2fish.birdtalksdk.pbmodel.User.UserInfo>){
+
+            synchronized(mutualFollowingList){
+                for (f in lst){
+                    val friend = UserHelper.pbUserInfo2LocalUser(f)
+                    if (!mutualFollowingList.containsKey(f.userId)){
+
+                        mutualFollowingList[friend.id] = friend
+                        UserDbHelper.insertOrUpdateUser(friend)
+                    }
+                }
+            }
+
+
+            // 还需要继续加载
+            if (lst.size >=100){
+                val fromId = lst.last().userId
+                MsgEncocder.sendListFriend("friends", fromId)
+            }
+        }
 
         // 更新关注好友返回的信息
         fun updateAddNewFollow(f:com.bird2fish.birdtalksdk.pbmodel.User.UserInfo){
@@ -318,9 +339,9 @@ class SdkGlobalData {
             synchronized(followingList) {
                 if (!followingList.containsKey(f.userId)) {
                     followingList[f.userId] = friend
+                    UserDbHelper.insertOrUpdateUser(friend)
                 }
 
-                UserDbHelper.insertOrUpdateUser(friend)
                 UserDbHelper.insertFollow(friend.id, friend.nick)
                 updateTopicAndChatSession(friend)
             }
@@ -519,9 +540,10 @@ class SdkGlobalData {
 
 
             // 向服务器申请重新更新好友列表
-            MsgEncocder.sendListFriend("follows")
-            MsgEncocder.sendListFriend("fans")
-            MsgEncocder.sendListFriend("friends")
+            MsgEncocder.sendListFriend("follows", 10000)
+            MsgEncocder.sendListFriend("fans", 10000)
+            // 如果关注的太多才使用服务器同步，因为数量少直接本地计算一下就好了
+            //MsgEncocder.sendListFriend("friends", 10000)
 
             // 申请同步数据消息
             try {

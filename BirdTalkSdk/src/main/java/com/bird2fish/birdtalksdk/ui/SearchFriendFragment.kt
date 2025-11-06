@@ -120,10 +120,7 @@ class SearchFriendFragment : Fragment(), StatusCallback {
 
     // 识别一下需要使用哪种方式查询
     fun recognizeStringType(input: String): String {
-        // 检查是否为数字ID（纯数字）
-        if (input.matches(Regex("^\\d+$"))) {
-            return "id"
-        }
+
 
         // 检查是否为手机号（简单匹配中国大陆手机号规则）
         if (input.matches(Regex("^1[3-9]\\d{9}$"))) {
@@ -133,6 +130,11 @@ class SearchFriendFragment : Fragment(), StatusCallback {
         // 检查是否为邮箱（基本邮箱格式验证）
         if (input.matches(Regex("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$"))) {
             return "email"
+        }
+
+        // 检查是否为数字ID（纯数字）
+        if (input.matches(Regex("^\\d+$"))) {
+            return "id"
         }
 
         // 都不是则返回name

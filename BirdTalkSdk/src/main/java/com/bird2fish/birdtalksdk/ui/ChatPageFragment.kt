@@ -181,6 +181,12 @@ class ChatPageFragment : Fragment() , StatusCallback {
             refreshData(msgType)
             scrollToEnd()
         }
+        // 历史数据
+        else if (eventType == MsgEventType.MSG_HISTORY){
+            refreshData(msgType)
+            onLoadMessageOk()
+            // 这里不滚动
+        }
 
         // 上传文件结束了
         else if (eventType == MsgEventType.MSG_UPLOAD_OK){
@@ -333,26 +339,34 @@ class ChatPageFragment : Fragment() , StatusCallback {
     // 外部调用：设置RecyclerView的滚动监听，用于检测可见项
     fun setupScrollListener(recyclerView: RecyclerView) {
         recyclerView.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+
             override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
                 super.onScrollStateChanged(recyclerView, newState)
-                // 当滚动停止时处理（避免滚动过程中频繁触发）
+
+                // ✅ 当滚动停止时，标记可见消息为已读
                 if (newState == RecyclerView.SCROLL_STATE_IDLE) {
                     markVisibleItemsAsRead(recyclerView)
                 }
+
+                // ✅ 检查是否需要加载更多（可按需启用）
+                val adapter = mRecyclerView?.adapter ?: return
+                val itemCount = adapter.itemCount
+                val pos = mMessageViewLayoutManager?.findLastVisibleItemPosition()
+
             }
 
             override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
-                if (!isScrollByCode)
-                {
+                // ✅ 避免由代码触发的滚动重复处理
+                if (!isScrollByCode) {
                     super.onScrolled(recyclerView, dx, dy)
-                    // 可选：如果需要在滚动过程中实时标记，可在此处调用（但可能影响性能）
-                    // markVisibleItemsAsRead(recyclerView);
+                    // 若想实时标记已读可在此处调用 markVisibleItemsAsRead(recyclerView)
                 }
-                isScrollByCode = false
 
+                isScrollByCode = false
             }
         })
     }
+
 
     // 标记可见条目为已读
     private fun markVisibleItemsAsRead(recyclerView: RecyclerView) {
@@ -367,6 +381,12 @@ class ChatPageFragment : Fragment() , StatusCallback {
         //val txt = "滚动的位置：" + firstVisible.toString() + " to " + lastVisible.toString()
         //TextHelper.showToast(requireContext(), txt)
         ChatSessionManager.markSessionReadItems(this.mChatIdLong, firstVisible, lastVisible)
+
+        if (lastVisible == mMessagesAdapter!!.itemCount - 1){
+            mGoToLatest?.hide()
+        }else{
+            mGoToLatest?.show()
+        }
 
     }
 
@@ -404,8 +424,9 @@ class ChatPageFragment : Fragment() , StatusCallback {
     }
 
 
+    // 初始化
     fun testInitData(){
-        // 初始化
+
 //        val msg = MessageContent(1, 1001, 1001,"飞鸟", "sys:3", UserStatus.ONLINE, MessageStatus.OK, true,
 //            true, true, "昨天你去哪里了呢？", null)
 //        chatSession?.addMessageToTail(msg)
@@ -431,6 +452,64 @@ class ChatPageFragment : Fragment() , StatusCallback {
 //        chatSession?.addMessageToTail(msg5)
     }
 
+    // 手动刷新的时候
+    fun setupRefresher(){
+        // 初始化下拉刷新逻辑（加载更多旧消息）
+        mRefresher?.apply {
+            // 开启刷新功能
+            isEnabled = true
+
+            setOnRefreshListener {
+                val firstVisible = mMessageViewLayoutManager?.findFirstVisibleItemPosition() ?: return@setOnRefreshListener
+                Log.d("Swipe", "onRefresh triggered") // ← 测试是否执行
+                Log.d("Swipe", "firstVisible=$firstVisible")
+
+                // 仅当滑到顶部时才触发加载
+                loadMoreOldMessages()
+            }
+
+            // 优化体验：防止滑动中误触下拉
+            setOnChildScrollUpCallback { _, _ ->
+                val firstVisible = mMessageViewLayoutManager?.findFirstVisibleItemPosition() ?: 0
+                // ✅ 仅当在顶部时才允许 SwipeRefreshLayout 接管下拉
+                firstVisible > 0
+            }
+        }
+
+    }
+
+    private fun loadMoreOldMessages() {
+        var lastMsg :MessageContent? = null
+        if (mMessagesAdapter!!.itemCount > 0){
+            lastMsg = mMessagesAdapter!!.getLast()
+        }
+        ChatSessionManager.onLoadHistoryMessage(this.mChatIdLong, lastMsg)
+        // 模拟网络加载
+        Handler(Looper.getMainLooper()).postDelayed({
+            // 设置一个定时器，如果5秒都无法加载完成，也不能一直加载
+            mRefresher?.isRefreshing = false
+
+        }, 5000)
+    }
+
+    // 加载数据结束了
+    fun onLoadMessageOk(){
+        mRefresher?.isRefreshing = false
+
+        // 记录当前第一个 item 的位置和高度（用于加载后不跳动）
+        val firstPos = mMessageViewLayoutManager?.findFirstVisibleItemPosition() ?: 0
+        val firstView = mRecyclerView?.getChildAt(0)
+        val offset = firstView?.top ?: 0
+
+        // 加载旧消息
+        // (mRecyclerView?.adapter as? MessagesAdapter)?.loadPreviousPage()
+
+        // 恢复原位置（不让界面跳动）
+        //mMessageViewLayoutManager?.scrollToPositionWithOffset(firstPos + 新增消息数量, offset)
+
+    }
+
+
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
@@ -446,6 +525,8 @@ class ChatPageFragment : Fragment() , StatusCallback {
                 true
             )
         })
+
+        mRefresher = view.findViewById(R.id.swipe_refresher)
 
         mMessageViewLayoutManager = object : LinearLayoutManager(activity) {
             override fun onLayoutChildren(recycler: Recycler, state: RecyclerView.State) {
@@ -475,25 +556,6 @@ class ChatPageFragment : Fragment() , StatusCallback {
 
         // 建立数据列表控件
         mRecyclerView = view.findViewById(R.id.messages_container)
-        mRecyclerView?.addOnScrollListener(object : RecyclerView.OnScrollListener() {
-            override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
-                val adapter = mRecyclerView?.getAdapter() ?: return
-                val itemCount = adapter.itemCount
-                val pos = mMessageViewLayoutManager?.findLastVisibleItemPosition()
-//                if (itemCount - pos < 4) {
-//                    (adapter as MessagesAdapter).loadNextPage()
-//                }
-            }
-
-            override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
-                val pos = mMessageViewLayoutManager?.findFirstVisibleItemPosition()
-//                if (dy > 5 && pos > 2) {
-//                    mGoToLatest.show()
-//                } else if (dy < -5 || pos == 0) {
-//                    mGoToLatest.hide()
-//                }
-            }
-        })
 
         mMessagesAdapter = ChatPageAdapter(chatSession!!.msgList)
         mMessagesAdapter!!.setView(this)
@@ -505,146 +567,61 @@ class ChatPageFragment : Fragment() , StatusCallback {
         setupScrollListener(mRecyclerView!!)
         // 刷新动作
 
-        mRefresher?.setOnRefreshListener(OnRefreshListener {
-            mRefresher?.setRefreshing(false)
-//            if (!mMessagesAdapter.loadNextPage() && !StoredTopic.isAllDataLoaded(mTopic)) {
-//                try {
-//                    mTopic.getMeta(
-//                        mTopic.getMetaGetBuilder()
-//                            .withEarlierData(co.tinode.tindroid.MessagesFragment.MESSAGES_TO_LOAD)
-//                            .build()
-//                    )
-//                        .thenApply(
-//                            object : SuccessListener<ServerMessage?>() {
-//                                fun onSuccess(result: ServerMessage?): PromisedReply<ServerMessage> {
-//                                    activity!!.runOnUiThread { mRefresher.setRefreshing(false) }
-//                                    return@setOnRefreshListener null
-//                                }
-//                            },
-//                            object : FailureListener<ServerMessage?>() {
-//                                fun onFailure(err: Exception?): PromisedReply<ServerMessage> {
-//                                    activity!!.runOnUiThread { mRefresher.setRefreshing(false) }
-//                                    return@setOnRefreshListener null
-//                                }
-//                            }
-//                        )
-//                } catch (e: Exception) {
-//                    mRefresher?.setRefreshing(false)
-//                }
-//            } else {
-//                mRefresher?.setRefreshing(false)
-//            }
+        setupRefresher()
+
+
+        val gestureDetector = GestureDetector(mRecyclerView!!.context, object : GestureDetector.SimpleOnGestureListener() {
+            override fun onSingleTapUp(e: MotionEvent): Boolean {
+                Log.d("TouchEvent", "SingleTapUp detected")
+                return false
+            }
+
+            override fun onDown(e: MotionEvent): Boolean {
+                Log.d("TouchEvent", "onDown detected")
+                return false
+            }
+
+            override fun onLongPress(e: MotionEvent) {
+                Log.d("TouchEvent", "LongPress detected")
+                Thread.dumpStack()
+            }
+        })
+        gestureDetector.setIsLongpressEnabled(false)
+
+        mRecyclerView!!.requestDisallowInterceptTouchEvent(true)
+        mRecyclerView!!.parent?.requestDisallowInterceptTouchEvent(true)
+        mRecyclerView!!.parent?.parent?.requestDisallowInterceptTouchEvent(true)
+        // 新添加的
+        mRecyclerView!!.addOnItemTouchListener(object : RecyclerView.OnItemTouchListener {
+            override fun onInterceptTouchEvent(rv: RecyclerView, e: MotionEvent): Boolean {
+                // 禁止父视图拦截触摸事件
+                //rv.requestDisallowInterceptTouchEvent(true)
+                 //rv.parent?.requestDisallowInterceptTouchEvent(true)
+
+                when (e?.action) {
+                    MotionEvent.ACTION_DOWN -> Log.d("TouchEvent", "ACTION_DOWN1")
+                    MotionEvent.ACTION_UP -> Log.d("TouchEvent", "ACTION_UP1")
+                    MotionEvent.ACTION_MOVE -> Log.d("TouchEvent", "ACTION_MOVE1")
+                    MotionEvent.ACTION_CANCEL -> Log.d("TouchEven", "ACTION_CANCEL1")
+                }
+                return gestureDetector.onTouchEvent(e)
+
+            }
+
+            override fun onTouchEvent(rv: RecyclerView, e: MotionEvent) {
+                //rv.requestDisallowInterceptTouchEvent(true)
+                //rv.parent?.requestDisallowInterceptTouchEvent(true)
+                when (e?.action) {
+                    MotionEvent.ACTION_DOWN -> Log.d("TouchEvent", "ACTION_DOWN2")
+                    MotionEvent.ACTION_UP -> Log.d("TouchEvent", "ACTION_UP2")
+                    MotionEvent.ACTION_MOVE -> Log.d("TouchEvent", "ACTION_MOVE2")
+                    MotionEvent.ACTION_CANCEL -> Log.d("TouchEvent", "ACTION_CANCEL2")
+                }
+            }
+
+            override fun onRequestDisallowInterceptTouchEvent(disallowIntercept: Boolean) {}
         })
 
-        mRefresher?.setOnTouchListener { _, event ->
-            when (event.action) {
-                MotionEvent.ACTION_DOWN -> {
-                    // 禁用下拉刷新手势
-                    mRefresher?.isEnabled = false
-                }
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    // 恢复刷新手势
-                    mRefresher?.isEnabled = true
-                }
-            }
-            false // 返回 false 以继续处理其他事件
-        }
-
-        mRefresher?.isEnabled = false
-
-
-        mRecyclerView!!.setOnTouchListener { _, event ->
-            if (event.action == MotionEvent.ACTION_DOWN) {
-                mRecyclerView!!.parent?.requestDisallowInterceptTouchEvent(true)
-            }
-            false
-        }
-
-
-
-//        val gestureDetector = GestureDetector(mRecyclerView!!.context, object : GestureDetector.SimpleOnGestureListener() {
-//            override fun onSingleTapUp(e: MotionEvent): Boolean {
-//                Log.d("TouchEvent", "SingleTapUp detected")
-//                return false
-//            }
-//
-//            override fun onDown(e: MotionEvent): Boolean {
-//                Log.d("TouchEvent", "onDown detected")
-//                return false
-//            }
-//
-//            override fun onLongPress(e: MotionEvent) {
-//                Log.d("TouchEvent", "LongPress detected")
-//                Thread.dumpStack()
-//            }
-//        })
-//        gestureDetector.setIsLongpressEnabled(false)
-
-//        mRecyclerView!!.requestDisallowInterceptTouchEvent(true)
-//        mRecyclerView!!.parent?.requestDisallowInterceptTouchEvent(true)
-//        mRecyclerView!!.parent?.parent?.requestDisallowInterceptTouchEvent(true)
-//        // 新添加的
-//        mRecyclerView!!.addOnItemTouchListener(object : RecyclerView.OnItemTouchListener {
-//            override fun onInterceptTouchEvent(rv: RecyclerView, e: MotionEvent): Boolean {
-//                // 禁止父视图拦截触摸事件
-//                //rv.requestDisallowInterceptTouchEvent(true)
-//                 //rv.parent?.requestDisallowInterceptTouchEvent(true)
-//
-//                when (e?.action) {
-//                    MotionEvent.ACTION_DOWN -> Log.d("TouchEvent", "ACTION_DOWN1")
-//                    MotionEvent.ACTION_UP -> Log.d("TouchEvent", "ACTION_UP1")
-//                    MotionEvent.ACTION_MOVE -> Log.d("TouchEvent", "ACTION_MOVE1")
-//                    MotionEvent.ACTION_CANCEL -> Log.d("TouchEven", "ACTION_CANCEL1")
-//                }
-//                return gestureDetector.onTouchEvent(e)
-//
-//            }
-//
-//            override fun onTouchEvent(rv: RecyclerView, e: MotionEvent) {
-//                //rv.requestDisallowInterceptTouchEvent(true)
-//                //rv.parent?.requestDisallowInterceptTouchEvent(true)
-//                when (e?.action) {
-//                    MotionEvent.ACTION_DOWN -> Log.d("TouchEvent", "ACTION_DOWN2")
-//                    MotionEvent.ACTION_UP -> Log.d("TouchEvent", "ACTION_UP2")
-//                    MotionEvent.ACTION_MOVE -> Log.d("TouchEvent", "ACTION_MOVE2")
-//                    MotionEvent.ACTION_CANCEL -> Log.d("TouchEvent", "ACTION_CANCEL2")
-//                }
-//            }
-//
-//            override fun onRequestDisallowInterceptTouchEvent(disallowIntercept: Boolean) {}
-//        })
-
-        // 新添加的
-//        mRefresher!!.add(object : RecyclerView.OnItemTouchListener {
-//
-//
-//            override fun onInterceptTouchEvent(rv: RecyclerView, e: MotionEvent): Boolean {
-//                // 禁止父视图拦截触摸事件
-//                rv.parent?.requestDisallowInterceptTouchEvent(true)
-//
-//                when (e?.action) {
-//                    MotionEvent.ACTION_DOWN -> Log.d("TouchEvent", "ACTION_DOWN1")
-//                    MotionEvent.ACTION_UP -> Log.d("TouchEvent", "ACTION_UP1")
-//                    MotionEvent.ACTION_MOVE -> Log.d("TouchEvent", "ACTION_MOVE1")
-//                    MotionEvent.ACTION_CANCEL -> Log.d("TouchEven", "ACTION_CANCEL1")
-//                }
-//                return gestureDetector.onTouchEvent(e)
-//            }
-//
-//            override fun onTouchEvent(rv: RecyclerView, e: MotionEvent) {
-//                when (e?.action) {
-//                    MotionEvent.ACTION_DOWN -> Log.d("TouchEvent", "ACTION_DOWN2")
-//                    MotionEvent.ACTION_UP -> Log.d("TouchEvent", "ACTION_UP2")
-//                    MotionEvent.ACTION_MOVE -> Log.d("TouchEvent", "ACTION_MOVE2")
-//                    MotionEvent.ACTION_CANCEL -> Log.d("TouchEvent", "ACTION_CANCEL2")
-//                }
-//            }
-//
-//            override fun onRequestDisallowInterceptTouchEvent(disallowIntercept: Boolean) {}
-//        })
-
-
-        //mFailureListener = ToastFailureListener(activity)
 
         // 麦克的音频的按钮启动后的面板
         val audio: AppCompatImageButton = setupAudioForms(activity as AppCompatActivity, view)

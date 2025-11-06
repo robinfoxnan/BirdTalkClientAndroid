@@ -37,6 +37,7 @@ enum class MsgEventType {
 
 
     MSG_COMING,          // 新消息
+    MSG_HISTORY,         // 历史数据加载完成
 
 
 

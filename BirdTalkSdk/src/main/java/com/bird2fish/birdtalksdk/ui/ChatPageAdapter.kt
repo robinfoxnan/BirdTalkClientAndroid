@@ -570,6 +570,10 @@ class ChatPageAdapter(private val dataList: List<MessageContent>) : RecyclerView
         return dataList.size
     }
 
+    fun getLast():MessageContent{
+        return dataList.last()
+    }
+
     // 其他方法，例如添加删除项的方法，用于与 ItemTouchHelper 配合实现左滑删除
     // ...
 

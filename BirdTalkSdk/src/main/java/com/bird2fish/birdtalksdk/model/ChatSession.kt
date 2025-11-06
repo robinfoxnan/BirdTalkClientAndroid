@@ -419,6 +419,48 @@ class ChatSession (val sessionId:Long)
         }
     }
 
+    // 加载的历史数据
+    fun addP2PMessageToHead(lst:  List<MessageData>, topic:Topic, bRemote:Boolean) {
+
+        val tempList = LinkedList<MessageContent>()
+
+        synchronized(msgList) {
+            // 遍历历史消息
+            lst.forEach { msg ->
+                // 如果 msgId 已存在，跳过，避免重复
+                val message = TextHelper.MsgContentFromDbMessage(msg,topic)
+                if (!msgListMask.containsKey(message.msgId)) {
+                    // 收到的消息提交回执
+                    if (message.inOut && message.tm2 <= 0) {
+                        MsgEncocder.sendChatReply(this.sessionId, msg.sendId, msg.id, true, "")
+                        TopicDbHelper.updatePChatReply(message.msgId, 0, System.currentTimeMillis(), 0, true)
+                        message.tm2 = System.currentTimeMillis()
+                    }
+                    if (message.inOut && message.tm3 <= 0){
+                        tempList.add(message)
+                    }
+
+                    // 远端返回的，要写库
+                    if (bRemote){
+                        TopicDbHelper.insertPChatMsg(msg)
+                    }
+
+                    msgList.add(0, message)  // 插入到列表头部
+                    msgListMask[message.msgId] = message
+
+                }
+            }
+        }
+
+        // 添加到未读
+        synchronized(msgUnReadList){
+            for (m in tempList){
+                msgUnReadList[m.msgId] = m
+            }
+        }
+
+    }
+
 
     // 获取未读消息数量
     fun getUnreadCount(): Int {
@@ -1199,5 +1241,39 @@ object ChatSessionManager {
         }
     }
 
+    // 加载历史数据
+    fun onLoadHistoryMessage(sessionId :Long, lastMsg:MessageContent?){
+        if (sessionId > 0){
+            onLoadP2pHistoryMessage(sessionId, lastMsg)
+        }
+    }
+
+    // 私聊的数据，这里是从向前边的历史数据开始加载
+    fun onLoadP2pHistoryMessage(sessionId :Long, lastMsg:MessageContent?){
+        var lastId = Long.MAX_VALUE
+        if (lastMsg != null){
+            lastId = lastMsg.msgId
+        }
+        // 向前加载
+        val lst = TopicDbHelper.getPChatMessagesById(sessionId, lastId, 30, false)
+        if (lst != null && lst.size > 0){
+            lastId = lst.first().id
+        }
+
+        val chatSession = getSession(sessionId)
+
+        val topic = SdkGlobalData.getPTopic(sessionId) ?: return
+
+        // 添加到界面消息列表中
+        chatSession.addP2PMessageToHead(lst, topic!!, false)
+        SdkGlobalData.invokeOnEventCallbacks(MsgEventType.MSG_HISTORY, 0, 0, sessionId, mapOf("from" to "db"))
+
+        // 如果数据库里面的消息太少，这里还需要去服务器找
+        if (lst == null || lst.size < 30){
+            MsgEncocder.sendSynPChatDataBackward(lastId)
+        }else{
+            // 如果是刚刚好，那么等待下一次加载
+        }
+    }
 
 } // end of class

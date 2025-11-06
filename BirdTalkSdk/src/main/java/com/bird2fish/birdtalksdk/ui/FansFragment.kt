@@ -21,6 +21,7 @@ import com.bird2fish.birdtalksdk.model.User
 import com.bird2fish.birdtalksdk.uihelper.AvatarHelper
 import com.bird2fish.birdtalksdk.uihelper.ImagesHelper
 import com.bird2fish.birdtalksdk.R
+import com.bird2fish.birdtalksdk.net.MsgEncocder
 
 class FansFragment : Fragment() , StatusCallback {
 
@@ -76,16 +77,21 @@ class FansFragment : Fragment() , StatusCallback {
     override fun onActivityCreated(savedInstanceState: Bundle?) {
         super.onActivityCreated(savedInstanceState)
         // TODO: Use the ViewModel
-        testInitData()
+        //testInitData()
     }
+//
+//    fun testInitData(){
+//        //friendList?.n
+//    }
+//
+//
+//    fun onClickItem(index: Int){
+//
+//    }
 
-    fun testInitData(){
-        //friendList?.n
-    }
-
-
-    fun onClickItem(index: Int){
-
+    // 回关
+    fun onClickFollowBack(f: User){
+        MsgEncocder.sendFriendAddMessage(f.id)
     }
 
     override fun onError(code : InterErrorType, lastAction:String, errType:String, detail:String){
@@ -154,7 +160,7 @@ class FansItemAdapter(private val dataList: List<User>) : RecyclerView.Adapter<F
             itemView.setOnClickListener {
                 // 处理点击事件
                 if (fragment != null){
-                    fragment!!.onClickItem(index)
+                    //fragment!!.onClick(index)
                 }
             }
         }
@@ -195,17 +201,22 @@ class FansItemAdapter(private val dataList: List<User>) : RecyclerView.Adapter<F
             val stringFromRes = fragment!!.getString(R.string.follow_back)
             holder.btnFollow.text = stringFromRes
             holder.btnFollow.isEnabled = true
+            holder.btnFollow.setOnClickListener{
+            if (fragment != null){
+                fragment!!.onClickFollowBack(item)
+            }
+        }
         }
 
         // 根据选中状态更新背景
         holder.itemView.isSelected = (position == holder.selectedPosition)
 
-        holder.itemView.setOnClickListener {
-            // 更新选中状态
-            notifyItemChanged(holder.selectedPosition)
-            holder.selectedPosition = holder.adapterPosition
-            notifyItemChanged(holder.selectedPosition)
-        }
+//        holder.itemView.setOnClickListener {
+//            // 更新选中状态
+//            notifyItemChanged(holder.selectedPosition)
+//            holder.selectedPosition = holder.adapterPosition
+//            notifyItemChanged(holder.selectedPosition)
+//        }
     }
 
     // 返回数据项数量

@@ -178,7 +178,6 @@ class MsgEncocder {
                 }
             }
 
-
         }
 
         // 当收到消息的时候
@@ -542,7 +541,7 @@ class MsgEncocder {
                     }else if (mode == "follows"){
                         onFriendListFollows(msg.plainMsg.friendOpRet, result, status)
                     }else{
-
+                        onFriendListMutual(msg.plainMsg.friendOpRet, result, status)
                     }
                 }
 
@@ -570,6 +569,13 @@ class MsgEncocder {
                 for (f in retMsg.usersList){
                     SdkGlobalData.updateAddNewFan(f)
                 }
+
+                // 还有需要加载的
+                if (retMsg.usersList.size >= 100){
+                    val f = retMsg.usersList.last()
+                    val fromId = f.userId
+                    sendListFriend("fans", fromId)
+                }
             }
             SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(MsgEventType.FRIEND_REQ_REPLY,
                 0, 0, 0, mapOf("result"  to result, "status" to status ) )
@@ -582,7 +588,35 @@ class MsgEncocder {
                 for (f in retMsg.usersList){
                     SdkGlobalData.updateAddNewFollow(f)
                 }
+
+
+                // 还有需要加载的
+                if (retMsg.usersList.size >= 100){
+                    val f = retMsg.usersList.last()
+                    val fromId = f.userId
+                    sendListFriend("follows", fromId)
+                }
             }
+
+            SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(MsgEventType.FRIEND_REQ_REPLY,
+                0, 0, 0, mapOf("result"  to result, "status" to status ) )
+        }
+
+        // 从服务器返回好友的列表
+        fun onFriendListMutual(retMsg: User.FriendOpResult, result:String, status:String){
+
+            if (retMsg.usersList != null && retMsg.usersList.size > 0){
+
+                SdkGlobalData.updateAddMutual(retMsg.usersList)
+
+                // 还有需要加载的
+                if (retMsg.usersList.size >= 100){
+                    val f = retMsg.usersList.last()
+                    val fromId = f.userId
+                    sendListFriend("friends", fromId)
+                }
+            }
+
             SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(MsgEventType.FRIEND_REQ_REPLY,
                 0, 0, 0, mapOf("result"  to result, "status" to status ) )
         }
@@ -1229,18 +1263,18 @@ class MsgEncocder {
         }
 
         // 设置列出好友
-        fun sendListFriend(mode:String){
+        fun sendListFriend(mode:String, fromId: Long){
             val timestamp = System.currentTimeMillis()
 
             // TODO: 用户量大了以后，得支持多页查找，目前一次能返回1000个
             // 从这个用户开始查找
-//            val uinfo = UserInfo.newBuilder()
-//            uinfo.userId = 10000
+            val uinfo = UserInfo.newBuilder()
+            uinfo.userId = fromId
 
 
             val regOpReq = FriendOpReq.newBuilder()
                 .setOperation(ListFriends)
-                //.setUser(uinfo)
+                .setUser(uinfo)
                 .putParams("mode", mode)
 
             // 如果 sharedKeyPrint 存在，则执行相应的操作
