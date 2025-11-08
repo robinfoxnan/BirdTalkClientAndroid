@@ -111,6 +111,7 @@ class ActionListener :StatusCallback{
             FRIEND_CHAT_SESSION -> doNothing()
             FRIEND_ADD_NOTICE -> doNothing()
             FRIEND_REMOVE_NOTICE -> doNothing()
+            MSG_HISTORY -> doNothing()
         }
     }
 }

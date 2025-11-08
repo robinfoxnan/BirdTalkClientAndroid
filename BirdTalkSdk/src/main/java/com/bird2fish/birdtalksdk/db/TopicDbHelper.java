@@ -117,6 +117,18 @@ public class TopicDbHelper {
         }
     }
 
+    public static  void dropPChatTable(){
+        SQLiteDatabase db = BaseDb.getInstance().getWritableDatabase();
+        db.execSQL("drop table " + TABLE_PCHAT_UNREAD );
+        db.execSQL("drop table " + TABLE_PCHAT );
+    }
+
+    public static  void dropPChatTopic(Long fid){
+        SQLiteDatabase db = BaseDb.getInstance().getWritableDatabase();
+        String name = getPChatName(fid);
+        db.execSQL("drop table " + name );
+    }
+
     public static String getPChatName(long fid){
         String tableName = "pchat_" + fid;
         return tableName;
@@ -564,6 +576,9 @@ public class TopicDbHelper {
         SQLiteDatabase db = BaseDb.getInstance().getWritableDatabase();
         Cursor cursor = null;
 
+        // 保证在调试删除多余数据时候能运行
+        onCreate(db);
+
         cursor = db.rawQuery("SELECT MAX(id) AS max_id FROM pchat", null);
         long maxTm = 0; // 默认值
 
@@ -593,7 +608,7 @@ public class TopicDbHelper {
                     " FROM " + tableName +
                     " LEFT JOIN pchat ON " + tableName + ".id = pchat.id " +
                     " WHERE " + tableName + ".id <= ? " +
-                    "ORDER BY pchat.tm ASC " +
+                    "ORDER BY pchat.id DESC " +
                     " LIMIT ?";
 
             if (forward){
@@ -601,7 +616,7 @@ public class TopicDbHelper {
                         " FROM " + tableName +
                         " LEFT JOIN pchat ON " + tableName + ".id = pchat.id " +
                         " WHERE " + tableName + ".id >= ? " +
-                        "ORDER BY pchat.tm ASC " +
+                        "ORDER BY pchat.id ASC " +
                         " LIMIT ?";
             }
 

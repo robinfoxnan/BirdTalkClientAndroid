@@ -173,37 +173,37 @@ class ChatPageFragment : Fragment() , StatusCallback {
         // 或者回执来了
         else if ( eventType == MsgEventType.MSG_SEND_OK
             || eventType == MsgEventType.MSG_RECV_OK || eventType == MsgEventType.MSG_READ_OK) {
-            refreshData(msgType)
+            refreshData(true)
 
         }
         // 新消息来了,
         else if (eventType == MsgEventType.MSG_COMING){
-            refreshData(msgType)
+            refreshData(true)
             scrollToEnd()
         }
         // 历史数据
         else if (eventType == MsgEventType.MSG_HISTORY){
-            refreshData(msgType)
+            refreshData(false)
             onLoadMessageOk()
             // 这里不滚动
         }
 
         // 上传文件结束了
         else if (eventType == MsgEventType.MSG_UPLOAD_OK){
-            refreshData(msgType)
+            refreshData(true)
         }
 
         // 下载文件
         else if (eventType == MsgEventType.MSG_DOWNLOAD_OK ||
             eventType == MsgEventType.MSG_DOWNLOAD_PROCESS ||
             eventType == MsgEventType.MSG_DOWNLOAD_FAIL){
-            refreshData(msgType)
+            refreshData(true)
         }
 
         else if (eventType == MsgEventType.MSG_UPLOAD_PROCESS ||
             eventType == MsgEventType.MSG_UPLOAD_OK ||
             eventType == MsgEventType.MSG_UPLOAD_FAIL){
-            refreshData(msgType)
+            refreshData(true)
         }
 
         else if (eventType == MsgEventType.MSG_SEND_ERROR){
@@ -215,7 +215,7 @@ class ChatPageFragment : Fragment() , StatusCallback {
                     showMesage(info)
                 }
             }
-            refreshData(msgType)
+            refreshData(true)
         }
 
     }
@@ -226,8 +226,7 @@ class ChatPageFragment : Fragment() , StatusCallback {
         }
     }
     // 需要在界面线程中处理
-    fun refreshData(index:Int){
-
+    fun refreshData(bEnd:Boolean){
         (context as? Activity)?.runOnUiThread {
             view?.post {
                 if ( mMessagesAdapter!= null) {
@@ -236,16 +235,18 @@ class ChatPageFragment : Fragment() , StatusCallback {
                     //mMessagesAdapter?.notifyItemChanged(index)
 
                     mRecyclerView!!.post {
-                        val itemCount = mMessagesAdapter!!.itemCount ?: 0
-                        if (itemCount > 0) {
-                            mRecyclerView!!.scrollToPosition(itemCount - 1)
-                        }
+                        if (!bEnd){
+                            scrollToTop(true)
+                        }else{
+                            scrollToBottom(true)
+                            }
+
                     }
                 }
             }
         }
 
-    }
+    }// end of fun
 
     // 申请录音权限
     private val audioRecorderPermissionLauncher =
@@ -422,6 +423,19 @@ class ChatPageFragment : Fragment() , StatusCallback {
         }
 
     }
+    private fun scrollToTop(smooth: Boolean) {
+        isScrollByCode = true
+        if (mMessagesAdapter != null && mMessagesAdapter!!.itemCount > 0)
+        {
+            val pos = 0
+            if (smooth) {
+                mRecyclerView!!.smoothScrollToPosition(pos)
+            } else {
+                mRecyclerView!!.scrollToPosition(pos)
+            }
+        }
+
+    }
 
 
     // 初始化
@@ -481,7 +495,7 @@ class ChatPageFragment : Fragment() , StatusCallback {
     private fun loadMoreOldMessages() {
         var lastMsg :MessageContent? = null
         if (mMessagesAdapter!!.itemCount > 0){
-            lastMsg = mMessagesAdapter!!.getLast()
+            lastMsg = mMessagesAdapter!!.getFirst()
         }
         ChatSessionManager.onLoadHistoryMessage(this.mChatIdLong, lastMsg)
         // 模拟网络加载
@@ -506,7 +520,7 @@ class ChatPageFragment : Fragment() , StatusCallback {
 
         // 恢复原位置（不让界面跳动）
         //mMessageViewLayoutManager?.scrollToPositionWithOffset(firstPos + 新增消息数量, offset)
-
+        //scrollToTop(true)
     }
 
 
@@ -1280,7 +1294,7 @@ class ChatPageFragment : Fragment() , StatusCallback {
 //            }
 
         Log.d("文件内容", "draft: ${draft.toPlainText()}")
-        val msg2 = MessageContent(2, 1002, 1002, "我", "sys:4",
+        val msg2 = MessageContent(2, 1002, 10006, 10001,"我", "sys:4",
             UserStatus.ONLINE, MessageStatus.UPLOADING, false, false, false, "", draft)
         chatSession!!.addMessageToTail(msg2)
 

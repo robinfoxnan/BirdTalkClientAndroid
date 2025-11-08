@@ -166,13 +166,13 @@ class MsgEncocder {
 
             }else if (reply.synType == SynType.SynTypeBackward){
                 if (reply.chatType == ChatType.ChatTypeP2P) {
-                    ChatSessionManager.onQueryPChatDataReplyBackward(reply.littleId, reply.bigId, reply.chatDataListList)
+                    ChatSessionManager.onQueryPChatDataReplyBackward(reply.userId, reply.littleId, reply.bigId, reply.chatDataListList)
                 }else{
                     ChatSessionManager.onQueryGChatDataReplyBackward(reply.groupId, reply.littleId, reply.bigId, reply.chatDataListList)
                 }
             }else{
                 if (reply.chatType == ChatType.ChatTypeP2P) {
-                    ChatSessionManager.onQueryPChatDataReplyBetween(reply.littleId, reply.bigId, reply.chatDataListList)
+                    ChatSessionManager.onQueryPChatDataReplyBetween(reply.userId, reply.littleId, reply.bigId, reply.chatDataListList)
                 }else{
                     ChatSessionManager.onQueryGChatDataReplyBetween(reply.groupId, reply.littleId, reply.bigId, reply.chatDataListList)
                 }
@@ -1373,7 +1373,7 @@ class MsgEncocder {
         }
 
         // 发送消息
-        fun sendChatMsg(msgId:Long, fid: Long, chatType:ChatType, dataType:ChatMsgType, txt:String, refMsgId:Long){
+        fun sendChatMsg(msgId:Long, tid: Long, chatType:ChatType, dataType:ChatMsgType, txt:String, refMsgId:Long){
             val timestamp = System.currentTimeMillis()
             val chatMsg = MsgChat.newBuilder()
 
@@ -1388,7 +1388,7 @@ class MsgEncocder {
 
             chatMsg.fromId = SdkGlobalData.selfUserinfo.id
             chatMsg.userId = SdkGlobalData.selfUserinfo.id
-            chatMsg.toId = fid
+            chatMsg.toId = tid
 
             chatMsg.tm = timestamp
             chatMsg.devId = SdkGlobalData.basicInfo.deviceId
@@ -1429,37 +1429,46 @@ class MsgEncocder {
             sendMsg(msg)
         }
 
-        // 发送申请，同步那个私聊的数据
-        fun sendSynPChatDataForward(msgId:Long ){
+        // 发送申请，同步那个私聊的数据，这里的正向同步是加载所有的数据，不需要区分会话
+        // 而群聊不需要正向同步，因为可能长时间不登录太多了
+        fun sendSynPChatDataForward(msgId:Long){
             val timestamp = System.currentTimeMillis()
             val msgQ = MsgQuery.newBuilder()
 
-            msgQ.userId = SdkGlobalData.selfUserinfo.id
+            msgQ.userId = 0   // 私聊这里不区分会话
             msgQ.groupId = 0
             msgQ.littleId = msgId
             msgQ.bigId = Long.MAX_VALUE
-            msgQ.synType = SynType.SynTypeForward
 
+            msgQ.synType = SynType.SynTypeForward
             msgQ.queryType = QueryDataTypeChatData
             msgQ.chatType = ChatType.ChatTypeP2P
+
 
             val plainMsg = MsgPlain.newBuilder().setCommonQuery(msgQ)
             val msg = wrapMsg(plainMsg, timestamp, MsgTQuery)
             sendMsg(msg)
         }
 
-        fun sendSynPChatDataBackward(msgId:Long ){
+        // 这里需要支持私聊和群聊，群聊会使用反向加载；而私聊某个会话需要支持反向加载
+        fun sendSynChatDataBackward(msgId:Long, fid:Long, gid:Long ){
             val timestamp = System.currentTimeMillis()
             val msgQ = MsgQuery.newBuilder()
 
-            msgQ.userId = SdkGlobalData.selfUserinfo.id
-            msgQ.groupId = 0
-            msgQ.littleId = msgId
-            msgQ.bigId = Long.MAX_VALUE
-            msgQ.synType = SynType.SynTypeBackward
+            msgQ.userId = fid
+            msgQ.groupId = gid
 
+            msgQ.littleId = 0
+            msgQ.bigId = msgId
+
+            msgQ.synType = SynType.SynTypeBackward
             msgQ.queryType = QueryDataTypeChatData
-            msgQ.chatType = ChatType.ChatTypeP2P
+
+            if (gid == 0L){
+                msgQ.chatType = ChatType.ChatTypeP2P
+            }else{
+                msgQ.chatType = ChatType.ChatTypeGroup
+            }
 
             val plainMsg = MsgPlain.newBuilder().setCommonQuery(msgQ)
             val msg = wrapMsg(plainMsg, timestamp, MsgTQuery)

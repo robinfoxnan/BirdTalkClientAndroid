@@ -34,6 +34,7 @@ import com.bird2fish.birdtalksdk.model.UserStatus
 import com.bird2fish.birdtalksdk.net.FileDownloader
 import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass
 import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass.ChatMsgType
+import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass.ChatType
 import java.io.File
 import java.net.MalformedURLException
 import java.net.URL
@@ -81,19 +82,40 @@ object  TextHelper {
     }
 
     // 收到的消息也有可能是远端的多端登录发来的啊，
-    fun pbMsg2MessageContent(sId:Long, chatMsg :MsgOuterClass.MsgChat):MessageContent {
+    fun pbMsg2MessageContent(chatMsg :MsgOuterClass.MsgChat):MessageContent {
         var msg : MessageContent? = null
         var inOut  = true
-        if (chatMsg.fromId == SdkGlobalData.selfUserinfo.id){
-            inOut = false
+        var tid = 0L
+        var sid = 0L
+        var uid = chatMsg.fromId
+        var isP2p = true
+        if (chatMsg.chatType == MsgOuterClass.ChatType.ChatTypeGroup){
+            tid = chatMsg.toId
+            sid = -tid
+            isP2p = false
+            if (chatMsg.fromId == SdkGlobalData.selfUserinfo.id) {
+                inOut = false
+            }else{
+                inOut = true
+            }
+        }else{
+            if (chatMsg.fromId == SdkGlobalData.selfUserinfo.id){
+                inOut = false
+                tid = chatMsg.toId
+            }else{
+                inOut = true
+                tid = chatMsg.fromId
+            }
+            sid = tid
         }
 
-        val chatSession = ChatSessionManager.getSession(sId)
+
+        val chatSession = ChatSessionManager.getSession(sid)
         if (chatMsg.msgType == ChatMsgType.TEXT){
             val utf8String = chatMsg.data.toString(Charsets.UTF_8)
 
-            msg = MessageContent(chatMsg.msgId, chatMsg.sendId,
-                sId, chatSession.sessionTitle, chatSession.sessionIcon,
+            msg = MessageContent(chatMsg.msgId, chatMsg.sendId, tid, uid,
+                chatSession.sessionTitle, chatSession.sessionIcon,
                 UserStatus.ONLINE, MessageStatus.OK, inOut, false, false, utf8String, null, chatMsg.tm)
 
         }else if (chatMsg.msgType == ChatMsgType.IMAGE){
@@ -103,8 +125,8 @@ object  TextHelper {
             val draft = TextHelper.deserializeDrafty(txt)
             Log.d("Image Draty", txt)
 
-            msg = MessageContent(chatMsg.msgId,  chatMsg.sendId,
-                sId, chatSession.sessionTitle, chatSession.sessionIcon,
+            msg = MessageContent(chatMsg.msgId,  chatMsg.sendId, tid, uid,
+                chatSession.sessionTitle, chatSession.sessionIcon,
                 UserStatus.ONLINE, MessageStatus.OK, inOut, false, false, "", draft, chatMsg.tm)
         }
         else if (chatMsg.msgType == MsgOuterClass.ChatMsgType.VOICE){
@@ -114,8 +136,8 @@ object  TextHelper {
             val draft = TextHelper.deserializeDrafty(txt)
             Log.d("Audio Draty", txt)
 
-            msg = MessageContent(chatMsg.msgId, chatMsg.sendId,
-                sId, chatSession.sessionTitle, chatSession.sessionIcon,
+            msg = MessageContent(chatMsg.msgId, chatMsg.sendId, tid, uid,
+                chatSession.sessionTitle, chatSession.sessionIcon,
                 UserStatus.ONLINE, MessageStatus.OK, inOut, false, false, "", draft, chatMsg.tm)
         }
         else if (chatMsg.msgType == MsgOuterClass.ChatMsgType.FILE){
@@ -124,10 +146,11 @@ object  TextHelper {
             val draft = TextHelper.deserializeDrafty(txt)
             Log.d("File Draty", txt)
 
-            msg = MessageContent(chatMsg.msgId,  chatMsg.sendId,
-                sId, chatSession.sessionTitle, chatSession.sessionIcon,
+            msg = MessageContent(chatMsg.msgId,  chatMsg.sendId, tid, uid,
+                chatSession.sessionTitle, chatSession.sessionIcon,
                 UserStatus.ONLINE, MessageStatus.OK, inOut, false, false, "", draft, chatMsg.tm)
         }
+        msg!!.isP2p = isP2p
 
         // 如果是收消息，并且没有填写过回执
         msg!!.tm1 = chatMsg.sendReply
@@ -152,59 +175,61 @@ object  TextHelper {
         return msg!!
     }
 
-    /*
-    MessageData(
-    long id,
-    long tid,
-    long uid,
-    long sendId,
+    // 网络数据包转数据库类型
+    fun pbMsgToDbMsg(chatMsg: MsgOuterClass.MsgChat):MessageData{
+        var inOut  = MessageInOut.IN.ordinal
+        var tid = 0L
+        if (chatMsg.chatType == MsgOuterClass.ChatType.ChatTypeGroup){
+            tid = chatMsg.toId
+            if (chatMsg.fromId == SdkGlobalData.selfUserinfo.id){
+                inOut = MessageInOut.OUT.ordinal
+            }else{
+                inOut = MessageInOut.IN.ordinal
+            }
 
-    String devId,
+        }else{
+            if (chatMsg.fromId == SdkGlobalData.selfUserinfo.id){
+                inOut = MessageInOut.OUT.ordinal
+                tid = chatMsg.toId
+            }else{
+                inOut = MessageInOut.IN.ordinal
+                tid = chatMsg.fromId
+            }
+        }
 
-    int io,
-    String msgType,
-    byte[] data,
-    int isPlain,
-
-    long tm,
-    long tm1,
-    long tm2,
-    long tm3,
-    String cryptType,
-    int print,
-    String status)
-     */
-    // in:0, out:1
-
-    fun pbMsgToDbMsg(tid:Long, chatMsg: MsgOuterClass.MsgChat):MessageData{
         val data = chatMsg.data.toByteArray()
         val isPlain = if (chatMsg.msgType == ChatMsgType.TEXT) 1 else 0
 
-        // 识别远端自己的账户发来的
-        var inout:Int = MessageInOut.IN.ordinal
-        if (chatMsg.fromId == SdkGlobalData.selfUserinfo.id){
-            inout = MessageInOut.OUT.ordinal
+        var status = MessageStatus.OK.name
+        if (chatMsg.readReply > 0){
+            status = MessageStatus.SEEN.name
+        }else if (chatMsg.recvReply > 0){
+            status = MessageStatus.RECV.name
+        }else if (chatMsg.sendReply > 0){
+            status = MessageStatus.OK.name
         }
+
 
         // 多终端的情况下，收到的消息，只是同步过来的，不需要回执
         val msg = MessageData(chatMsg.msgId, tid, chatMsg.fromId, chatMsg.sendId,
             chatMsg.devId,
-            inout, chatMsg.msgType.name, data, isPlain,
+            inOut, chatMsg.msgType.name, data, isPlain,
             chatMsg.tm, chatMsg.sendReply, chatMsg.recvReply, chatMsg.readReply,
-            chatMsg.encType.name, chatMsg.keyPrint.toInt(), MessageStatus.RECV.name)
+            chatMsg.encType.name, chatMsg.keyPrint.toInt(), status)
 
         return msg
     }
 
     //从给控件用的，转换到数据库用的类，
     // 由于这里并没有全局的msgid, 这里仅仅使用sendId 代替，
-    fun MsgContentToDbMsg(msg:MessageContent, sid:Long):MessageData{
+    fun MsgContentToDbMsg(msg:MessageContent):MessageData{
         val isPlain = if (msg.msgType == ChatMsgType.TEXT) 1 else 0
         val data =  if (msg.msgType == ChatMsgType.TEXT) msg.text.toByteArray(Charsets.UTF_8) else serializeDrafty(msg.content!!).toByteArray(Charsets.UTF_8)
-        val inout:Int = MessageInOut.OUT.ordinal
+        val inout:Int = if (msg.inOut) MessageInOut.IN.ordinal  else MessageInOut.OUT.ordinal
 
-        val tid = if (sid > 0) sid else -sid
-        val msg = MessageData(msg.msgId, msg.userId, tid, msg.sendId,
+
+        val tid = msg.tId
+        val msg = MessageData(msg.msgId, tid, msg.userId, msg.sendId,
             SdkGlobalData.basicInfo.deviceId,
             inout, msg.msgType.name, data, isPlain,
             msg.tm, msg.tm1, msg.tm2, msg.tm3,
@@ -243,7 +268,9 @@ object  TextHelper {
         }catch (e:Exception){
             Log.e("Sdk", e.toString())
         }
-        val msgContent = MessageContent(msg.id, msg.sendId, msg.uid, topic.title, topic.icon,
+
+        val msgContent = MessageContent(msg.id, msg.sendId, topic.tid, msg.uid,
+            topic.title, topic.icon,
             UserStatus.ONLINE,
             msgStatus,
             inOut,
@@ -255,12 +282,12 @@ object  TextHelper {
         msgContent.tm2 = msg.tm2
         msgContent.tm3 = msg.tm3
 
-
         msgContent.isP2p = (topic.type == MsgOuterClass.ChatType.ChatTypeP2P.number)
         msgContent.msgType = ChatMsgType.valueOf(msg.msgType)
 
         return msgContent
     }
+    ///////////////////////////////////////////////////////////////////////////////////////
 
     fun getFileNameFromUrl(url: String): String {
         return try {

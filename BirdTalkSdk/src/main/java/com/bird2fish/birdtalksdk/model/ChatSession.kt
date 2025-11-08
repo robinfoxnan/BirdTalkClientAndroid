@@ -101,7 +101,7 @@ class ChatSession (val sessionId:Long)
             var i = 0;
             for (msg in lst){
                 val msgContent = TextHelper.MsgContentFromDbMessage(msg, t)
-                msgList.add(msgContent)
+                msgList.addFirst(msgContent)
                 msgListMask[msgContent.msgId] = msgContent
 
                 // 这里是设置会话的最新消息
@@ -112,7 +112,12 @@ class ChatSession (val sessionId:Long)
 
 
                 if (msg.io == MessageInOut.OUT.ordinal && msg.tm1  == 0L && msg.status != MessageStatus.FAIL.name){
-                    tempSendingList.add(msgContent)
+                    // 文件类，无法重发，因为保存到消息不一样
+                    if (msg.msgType == ChatMsgType.TEXT.name || msg.msgType == ChatMsgType.VIDEO.name)
+                    {
+                        tempSendingList.add(msgContent)
+                    }
+
                 }
 
                 if (msg.io == MessageInOut.IN.ordinal && msg.tm2 == 0L){
@@ -152,6 +157,47 @@ class ChatSession (val sessionId:Long)
 
 
         return tm
+    }
+
+    // 加载的历史数据
+    fun addP2PMessageToHead(lst:  List<MessageData>, topic:Topic, bRemote:Boolean) {
+        val tempList = LinkedList<MessageContent>()
+
+        synchronized(msgList) {
+            // 遍历历史消息
+            lst.forEach { msg ->
+                // 如果 msgId 已存在，跳过，避免重复
+                val message = TextHelper.MsgContentFromDbMessage(msg,topic)
+                if (!msgListMask.containsKey(message.msgId)) {
+                    // 收到的消息提交回执
+                    if (message.inOut && message.tm2 <= 0) {
+                        MsgEncocder.sendChatReply(this.sessionId, msg.sendId, msg.id, true, "")
+                        TopicDbHelper.updatePChatReply(message.msgId, 0, System.currentTimeMillis(), 0, true)
+                        message.tm2 = System.currentTimeMillis()
+                    }
+                    if (message.inOut && message.tm3 <= 0){
+                        tempList.add(message)
+                    }
+
+                    // 远端返回的，要写库
+                    if (bRemote){
+                        TopicDbHelper.insertPChatMsg(msg)
+                    }
+
+                    msgList.add(0, message)  // 插入到列表头部
+                    msgListMask[message.msgId] = message
+
+                }
+            }
+        }
+
+        // 添加到未读
+        synchronized(msgUnReadList){
+            for (m in tempList){
+                msgUnReadList[m.msgId] = m
+            }
+        }
+
     }
 
     //发送内嵌消息
@@ -323,7 +369,7 @@ class ChatSession (val sessionId:Long)
             // 如果是服务器回执，这时候需要用sendID去找
             var msg = FindMessageAndSetReply(sendId, msgId, tm1, tm2, tm3, bOk)
             if (msg != null) {  // 通过SENDID找到的情况，是服务器应答的时候
-                val msgData = TextHelper.MsgContentToDbMsg(msg, this.sessionId)
+                val msgData = TextHelper.MsgContentToDbMsg(msg)
                 TopicDbHelper.insertPChatMsgAgain(msgData)
 
                 return msg
@@ -419,47 +465,7 @@ class ChatSession (val sessionId:Long)
         }
     }
 
-    // 加载的历史数据
-    fun addP2PMessageToHead(lst:  List<MessageData>, topic:Topic, bRemote:Boolean) {
 
-        val tempList = LinkedList<MessageContent>()
-
-        synchronized(msgList) {
-            // 遍历历史消息
-            lst.forEach { msg ->
-                // 如果 msgId 已存在，跳过，避免重复
-                val message = TextHelper.MsgContentFromDbMessage(msg,topic)
-                if (!msgListMask.containsKey(message.msgId)) {
-                    // 收到的消息提交回执
-                    if (message.inOut && message.tm2 <= 0) {
-                        MsgEncocder.sendChatReply(this.sessionId, msg.sendId, msg.id, true, "")
-                        TopicDbHelper.updatePChatReply(message.msgId, 0, System.currentTimeMillis(), 0, true)
-                        message.tm2 = System.currentTimeMillis()
-                    }
-                    if (message.inOut && message.tm3 <= 0){
-                        tempList.add(message)
-                    }
-
-                    // 远端返回的，要写库
-                    if (bRemote){
-                        TopicDbHelper.insertPChatMsg(msg)
-                    }
-
-                    msgList.add(0, message)  // 插入到列表头部
-                    msgListMask[message.msgId] = message
-
-                }
-            }
-        }
-
-        // 添加到未读
-        synchronized(msgUnReadList){
-            for (m in tempList){
-                msgUnReadList[m.msgId] = m
-            }
-        }
-
-    }
 
 
     // 获取未读消息数量
@@ -577,12 +583,13 @@ object ChatSessionManager {
     }
 
     // 提交消息到网络层，重发也在这里
+    // 如果是重启后重发，那么这里可能会没有msg.contentOut, 所以从数据库加载的没有发送晚点消息直接发送失败
     fun sendMsgContent(sessionId:Long, msg:MessageContent){
 
         GlobalScope.launch(Dispatchers.IO) {
 
             // 1) 先写数据库,更新到发送表
-            val msgData = TextHelper.MsgContentToDbMsg(msg, sessionId)
+            val msgData = TextHelper.MsgContentToDbMsg(msg)
 
             if (msg.isP2p){
                 TopicDbHelper.insertPChatMsg(msgData)
@@ -596,7 +603,7 @@ object ChatSessionManager {
             if (msg.msgType == ChatMsgType.TEXT) {
                 MsgEncocder.sendChatMsg(
                     msg.msgId,
-                    msg.userId,
+                    msg.tId,
                     chatType,
                     ChatMsgType.TEXT,
                     msg.text,
@@ -605,7 +612,7 @@ object ChatSessionManager {
             } else {
                 MsgEncocder.sendChatMsg(
                     msg.msgId,
-                    msg.userId,
+                    msg.tId,
                     chatType,
                     msg.msgType,
                     msg.contentOut,
@@ -621,8 +628,9 @@ object ChatSessionManager {
         val sendId = SdkGlobalData.nextId()
         val chatSession = getSession(sessionId)
 
-        val uid = if (sessionId > 0) sessionId else -sessionId
-        val msg = MessageContent(sendId, sendId, uid, chatSession.sessionTitle, chatSession.sessionIcon,
+        val tid = if (sessionId > 0) sessionId else -sessionId
+        val me = SdkGlobalData.selfUserinfo.id
+        val msg = MessageContent(sendId, sendId, tid, me, chatSession.sessionTitle, chatSession.sessionIcon,
             UserStatus.ONLINE,
             MessageStatus.SENDING,
             false,
@@ -631,8 +639,7 @@ object ChatSessionManager {
             message,
             null)
         msg.msgType = ChatMsgType.TEXT
-
-
+        msg.isP2p = if (sessionId > 0) true else false
 
         // 2）加入列表
         chatSession?.addMessageNewOut(msg)
@@ -653,8 +660,8 @@ object ChatSessionManager {
         val sendId = SdkGlobalData.nextId()
         val chatSession = getSession(sessionId)
 
-
-        val uId = if (sessionId > 0) sessionId else -sessionId
+        val tid = if (sessionId > 0) sessionId else -sessionId
+        val me = SdkGlobalData.selfUserinfo.id
 
 
         val draft = Drafty("")
@@ -671,9 +678,10 @@ object ChatSessionManager {
 
             //Log.d("文件内容", "draft: ${draft.toPlainText()}")
 
-            val msg = MessageContent(sendId, sendId,
-                uId, chatSession.sessionTitle, chatSession.sessionIcon,
-                UserStatus.ONLINE, MessageStatus.UPLOADING, false, false, false,"", draft,  System.currentTimeMillis(), uri, mime)
+            val msg = MessageContent(sendId, sendId, tid, me,
+                chatSession.sessionTitle, chatSession.sessionIcon,
+                UserStatus.ONLINE, MessageStatus.UPLOADING, false, false, false,
+                "", draft,  System.currentTimeMillis(), uri, mime)
             msg.msgType = ChatMsgType.IMAGE
 
             val sz = TextHelper.getFileSize(context, uri)
@@ -684,10 +692,10 @@ object ChatSessionManager {
                 this.uploadingMap[sendId] = msg
             }
             // 异步上传
-            Session.uploadSmallFile(context, uri,  uId, sendId)
+            Session.uploadSmallFile(context, uri,  tid, sendId)
 
             // 先写数据库,更新到发送表
-            val msgData = TextHelper.MsgContentToDbMsg(msg, sessionId)
+            val msgData = TextHelper.MsgContentToDbMsg(msg)
 
             if (msg.isP2p){
                 TopicDbHelper.insertPChatMsg(msgData)
@@ -710,7 +718,7 @@ object ChatSessionManager {
 
     // 将文件上传后发送消息，与那个图片不一样在于处理draft方式不同
     fun sendFileMessageUploading(sessionId:Long, context: Context, uri: Uri):Long{
-        val contentResolver: ContentResolver = context.contentResolver
+        //val contentResolver: ContentResolver = context.contentResolver
 
         val sendId = SdkGlobalData.nextId()
         val chatSession = getSession(sessionId)
@@ -726,7 +734,8 @@ object ChatSessionManager {
         val mime = TextHelper.getMimeTypeFromUri(context, uri)
         val sz = TextHelper.getFileSize(context, uri)
 
-        val uId = if (sessionId > 0) sessionId else -sessionId
+        val tid = if (sessionId > 0) sessionId else -sessionId
+        val me = SdkGlobalData.selfUserinfo.id
 
 
 
@@ -734,9 +743,10 @@ object ChatSessionManager {
         //draft.attachFile(mime, bits, fileName);
         draft.attachFile(mime, fileName, uri.toString(), sz,sendId, sessionId);
 
-        val msg = MessageContent(sendId, sendId,
-            chatSession.sessionId, chatSession.sessionTitle, chatSession.sessionIcon,
-            UserStatus.ONLINE, MessageStatus.UPLOADING, false, false, false,"", draft,  System.currentTimeMillis(), uri, mime)
+        val msg = MessageContent(sendId, sendId, tid, me,
+            chatSession.sessionTitle, chatSession.sessionIcon,
+            UserStatus.ONLINE, MessageStatus.UPLOADING, false, false, false,
+            "", draft,  System.currentTimeMillis(), uri, mime)
         msg.fileSz = sz
         msg.msgType = ChatMsgType.FILE
 
@@ -749,10 +759,10 @@ object ChatSessionManager {
         }
         // 异步上传
         //Session.uploadSmallFile(context, uri,  uId, msgId)
-        msg.fileHashCode = Session.uploadFileChunk(context, uri,  uId, sendId, 0, "")
+        msg.fileHashCode = Session.uploadFileChunk(context, uri,  tid, sendId, 0, "")
 
         // 先写数据库,更新到发送表
-        val msgData = TextHelper.MsgContentToDbMsg(msg, chatSession.sessionId)
+        val msgData = TextHelper.MsgContentToDbMsg(msg)
 
         if (msg.isP2p){
             TopicDbHelper.insertPChatMsg(msgData)
@@ -774,7 +784,7 @@ object ChatSessionManager {
         }
 
         if (msg != null){
-            val sessionId = msg!!.userId
+            //val sessionId = if (msg.isP2p) msg!!.tId else -msg!!.tId
             val sz = msg!!.fileSz.toFloat()
             val percent:Float = (index+1).toFloat() * 1024*1024 * 100   /sz;
 
@@ -794,15 +804,16 @@ object ChatSessionManager {
         val chatSession = getSession(sessionId)
 
 
-        val uId = if (sessionId > 0) sessionId else -sessionId
+        val tid = if (sessionId > 0) sessionId else -sessionId
+        val me = SdkGlobalData.selfUserinfo.id
 
-        val msg = MessageContent(sendId, sendId,
-            uId, chatSession.sessionTitle, chatSession.sessionIcon,
+        val msg = MessageContent(sendId, sendId, tid, me,
+            chatSession.sessionTitle, chatSession.sessionIcon,
             UserStatus.ONLINE, MessageStatus.SENDING,false, false, false, "", draft)
         msg.msgType = ChatMsgType.VOICE
         val txt = TextHelper.serializeDrafty(draft)
         msg.contentOut = txt
-        Log.d("send audio drafty", txt)
+        //Log.d("send audio drafty", txt)
         //
 
         // 2）加入列表
@@ -893,8 +904,9 @@ object ChatSessionManager {
             return
         }
 
-        // 这里的userId就是sessionId
-        val chatSession = getSession(msg!!.userId)
+        //
+        val sessionId = if (msg!!.isP2p) msg!!.tId else -msg!!.tId
+        val chatSession = getSession(sessionId)
 
         msg!!.msgStatus = MessageStatus.SENDING
         //msg!!.content = draft
@@ -956,6 +968,7 @@ object ChatSessionManager {
         var msg : MessageContent? = null
         synchronized(this.uploadingMap){
             msg = this.uploadingMap[msgId]
+            this.uploadingMap.remove(msgId)
         }
 
         if (msg == null){
@@ -963,8 +976,9 @@ object ChatSessionManager {
             return
         }
 
-        // 这里的userId就是sessionId
-        val chatSession = getSession(msg!!.userId)
+        //
+        val sessionId = if (msg!!.isP2p) msg!!.tId else -msg!!.tId
+        val chatSession = getSession(sessionId)
 
         msg!!.msgStatus = MessageStatus.FAIL
         //msg!!.content = draft
@@ -972,7 +986,7 @@ object ChatSessionManager {
         var draftMsg = msg!!.content
 
         // 先写数据库,更新到发送表
-        val msgData = TextHelper.MsgContentToDbMsg(msg!!, chatSession.sessionId)
+        val msgData = TextHelper.MsgContentToDbMsg(msg!!)
 
         if (msg!!.isP2p){
             TopicDbHelper.insertPChatMsg(msgData)
@@ -987,36 +1001,36 @@ object ChatSessionManager {
     // 1）保存数据库，2）回执，回执后更新数据库，3）添加到会话的消息列表中
     fun onRecvChatMsg(chatMsg: MsgOuterClass.MsgChat):MessageContent{
         // 1) 写数据库
-        val fid = chatMsg.fromId
-        val msgData = TextHelper.pbMsgToDbMsg(fid, chatMsg)
+        val tid = chatMsg.fromId
 
+        // 当前消息状态为RECV
+        val msgData = TextHelper.pbMsgToDbMsg(chatMsg)
         if (chatMsg.chatType == ChatType.ChatTypeP2P){
+            // 写库
             TopicDbHelper.insertPChatMsg(msgData)
+            //2）发送接收回执
+            MsgEncocder.sendChatReply(tid, chatMsg.sendId, chatMsg.msgId, false, "")
+
+            // 更新数据库的接收时间
+            val tm2= System.currentTimeMillis()
+            TopicDbHelper.updatePChatReply(chatMsg.msgId, 0L, tm2, 0L, true)
 
         }else{
             TopicDbHelper.insertGChatMsg(msgData)
+            // 群组消息不用给回执，因为不在意
         }
-
-
-        //2）接受回执，回执后更新数据库
-
-        MsgEncocder.sendChatReply(fid, chatMsg.sendId, chatMsg.msgId, false, "")
-
-        // 更新第3个选项
-        val tm2= System.currentTimeMillis()
-        TopicDbHelper.updatePChatReply(chatMsg.msgId, 0L, tm2, 0L, true)
 
 
         //3）添加到界面的列表里
+        val msg = TextHelper.pbMsg2MessageContent(chatMsg)
+
         var sId = chatMsg.fromId
         if (chatMsg.chatType == MsgOuterClass.ChatType.ChatTypeP2P){
-
+            sId = chatMsg.fromId
         }else{
             sId = -chatMsg.fromId
         }
-
         val chatSession = ChatSessionManager.getSession(sId)
-        val msg = TextHelper.pbMsg2MessageContent(sId, chatMsg)
         chatSession.addMessageToTail(msg!!)
 
         // 需要创建topic 并设置最新消息
@@ -1036,8 +1050,14 @@ object ChatSessionManager {
     fun onChatMsgReply(msgId:Long, sendId:Long, fid:Long, params:Map<String, String>, tmServer:Long, tmRecv:Long,
                        tmRead:Long, result:String?){
         // 这里更新回执
-        val detail = params?.get("detail")
-        val gidStr = params["gid"]
+        var detail = params?.get("detail")
+        var gidStr = params["gid"]
+        if (detail == null){
+            detail = ""
+        }
+        if (gidStr == null){
+            gidStr = "0"
+        }
 
         // 群聊，只有服务器应答，私聊才有用户应答
         if (gidStr != "0"){
@@ -1063,50 +1083,53 @@ object ChatSessionManager {
     fun loadMessageOnLogin(chatTopicList :LinkedHashMap<Long, Topic>){
         var lstTm = 0L
         if (!bInit){
-            lstTm = loadPMessageFormDb(chatTopicList)
+            lstTm = loadPMessageFormDbOnLogin(chatTopicList)
             bInit = true
         }
     }
     // 启动时候需要从数据库加载消息
-    fun loadPMessageFormDb(chatTopicList :LinkedHashMap<Long, Topic>):Long{
+    fun loadPMessageFormDbOnLogin(chatTopicList :LinkedHashMap<Long, Topic>):Long{
         val max = Long.MAX_VALUE
         var lastTm = 0L
 
         var lst : List<MessageData>
+        // 这里的TID 也是有正负之分的
         for (p in chatTopicList){
             val sid = p.key
             val t = p.value
             val chatSession = getSession(sid)
 
             if (t.type == ChatType.ChatTypeP2P.number){
-                lst = TopicDbHelper.getPChatMessagesById(t.tid, max, 200, false)
+                lst = TopicDbHelper.getPChatMessagesById(t.tid, max, SdkGlobalData.LOAD_MSG_BATCH, false)
             }else{
-                lst = TopicDbHelper.getGChatMessagesById(t.tid, max, 200, false)
+                lst = TopicDbHelper.getGChatMessagesById(t.tid, max, SdkGlobalData.LOAD_MSG_BATCH, false)
             }
-            // 将数据库里的数据插入到列表中
+            // 将数据库里的数据插入到列表中, 这是反向加载，所以是倒序的
             val tm = chatSession.loadMessage(lst, t)
             if (tm > lastTm){
                 lastTm = tm
             }
         }
 
-        loadPMessageFromServer(lastTm)
+        loadP2pMessageFromServerOnLogin()
 
         return lastTm
     }
 
 
-    // 重链接成功后需要与服务器,
-    fun loadPMessageFromServer(lastId:Long){
+    // 重链接成功后需要与服务器, 这里是一组消息
+    fun loadP2pMessageFromServerOnLogin(){
 
         // 找出当前私聊或者群聊中最后一条记录, +1 是为了防止重复
-        val maxId = TopicDbHelper.getPChatLastId() + 1
+        val maxId = TopicDbHelper.getPChatLastId()
         if (maxId > 0){
+
             // 说明此时表中有数据，应该正向查找
             MsgEncocder.sendSynPChatDataForward(maxId)
         }else{
-            // 没有数据说明是多终端登录或者的清理过数据
-            MsgEncocder.sendSynPChatDataBackward(Long.MAX_VALUE)
+            // 没有数据说明是多终端登录或者的清理过数据,
+            // 设置fid==0，就是加载所有的数据，默认返回100条
+            MsgEncocder.sendSynChatDataBackward(Long.MAX_VALUE, 0, 0)
         }
 
     }
@@ -1119,20 +1142,20 @@ object ChatSessionManager {
 
     /* 同步方法备注：
     1. 私聊的本地数据是连续，保证从后向前一直存在，加载时候整体加载，因为服务器端不区分私聊会话。
+       但是服务器有个物化视图保存了一份会话的数据，这里可以使用fid指定反向加载某些历史数据。
     2. 群聊的数据不一定是连续的，因为客户可能长时间未登录，群内消息太多，全部加载不现实；
        所以每次与服务器只同步最新的数据；
        更新的整块的数据肯定是连续的，除了最前一条需要检测是否已经覆盖了以前的消息，那么后边的部分都标记为“连续”，
        返回的第1条默认设置为需要向前同步，但是如果第1条单独插入时候发现已经存在了，那么证明已经有完整的消息块了。
      */
-    // 个别时候，多终端登录，会遇到这样的情况，
-    fun onQueryPChatDataReplyBackward(littleId:Long, bigId:Long,  lst: List<MsgOuterClass.MsgChat>){
+    // 1）个别时候，多终端登录，会遇到这样的情况；2）单个会话清理了本地数据，拖动界面会触发反向加载
+    fun onQueryPChatDataReplyBackward(fid:Long, littleId:Long, bigId:Long,  lst: List<MsgOuterClass.MsgChat>){
+        if (fid == 0L || fid == SdkGlobalData.selfUserinfo.id){
+            onQueryPChatDataReplyBackward(littleId, bigId, lst)
+            return
+        }
+        // 这里开始处理一个会话的返回的消息
 
-
-    }
-
-    // 一般连续使用，都是需要正向同步
-    // 正常，这里不会很多
-    fun onQueryPChatDataReplyForward(littleId:Long, bigId:Long,  lst: List<MsgOuterClass.MsgChat>){
         // 1）保存到数据库
         val dbMessageList = pbChatDataList2DBMessageList(lst)
         val tempDbList = LinkedList<MessageData>()
@@ -1143,18 +1166,91 @@ object ChatSessionManager {
 
         // 这里可能有很多个会话的消息，需要单独的处理
         val msgList = pbChatDataList2MessageContentList(lst)
-        // 逐个提交接收回执
-        for (msg in msgList){
+        // 这里不需要再检查回执了
+
+
+        // 添加到内存
+        val userMsgMap = pMessageListSortByTid(msgList)
+        for (data in userMsgMap){
+            val fid = data.key
+            val userMsgList = data.value
+            val chatSession = getSession(fid)
+            chatSession.onPRecvBatchMsg(fid, userMsgList, false)
+        }
+
+        // 通知界面更新消息，已经保存处理完了
+        SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(MsgEventType.MSG_HISTORY, 0,
+            0L, 0L, mapOf("msg" to "batch forward") )
+
+    }
+
+    // 这里与正向加载一样混合了多个用户的会话的数据
+    fun onQueryPChatDataReplyBackward(littleId:Long, bigId:Long,  lst: List<MsgOuterClass.MsgChat>){
+
+        // 1）保存到数据库
+        val dbMessageList = pbChatDataList2DBMessageList(lst)
+        val tempDbList = LinkedList<MessageData>()
+        val ret = TopicDbHelper.insertPChatMsgBatch(dbMessageList, tempDbList)
+        if (!ret){
+            Log.e("Sdk", "batch insert db p2p chatmsg error")
+        }
+
+        // 这里可能有很多个会话的消息，需要单独的处理
+        val msgList = pbChatDataList2MessageContentList(lst)
+        // 这里不需要再检查回执了
+
+
+        // 添加到内存
+        val userMsgMap = pMessageListSortByTid(msgList)
+        for (data in userMsgMap){
+            val fid = data.key
+            val userMsgList = data.value
+            val chatSession = getSession(fid)
+            chatSession.onPRecvBatchMsg(fid, userMsgList, false)
+        }
+
+        // 通知界面更新消息，已经保存处理完了
+        SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(MsgEventType.MSG_HISTORY, 0,
+            0L, 0L, mapOf("msg" to "batch forward") )
+
+    }
+
+    // 一般连续使用，都是需要正向同步
+    // 正常，这里不会很多
+    fun onQueryPChatDataReplyForward(littleId:Long, bigId:Long,  lst: List<MsgOuterClass.MsgChat>){
+
+        // 1）保存到数据库
+        val dbMessageList = pbChatDataList2DBMessageList(lst)
+
+        // 先发送回执
+        for (msg in dbMessageList){
             // 必须是别人发给自己的，而且没有提交过，因为可以多终端登录
-            if (msg.inOut && msg.tm2 == 0L)
+            if (msg.io == MessageInOut.IN.ordinal && msg.tm2 == 0L)
             {
                 // 如果多终端登录的自己的发的消息，不给回执
-                MsgEncocder.sendChatReply(msg.userId, msg.sendId, msg.msgId, false, "")
+                MsgEncocder.sendChatReply(msg.tid, msg.sendId, msg.id, false, "")
                 msg.tm2 = System.currentTimeMillis()
-                msg.bRecv = true
             }
-
         }
+
+        // 临时的保存失败的条目
+        val tempDbList = LinkedList<MessageData>()
+        val ret = TopicDbHelper.insertPChatMsgBatch(dbMessageList, tempDbList)
+        if (!ret){
+            Log.e("Sdk", "batch insert db p2p chatmsg error")
+        }
+
+        // 2)  分组后添加到内存
+        // 这里是转换格式
+        // 这里可能有很多个会话的消息，需要单独的处理
+        val msgList = pbChatDataList2MessageContentList(lst)
+        // 这里虽然不太一致，也问题不大，保证界面上不再二次提交回执
+//        for (m in msgList){
+//            if (m.inOut  && m.tm2 == 0L){
+//                m.tm2 = System.currentTimeMillis()
+//                m.bRecv = true
+//            }
+//        }
 
         // 添加到内存
         val userMsgMap = pMessageListSortByTid(msgList)
@@ -1174,13 +1270,13 @@ object ChatSessionManager {
             0L, 0L, mapOf("msg" to "batch forward") )
 
         // 数据刚好为100,说明可能后续还有数据需要同步
-        if (lst.size == 100){
-            loadPMessageFromServer(0L)
+        if (lst.size == SdkGlobalData.LOAD_MSG_BATCH_SERVER){
+            loadP2pMessageFromServerOnLogin()
         }
 
     }
 
-    fun onQueryPChatDataReplyBetween(littleId:Long, bigId:Long,  lst: List<MsgOuterClass.MsgChat>){
+    fun onQueryPChatDataReplyBetween(fid:Long, littleId:Long, bigId:Long,  lst: List<MsgOuterClass.MsgChat>){
         // 用不到
     }
 
@@ -1188,12 +1284,13 @@ object ChatSessionManager {
     fun pMessageListSortByTid(msgList: List<MessageContent>): Map<Long, MutableList<MessageContent>>{
         val userMsgMap = HashMap<Long, MutableList<MessageContent>>()
         for (msg in msgList){
-            if (userMsgMap.containsKey(msg.userId)){
-                userMsgMap[msg.userId]!!.add(msg)
+            var tid = msg.tId
+            if (userMsgMap.containsKey(tid)){
+                userMsgMap[tid]!!.add(msg)
             }else{
                 val lst = LinkedList<MessageContent>()
                 lst.add(msg)
-                userMsgMap[msg.userId] =  lst
+                userMsgMap[tid] =  lst
             }
         }
         return userMsgMap
@@ -1202,7 +1299,7 @@ object ChatSessionManager {
     fun pbChatDataList2DBMessageList( lst: List<MsgOuterClass.MsgChat>):List<MessageData>{
         val ret = LinkedList<MessageData>()
         for (item in lst){
-            val msg = TextHelper.pbMsgToDbMsg(item.fromId, item)
+            val msg = TextHelper.pbMsgToDbMsg(item)
             ret.add(msg)
         }
         return ret
@@ -1210,12 +1307,11 @@ object ChatSessionManager {
     fun pbChatDataList2MessageContentList(lst: List<MsgOuterClass.MsgChat>):List<MessageContent>{
         val ret = LinkedList<MessageContent>()
         for (item in lst){
-            val msg = TextHelper.pbMsg2MessageContent(item.fromId, item)
+            val msg = TextHelper.pbMsg2MessageContent(item)
             ret.add(msg)
         }
         return ret
     }
-
 
     // 群组一直都是反向同步，打开时候，仅仅先同步近期的数据
     fun onQueryGChatDataReplyBackward(gid:Long, littleId:Long, bigId:Long,  lst: List<MsgOuterClass.MsgChat>){
@@ -1241,23 +1337,25 @@ object ChatSessionManager {
         }
     }
 
-    // 加载历史数据
-    fun onLoadHistoryMessage(sessionId :Long, lastMsg:MessageContent?){
+    // 页面上下拉控件，触发事件， 加载历史数据
+    fun onLoadHistoryMessage(sessionId :Long, firstMsg:MessageContent?){
         if (sessionId > 0){
-            onLoadP2pHistoryMessage(sessionId, lastMsg)
+            onLoadP2pHistoryMessage(sessionId, firstMsg)
+        }else{
+
         }
     }
 
-    // 私聊的数据，这里是从向前边的历史数据开始加载
-    fun onLoadP2pHistoryMessage(sessionId :Long, lastMsg:MessageContent?){
-        var lastId = Long.MAX_VALUE
-        if (lastMsg != null){
-            lastId = lastMsg.msgId
+    // 私聊的数据，先尝试本地加载，这里是从向前边的历史数据开始加载
+    fun onLoadP2pHistoryMessage(sessionId :Long, firstMsg:MessageContent?){
+        var firstId = Long.MAX_VALUE
+        if (firstMsg != null){
+            firstId= firstMsg.msgId
         }
         // 向前加载
-        val lst = TopicDbHelper.getPChatMessagesById(sessionId, lastId, 30, false)
+        val lst = TopicDbHelper.getPChatMessagesById(sessionId, firstId, SdkGlobalData.LOAD_MSG_BATCH, false)
         if (lst != null && lst.size > 0){
-            lastId = lst.first().id
+            firstId = lst.first().id
         }
 
         val chatSession = getSession(sessionId)
@@ -1269,10 +1367,10 @@ object ChatSessionManager {
         SdkGlobalData.invokeOnEventCallbacks(MsgEventType.MSG_HISTORY, 0, 0, sessionId, mapOf("from" to "db"))
 
         // 如果数据库里面的消息太少，这里还需要去服务器找
-        if (lst == null || lst.size < 30){
-            MsgEncocder.sendSynPChatDataBackward(lastId)
+        if (lst == null || lst.size < SdkGlobalData.LOAD_MSG_BATCH){
+            MsgEncocder.sendSynChatDataBackward(firstId, sessionId, 0)
         }else{
-            // 如果是刚刚好，那么等待下一次加载
+            // 如果是刚刚好，那么等待拖动界面下一次加载，这里啥也不做了
         }
     }
 

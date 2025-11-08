@@ -53,6 +53,9 @@ class SdkGlobalData {
     companion object{
 
         private const val TAG = "SdkGlobalData"
+        // 一次从数据库加载几条
+        const val LOAD_MSG_BATCH = 10
+        const val LOAD_MSG_BATCH_SERVER = 100
         // 创建实例
         val basicInfo = PlatformInfo(
             platform = "${Build.MANUFACTURER}",
@@ -99,6 +102,64 @@ class SdkGlobalData {
             this.userCallBackManager.invokeOnEventCallbacks(eventType, msgType, msgId, fid, params)
         }
 
+        fun nextId():Long{
+            if (BaseDb.getInstance() == null){
+                return msgId.addAndGet(1)
+            }
+            else{
+                return SeqDbHelper.getNextSeq()
+            }
+        }
+
+        // TODO: 设备唯一编码，用于同一个账户的不同终端
+        fun generateUniqueDeviceId(): String {
+            // 获取设备的唯一信息
+            val deviceInfo = StringBuilder()
+
+            // 添加设备信息
+            deviceInfo.append("Manufacturer: ${Build.MANUFACTURER}, ")
+            deviceInfo.append("Model: ${Build.MODEL}, ")
+            deviceInfo.append("Fingerprint: ${Build.FINGERPRINT}, ")
+            val androidId = Settings.Secure.getString(context!!.contentResolver, Settings.Secure.ANDROID_ID)
+            deviceInfo.append("AndroidId: $androidId, ")
+
+            // 使用 CRC64 计算设备的唯一 ID
+            val deviceInfoBytes = deviceInfo.toString().toByteArray()
+            val crc64Value = CRC64.crc64(deviceInfoBytes)
+
+            // 将 CRC64 值转为十六进制字符串
+            return crc64ToHex(crc64Value)
+        }
+
+        fun crc64ToHex(crc64Value: Long): String {
+            return String.format("%016X", crc64Value)
+        }
+
+        // OS Version: 10, SDK Version: 29, OS Code Name: Q, OS: google, Build ID: QKQ1.190828.002, Security Patch Level: 2020-10-05
+        fun getOSInfo(): String {
+            val osInfo = StringBuilder()
+
+            // Android 版本
+            osInfo.append("OSVersion: ${Build.VERSION.RELEASE}, ")
+
+            // SDK 版本
+            osInfo.append("SDKVersion: ${Build.VERSION.SDK_INT}, ")
+
+            // 系统版本号
+            osInfo.append("OSCodeName: ${Build.VERSION.CODENAME}, ")
+
+            // 操作系统类型（比如 `android`）
+            osInfo.append("OS: ${Build.BRAND}, ")
+
+            // 系统构建版本
+            osInfo.append("BuildID: ${Build.ID}, ")
+
+            // 系统版本的安全补丁等级
+            osInfo.append("SecurityPatchLevel: ${Build.VERSION.SECURITY_PATCH}")
+
+            return osInfo.toString()
+        }
+
         // 切换前需要更改当前的消息索引；
         fun beforeSwitchToChat(fid:Long, isP2p:Boolean){
             if (isP2p){
@@ -118,7 +179,7 @@ class SdkGlobalData {
                     return chatTopicList[sessionId]!!
             }
 
-            val t = addNewTopic(friend)
+            val t = addNewP2pTopic(friend)
             ChatSessionManager.getSession(friend.id)
             return t
         }
@@ -138,7 +199,7 @@ class SdkGlobalData {
                 f.nick = "正在查询.."
                 f.name = "正在查询.."
                 val t = getTopic(f)
-                MsgEncocder.sendFriendFindMessage("", "id")
+                MsgEncocder.sendFriendFindMessage("id", fid.toString())
                 return t
             }
 
@@ -152,7 +213,7 @@ class SdkGlobalData {
         // 这里如果是允许提醒，发出声音
         fun updateTopic(msg:MessageContent){
             if (msg.isP2p){
-                val fid = msg.userId
+                val fid = msg.tId
                 synchronized(chatTopicList){
                     if (!chatTopicList.containsKey(fid)){
                         val t = Topic(fid, 0, 0, MsgOuterClass.ChatType.ChatTypeP2P.number, 1, msg.nick, msg.iconUrl)
@@ -162,7 +223,8 @@ class SdkGlobalData {
                     chatTopicList[fid]!!.lastMsg = msg
                 }
             }else{
-                val gid = msg.gid
+                val gid = msg.tId
+                // todo
             }
 
             // 收到消息了，自然要更新会话界面；
@@ -170,7 +232,7 @@ class SdkGlobalData {
         }
 
 
-        fun addNewTopic(f: User):Topic{
+        fun addNewP2pTopic(f: User):Topic{
             val t = Topic(f.id, 0, 0, MsgOuterClass.ChatType.ChatTypeP2P.number, 1, f.nick, f.icon)
             addNewTopic(t, true)
             return t
@@ -198,7 +260,7 @@ class SdkGlobalData {
         }
 
         // 查询所有用户的信息的时候，返回数据已经保存数据库了，这个时候还是应该更新TOPIC里面的数据
-        private fun updateTopicAndChatSession(friend :User){
+        private fun updateP2pTopicAndChatSession(friend :User){
             synchronized(chatTopicList){
                 if (chatTopicList.containsKey(friend.id)){
                     val topic = chatTopicList[friend.id]
@@ -244,6 +306,11 @@ class SdkGlobalData {
             userCallBackManager.invokeOnEventCallbacks(MsgEventType.SEARCH_FRIEND_RET,
                 0, 0, 0L, mapOf("result"  to result, "status" to status ) )
 
+            for (friend in ret){
+                updateP2pTopicAndChatSession(friend)
+            }
+
+
             // 关键：用 IO 子线程执行编码操作，主线程不阻塞
             GlobalScope.launch(Dispatchers.IO) {
                 for (user in ret) {
@@ -270,7 +337,7 @@ class SdkGlobalData {
 
                 // 更新数据库
                 UserDbHelper.deleteFromFollows(friend.id)
-                updateTopicAndChatSession(friend)
+                updateP2pTopicAndChatSession(friend)
             }
 
 
@@ -343,7 +410,7 @@ class SdkGlobalData {
                 }
 
                 UserDbHelper.insertFollow(friend.id, friend.nick)
-                updateTopicAndChatSession(friend)
+                updateP2pTopicAndChatSession(friend)
             }
 
             var b  = false
@@ -373,7 +440,7 @@ class SdkGlobalData {
 
                 UserDbHelper.insertOrUpdateUser(friend)
                 UserDbHelper.insertFan(friend.id, friend.nick)
-                updateTopicAndChatSession(friend)
+                updateP2pTopicAndChatSession(friend)
             }
 
             var b  = false
@@ -457,9 +524,18 @@ class SdkGlobalData {
         }
 
         fun debugClean(){
-            TopicDbHelper.deleteFromPTopic(0)
-            TopicDbHelper.deleteFromPTopic(10006)
-            TopicDbHelper.deleteFromPTopic()
+
+//            TopicDbHelper.clearPChatData(10006)
+//            TopicDbHelper.clearPChatData()
+            try {
+                TopicDbHelper.dropPChatTopic(10006)
+                TopicDbHelper.dropPChatTopic(10001)
+                TopicDbHelper.dropPChatTable()
+                TopicDbHelper.deleteFromPTopic(10001)
+            }catch (e:Exception){
+                Log.e("Sdk", e.toString())
+            }
+
         }
 
         // 登录成功后操作
@@ -488,6 +564,9 @@ class SdkGlobalData {
                         chatTopicList[t.tid] = t
                         if (SdkGlobalData.currentChatFid == 0L){
                             SdkGlobalData.currentChatFid = t.tid
+                        }
+                        if (t.icon== "" || t.title == ""){
+                            MsgEncocder.sendFriendFindMessage("id", t.tid.toString())
                         }
                     }
                     for (t in gTopics){
@@ -534,10 +613,7 @@ class SdkGlobalData {
                         }
                     }
                 }
-
             }
-
-
 
             // 向服务器申请重新更新好友列表
             MsgEncocder.sendListFriend("follows", 10000)
@@ -548,9 +624,6 @@ class SdkGlobalData {
             // 申请同步数据消息
             try {
                 // for Test
-                //TopicDbHelper.clearPChatData(10006)
-                //TopicDbHelper.clearPChatData()
-
                 synchronized(chatTopicList){
                     ChatSessionManager.loadMessageOnLogin(chatTopicList)
                 }
@@ -558,65 +631,8 @@ class SdkGlobalData {
                 Log.e("SdkGlobalData", e.toString())
             }
 
-
         }
 
-        fun nextId():Long{
-            if (BaseDb.getInstance() == null){
-                return msgId.addAndGet(1)
-            }
-            else{
-                return SeqDbHelper.getNextSeq()
-            }
-        }
 
-        // TODO: 设备唯一编码，用于同一个账户的不同终端
-        fun generateUniqueDeviceId(): String {
-            // 获取设备的唯一信息
-            val deviceInfo = StringBuilder()
-
-            // 添加设备信息
-            deviceInfo.append("Manufacturer: ${Build.MANUFACTURER}, ")
-            deviceInfo.append("Model: ${Build.MODEL}, ")
-            deviceInfo.append("Fingerprint: ${Build.FINGERPRINT}, ")
-            val androidId = Settings.Secure.getString(context!!.contentResolver, Settings.Secure.ANDROID_ID)
-            deviceInfo.append("AndroidId: $androidId, ")
-
-            // 使用 CRC64 计算设备的唯一 ID
-            val deviceInfoBytes = deviceInfo.toString().toByteArray()
-            val crc64Value = CRC64.crc64(deviceInfoBytes)
-
-            // 将 CRC64 值转为十六进制字符串
-            return crc64ToHex(crc64Value)
-        }
-
-        fun crc64ToHex(crc64Value: Long): String {
-            return String.format("%016X", crc64Value)
-        }
-
-        // OS Version: 10, SDK Version: 29, OS Code Name: Q, OS: google, Build ID: QKQ1.190828.002, Security Patch Level: 2020-10-05
-        fun getOSInfo(): String {
-            val osInfo = StringBuilder()
-
-            // Android 版本
-            osInfo.append("OSVersion: ${Build.VERSION.RELEASE}, ")
-
-            // SDK 版本
-            osInfo.append("SDKVersion: ${Build.VERSION.SDK_INT}, ")
-
-            // 系统版本号
-            osInfo.append("OSCodeName: ${Build.VERSION.CODENAME}, ")
-
-            // 操作系统类型（比如 `android`）
-            osInfo.append("OS: ${Build.BRAND}, ")
-
-            // 系统构建版本
-            osInfo.append("BuildID: ${Build.ID}, ")
-
-            // 系统版本的安全补丁等级
-            osInfo.append("SecurityPatchLevel: ${Build.VERSION.SECURITY_PATCH}")
-
-            return osInfo.toString()
-        }
     }
 }

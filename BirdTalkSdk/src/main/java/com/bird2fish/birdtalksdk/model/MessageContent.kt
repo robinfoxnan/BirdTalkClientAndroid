@@ -9,7 +9,8 @@ import com.bird2fish.birdtalksdk.uihelper.TextHelper
 class MessageContent(
     var msgId : Long,
     var sendId:Long,
-    val userId: Long,         // 用户的唯一ID
+    var tId:Long,             // 这里是对方的好友的ID，或者群组的ID
+    val userId: Long,         // 这里是发言的人
     val nick: String,           // 用户的昵称
     var iconUrl: String?,       // 用户图标的URL，可以为空
     val userStatus: UserStatus,      // 用户的状态，枚举类型
@@ -35,7 +36,7 @@ class MessageContent(
     var tm1:Long =0L,
     var tm2:Long =0L,
     var tm3:Long  = 0L,
-    var gid:Long = 0L,
+
 
 
 ) {
