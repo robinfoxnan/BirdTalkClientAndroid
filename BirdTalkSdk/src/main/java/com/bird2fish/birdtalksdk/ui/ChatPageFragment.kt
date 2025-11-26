@@ -179,7 +179,6 @@ class ChatPageFragment : Fragment() , StatusCallback {
         // 新消息来了,
         else if (eventType == MsgEventType.MSG_COMING){
             refreshData(true)
-            scrollToEnd()
         }
         // 历史数据
         else if (eventType == MsgEventType.MSG_HISTORY){
@@ -331,11 +330,6 @@ class ChatPageFragment : Fragment() , StatusCallback {
         }
     }
 
-    // 代码触发滚动到最后一项
-    fun scrollToEnd() {
-        isScrollByCode = true // 标记为代码触发
-        this.mRecyclerView?.smoothScrollToPosition(this.mMessagesAdapter!!.itemCount - 1)
-    }
 
     // 外部调用：设置RecyclerView的滚动监听，用于检测可见项
     fun setupScrollListener(recyclerView: RecyclerView) {
@@ -346,7 +340,10 @@ class ChatPageFragment : Fragment() , StatusCallback {
 
                 // ✅ 当滚动停止时，标记可见消息为已读
                 if (newState == RecyclerView.SCROLL_STATE_IDLE) {
-                    markVisibleItemsAsRead(recyclerView)
+                    // 手动滚动才能设置这个
+                    if (!isScrollByCode) {
+                        markVisibleItemsAsRead(recyclerView)
+                    }
                 }
 
                 // ✅ 检查是否需要加载更多（可按需启用）
@@ -410,6 +407,7 @@ class ChatPageFragment : Fragment() , StatusCallback {
     }
 
 
+    // 代码触发滚动到最后一项
     private fun scrollToBottom(smooth: Boolean) {
         isScrollByCode = true
         if (mMessagesAdapter != null && mMessagesAdapter!!.itemCount > 0)

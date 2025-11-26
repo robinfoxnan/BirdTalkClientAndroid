@@ -525,8 +525,8 @@ class SdkGlobalData {
 
         fun debugClean(){
 
-//            TopicDbHelper.clearPChatData(10006)
-//            TopicDbHelper.clearPChatData()
+//           TopicDbHelper.clearPChatData(10006)
+//          TopicDbHelper.clearPChatData()
             try {
                 TopicDbHelper.dropPChatTopic(10006)
                 TopicDbHelper.dropPChatTopic(10001)
@@ -543,7 +543,7 @@ class SdkGlobalData {
         fun initLoad(uid:Long){
             BaseDb.changeToDB(this.context, uid.toString())
 
-            //debugClean()
+//            debugClean()
 
             if (BaseDb.getInstance() == null) {
                 Log.e(TAG, "BaseDb.changeToDB error")
