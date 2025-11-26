@@ -1,6 +1,5 @@
 package com.bird2fish.birdtalksdk.ui
 
-import FullscreenImageDialog
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Bitmap
@@ -34,7 +33,6 @@ import androidx.appcompat.content.res.AppCompatResources
 import androidx.appcompat.view.ActionMode
 import androidx.appcompat.widget.AppCompatImageButton
 import androidx.appcompat.widget.AppCompatImageView
-import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.bird2fish.birdtalksdk.MsgEventType
 import com.bird2fish.birdtalksdk.R
@@ -813,10 +811,15 @@ class ChatPageAdapter(private val dataList: List<MessageContent>) : RecyclerView
 
             //Toast.makeText(this@ChatPageAdapter.fragment!!.requireContext(), "image click", Toast.LENGTH_SHORT).show()
 
+            var fileName = data["name"] as String?
+            if (fileName == null){
+                fileName = ""
+            }
+
             val ref = data["ref"]
             if (ref != null){
                 val url = TextHelper.toAbsoluteURL(ref as String)
-                val dialog = FullscreenImageDialog(this@ChatPageAdapter.fragment!!.requireContext(), null, url)
+                val dialog = FullscreenImageDialog(this@ChatPageAdapter.fragment!!.requireContext(), fileName, null, url)
                 dialog.show()
                 return true
             }
@@ -830,7 +833,7 @@ class ChatPageAdapter(private val dataList: List<MessageContent>) : RecyclerView
                 ) else (imgValue as ByteArray?)!!
                 bmpPreview = BitmapFactory.decodeByteArray(bits, 0, bits.size)
                 if (bmpPreview != null){
-                    val dialog = FullscreenImageDialog(this@ChatPageAdapter.fragment!!.requireContext(), bmpPreview, null)
+                    val dialog = FullscreenImageDialog(this@ChatPageAdapter.fragment!!.requireContext(), fileName, bmpPreview, null)
                     dialog.show()
                 }
             }

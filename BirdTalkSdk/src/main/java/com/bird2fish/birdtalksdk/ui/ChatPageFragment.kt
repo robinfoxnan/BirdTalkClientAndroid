@@ -232,7 +232,7 @@ class ChatPageFragment : Fragment() , StatusCallback {
                     mMessagesAdapter!!.notifyDataSetChanged()
                     // 数据更新
                     //mMessagesAdapter?.notifyItemChanged(index)
-
+                    isScrollByCode = true
                     mRecyclerView!!.post {
                         if (!bEnd){
                             scrollToTop(true)
@@ -341,9 +341,10 @@ class ChatPageFragment : Fragment() , StatusCallback {
                 // ✅ 当滚动停止时，标记可见消息为已读
                 if (newState == RecyclerView.SCROLL_STATE_IDLE) {
                     // 手动滚动才能设置这个
-                    if (!isScrollByCode) {
+                    if (false == isScrollByCode) {
                         markVisibleItemsAsRead(recyclerView)
                     }
+                    isScrollByCode = false
                 }
 
                 // ✅ 检查是否需要加载更多（可按需启用）
@@ -355,12 +356,12 @@ class ChatPageFragment : Fragment() , StatusCallback {
 
             override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
                 // ✅ 避免由代码触发的滚动重复处理
-                if (!isScrollByCode) {
-                    super.onScrolled(recyclerView, dx, dy)
-                    // 若想实时标记已读可在此处调用 markVisibleItemsAsRead(recyclerView)
-                }
-
-                isScrollByCode = false
+//                if (!isScrollByCode) {
+//                    super.onScrolled(recyclerView, dx, dy)
+//                    // 若想实时标记已读可在此处调用 markVisibleItemsAsRead(recyclerView)
+//                }
+//
+//                isScrollByCode = false
             }
         })
     }

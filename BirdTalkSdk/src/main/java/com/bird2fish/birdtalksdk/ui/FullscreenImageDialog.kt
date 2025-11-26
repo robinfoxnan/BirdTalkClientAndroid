@@ -1,23 +1,32 @@
+package com.bird2fish.birdtalksdk.ui
+
 import android.app.Dialog
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Matrix
 import android.graphics.drawable.BitmapDrawable
-import android.net.Uri
+import android.media.MediaScannerConnection
 import android.os.Bundle
+import android.os.Environment
+import android.text.TextUtils
+import android.util.Log
 import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.ScaleGestureDetector
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewTreeObserver
+import android.widget.Button
 import android.widget.ImageView
+import android.widget.Toast
 import androidx.core.view.GestureDetectorCompat
 import com.bird2fish.birdtalksdk.R
 import com.squareup.picasso.Picasso
+import java.io.File
+import java.io.FileOutputStream
 import java.net.URL
 
-class FullscreenImageDialog(context: Context, private val bitmap: Bitmap?, val uri: URL?) : Dialog(context) {
+class FullscreenImageDialog(context: Context, val fileName :String, private val bitmap: Bitmap?, val uri: URL?) : Dialog(context) {
 
     private lateinit var imageView: ImageView
     private lateinit var scaleDetector: ScaleGestureDetector
@@ -52,6 +61,40 @@ class FullscreenImageDialog(context: Context, private val bitmap: Bitmap?, val u
         imageView.imageMatrix = matrix
     }
 
+    fun saveImageToLocal(context: Context, bitmap: Bitmap) {
+        synchronized(this) {
+            try {
+                var fileNameLocal = "IMG_" + System.currentTimeMillis() + ".jpg"
+                if (this.fileName != null && !TextUtils.isEmpty(this.fileName)){
+                    fileNameLocal = fileName
+                }
+
+                // 兼容早期安卓，优先保存在 Pictures 目录
+                val picturesDir = Environment.getExternalStoragePublicDirectory(
+                    Environment.DIRECTORY_PICTURES
+                )
+                val file = File(picturesDir, fileNameLocal)
+
+                val fos = FileOutputStream(file)
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 90, fos)
+                fos.flush()
+                fos.close()
+
+                Log.d("SAVE", "✅ 保存成功: $file")
+                Toast.makeText(context, "保存成功: ${file.absolutePath}", Toast.LENGTH_LONG).show()
+
+                // 让相册立刻可见（MediaScanner）
+                MediaScannerConnection.scanFile(context, arrayOf(file.path), null) { path, uri ->
+                    Log.d("SAVE", "📷 触发相册刷新: $path -> $uri")
+                }
+
+            } catch (e: Exception) {
+                Log.e("SAVE", "❗ 保存失败: ${e.message}")
+            }
+        }
+    }
+
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.fragment_dialog_image)
@@ -73,6 +116,20 @@ class FullscreenImageDialog(context: Context, private val bitmap: Bitmap?, val u
             params.y = 0
             attributes = params
         }
+
+        val saveBtn = findViewById<Button>(R.id.saveBtn)
+        saveBtn.setOnClickListener {
+            val drawable = imageView.drawable
+            if (drawable == null) {
+                Log.e("SAVE", "❗ ImageView 里没有图片")
+                return@setOnClickListener
+            }
+
+            // 将 ImageView 里的内容取成 Bitmap
+            val bitmap = (drawable as BitmapDrawable).bitmap
+            saveImageToLocal(this.context, bitmap)
+        }
+
 
         imageView = findViewById(R.id.imageView)
 

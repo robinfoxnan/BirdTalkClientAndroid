@@ -16,6 +16,7 @@ import com.bird2fish.birdtalksdk.net.WebSocketClient
 import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass
 import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass.ChatMsgType
 import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass.ChatType
+import com.bird2fish.birdtalksdk.uihelper.RingPlayer
 import com.bird2fish.birdtalksdk.uihelper.TextHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
@@ -218,14 +219,27 @@ class ChatSession (val sessionId:Long)
 
     fun checkResendOrFail(): Boolean {
 
+        Log.d("ChatSession", "检查需要重发的条目n=${msgSendingList.size}")
         var list = LinkedList<Long>()
         var bUpdate = false
         synchronized(msgSendingList){
             for (sid in msgSendingList.keys){
                 val tmNow = System.currentTimeMillis()
                 val msg = msgSendingList[sid]!!
+                if (msg.msgStatus == MessageStatus.UPLOADING){
+                    // 如果在上传啥也不需要做
+                    continue
+                }
+
+
                 if ( msg.msgStatus != MessageStatus.SENDING
                     && msg.msgStatus != MessageStatus.UPLOADING){
+                    list.add(sid)
+                    continue
+                }
+
+                // 如果不相等，说明服务器给了回执
+                if (msg.sendId != msg.msgId){
                     list.add(sid)
                     continue
                 }
@@ -234,11 +248,11 @@ class ChatSession (val sessionId:Long)
                     msg.msgStatus = MessageStatus.FAIL
                     bUpdate = true
                     list.add(sid)
-                    Log.d("ChatSession", "timeout msg.....${msg.msgId}")
+                    Log.d("ChatSession", "超时了.....${msg.msgId},  ${msg.sendId}")
                 }else{
                     msg.tmResend = System.currentTimeMillis()
                     ChatSessionManager.sendMsgContent(sid, msg)
-                    Log.d("ChatSession", "resend msg.....${msg.msgId}")
+                    Log.d("ChatSession", "重发送消息.....${msg.msgId},  ${msg.sendId}")
                 }
             }
         }
@@ -362,7 +376,20 @@ class ChatSession (val sessionId:Long)
 
         // 只要有回执了，就删除，不再重发了
         synchronized(msgSendingList){
-            msgSendingList.remove(sendId)
+            val v = msgSendingList.remove(sendId)
+            if (v != null){
+                Log.d("删除了程序列表中的都条目 sendId:", v.sendId.toString())
+            }else{
+                //Log.d("删除时候出错了，sendId=", sendId.toString())
+            }
+
+            val v1 = msgSendingList.remove(msgId)
+            if (v1 != null){
+                Log.d("删除了程序列表中的都条目 msgId:", msgId.toString())
+            }else{
+                //Log.d("删除时候出错了，msgId=", msgId.toString())
+            }
+            Log.d("剩余重发条目 n:", msgSendingList.size.toString())
         }
         // 这里必须使用一个原子操作，防止服务回执与用户回执顺序交错，或者同时到达
         synchronized(msgList) {
@@ -603,6 +630,7 @@ object ChatSessionManager {
             if (msg.msgType == ChatMsgType.TEXT) {
                 MsgEncocder.sendChatMsg(
                     msg.msgId,
+                    msg.sendId,
                     msg.tId,
                     chatType,
                     ChatMsgType.TEXT,
@@ -612,6 +640,7 @@ object ChatSessionManager {
             } else {
                 MsgEncocder.sendChatMsg(
                     msg.msgId,
+                    msg.sendId,
                     msg.tId,
                     chatType,
                     msg.msgType,
@@ -692,7 +721,7 @@ object ChatSessionManager {
                 this.uploadingMap[sendId] = msg
             }
             // 异步上传
-            Session.uploadSmallFile(context, uri,  tid, sendId)
+            msg.fileHashCode = Session.uploadFileChunk(context, uri,  tid, sendId, 0, "")
 
             // 先写数据库,更新到发送表
             val msgData = TextHelper.MsgContentToDbMsg(msg)
@@ -921,7 +950,7 @@ object ChatSessionManager {
         // 如果是图片
         if (hasImage(draftInMsg)){
             //draft.insertImage(0,"image/jpeg", null, 884, 535, "",
-            draft.insertImage(0, msg!!.mime, null, 0, 0, "",
+            draft.insertImage(0, msg!!.mime, null, 0, 0, fileName,
                 URI(fullUrl), URI(fullUrl), 0)
 
             val txt = TextHelper.serializeDrafty(draft)
@@ -1043,6 +1072,8 @@ object ChatSessionManager {
         // 通知界面更新消息，已经保存处理完了
         SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(MsgEventType.MSG_COMING, chatMsg.msgType.number,
             chatMsg.msgId, chatMsg.fromId, resultMap)
+
+        RingPlayer.playNotifyRing(SdkGlobalData.context!!)
         return msg!!
     }
 

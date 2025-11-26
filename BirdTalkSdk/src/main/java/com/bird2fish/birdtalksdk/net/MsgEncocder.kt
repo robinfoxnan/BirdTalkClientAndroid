@@ -1373,14 +1373,14 @@ class MsgEncocder {
         }
 
         // 发送消息
-        fun sendChatMsg(msgId:Long, tid: Long, chatType:ChatType, dataType:ChatMsgType, txt:String, refMsgId:Long){
+        fun sendChatMsg(msgId:Long, sendId:Long, tid: Long, chatType:ChatType, dataType:ChatMsgType, txt:String, refMsgId:Long){
             val timestamp = System.currentTimeMillis()
             val chatMsg = MsgChat.newBuilder()
 
 
             // 注意，这里的msgId 在服务器应答时候会变为雪花算法指定的消息，sendId还是自己指定的编号
             chatMsg.msgId = msgId   // 这个会变
-            chatMsg.sendId = msgId  // 这个回来时候不变
+            chatMsg.sendId = sendId  // 这个回来时候不变
 
             chatMsg.chatType = chatType
             chatMsg.msgType = dataType
