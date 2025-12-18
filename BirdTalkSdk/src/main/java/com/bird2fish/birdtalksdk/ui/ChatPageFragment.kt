@@ -75,6 +75,7 @@ import com.bird2fish.birdtalksdk.widgets.WaveDrawable
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import java.io.File
 import java.io.FileNotFoundException
+import java.io.FileOutputStream
 import java.io.IOException
 import java.net.URI
 import java.util.LinkedList
@@ -1346,6 +1347,38 @@ class ChatPageFragment : Fragment() , StatusCallback {
         }
     }
 
+
+
+
+    // 保存为本地文件
+    // /data/data/your.package/files/audio/voice_1700000000.m4a
+    @Throws(IOException::class)
+    fun saveM4AToLocal(
+        context: Context,
+        audioBytes: ByteArray,
+        fileName: String
+    ): File {
+
+        require(audioBytes.isNotEmpty()) { "audioBytes is empty" }
+
+        val realName = if (fileName.endsWith(".m4a")) fileName else "$fileName.m4a"
+
+        val dir = File(context.filesDir, "audio")
+        if (!dir.exists()) {
+            dir.mkdirs()
+        }
+
+        val audioFile = File(dir, realName)
+
+        FileOutputStream(audioFile).use { fos ->
+            fos.write(audioBytes)
+            fos.flush()
+        }
+
+        return audioFile
+    }
+
+
     // 发送语音
     private fun sendAudio(activity: AppCompatActivity?) {
         if (activity == null || activity.isFinishing || activity.isDestroyed) {
@@ -1360,6 +1393,11 @@ class ChatPageFragment : Fragment() , StatusCallback {
 
         val preview = mAudioSampler!!.obtain(96)
 
+        // 保证录音文件是存在的
+        if (mAudioRecord == null){
+            TextHelper.showToast(requireContext(), "audio record error")
+            return
+        }
 
         val bits = mAudioRecord?.readBytes()
         var sz = 0
@@ -1381,7 +1419,7 @@ class ChatPageFragment : Fragment() , StatusCallback {
             "",
             null, // URI("https://lx-sycdn.kuwo.cn/c7aff93e02882b90b34e8f45387b4436/6755728e/resource/n2/3/57/2049851017.mp3?")
             sz.toLong())
-        ChatSessionManager.sendAudioOut(this.mChatIdLong, requireContext(), draft)
+        ChatSessionManager.sendAudioOut(this.mChatIdLong, requireContext(), draft, bits, mAudioRecord!!)
 
     }
 

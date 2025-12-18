@@ -6,10 +6,12 @@ import android.content.Context
 import android.net.Uri
 import android.text.TextUtils
 import android.util.Log
+import androidx.core.net.toUri
 import com.bird2fish.birdtalksdk.MsgEventType
 import com.bird2fish.birdtalksdk.SdkGlobalData
 import com.bird2fish.birdtalksdk.db.TopicDbHelper
 import com.bird2fish.birdtalksdk.db.UserDbHelper
+import com.bird2fish.birdtalksdk.model.Drafty.Entity
 import com.bird2fish.birdtalksdk.net.MsgEncocder
 import com.bird2fish.birdtalksdk.net.Session
 import com.bird2fish.birdtalksdk.net.WebSocketClient
@@ -21,6 +23,7 @@ import com.bird2fish.birdtalksdk.uihelper.TextHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
+import java.io.File
 import java.io.FileNotFoundException
 import java.net.URI
 import java.util.HashMap
@@ -826,8 +829,18 @@ object ChatSessionManager {
 
     }
 
+    // 检测音频数据BASE64是否是超过10K
+    fun isBase64Over10KB(audioBytes: ByteArray?): Boolean {
+        if (audioBytes == null) return false
+
+        // Base64 length = ceil(n / 3) * 4
+        val base64Length = ((audioBytes.size + 2) / 3) * 4
+
+        return base64Length > 10 * 1024
+    }
+
     // 发送语音
-    fun sendAudioOut(sessionId:Long, context: Context, draft:Drafty):Long{
+    fun sendAudioOut(sessionId:Long, context: Context, draft:Drafty, bits: ByteArray?, mAudioFile:File):Long{
 
         val sendId = SdkGlobalData.nextId()
         val chatSession = getSession(sessionId)
@@ -836,24 +849,61 @@ object ChatSessionManager {
         val tid = if (sessionId > 0) sessionId else -sessionId
         val me = SdkGlobalData.selfUserinfo.id
 
-        val msg = MessageContent(sendId, sendId, tid, me,
-            chatSession.sessionTitle, chatSession.sessionIcon,
-            UserStatus.ONLINE, MessageStatus.SENDING,false, false, false, "", draft)
-        msg.msgType = ChatMsgType.VOICE
-        val txt = TextHelper.serializeDrafty(draft)
-        msg.contentOut = txt
-        //Log.d("send audio drafty", txt)
-        //
 
-        // 2）加入列表
-        chatSession?.addMessageNewOut(msg)
 
-        // 3）发送到服务器
-        // 3.1)写入数据库
-        this.sendMsgContent(sessionId, msg)
+        // 如果是太长，远端服务器无法写库，所以大一点需要上传文件
+        if (isBase64Over10KB(bits)){
 
-        // 4 设置最新消息
-        SdkGlobalData.updateTopic(msg)
+            val msg = MessageContent(sendId, sendId, tid, me,
+                chatSession.sessionTitle, chatSession.sessionIcon,
+                UserStatus.ONLINE, MessageStatus.UPLOADING, false, false, false,
+                "", draft,  System.currentTimeMillis(), mAudioFile.toUri(), "audio/mp4")
+            msg.fileSz = bits!!.size.toLong()
+            msg.msgType = ChatMsgType.VOICE
+
+            //val (hasAttach, sz1) = hasAttachment(draft)
+            //Log.d("SendFile", "文件大小为：${sz1}")
+
+            // 得保存到临时列表，等待上传结束
+            synchronized(this.uploadingMap){
+                this.uploadingMap[sendId] = msg
+            }
+            // 异步上传
+            //Session.uploadSmallFile(context, uri,  uId, msgId)
+            msg.fileHashCode = Session.uploadFileChunk(context, mAudioFile.toUri(),  tid, sendId, 0, "")
+
+            // 先写数据库,更新到发送表
+            val msgData = TextHelper.MsgContentToDbMsg(msg)
+
+            if (msg.isP2p){
+                TopicDbHelper.insertPChatMsg(msgData)
+            }else{
+                TopicDbHelper.insertGChatMsg(msgData)
+            }
+
+            // 添加到界面列表
+            chatSession!!.addMessageNewOut(msg)
+        }else{
+
+            val msg = MessageContent(sendId, sendId, tid, me,
+                chatSession.sessionTitle, chatSession.sessionIcon,
+                UserStatus.ONLINE, MessageStatus.SENDING,false, false, false, "", draft)
+            msg.msgType = ChatMsgType.VOICE
+            val txt = TextHelper.serializeDrafty(draft)
+            msg.contentOut = txt
+            //Log.d("send audio drafty", txt)
+            //
+            // 2）加入列表
+            chatSession?.addMessageNewOut(msg)
+
+            // 3）发送到服务器
+            // 3.1)写入数据库
+            this.sendMsgContent(sessionId, msg)
+
+            // 4 设置最新消息
+            SdkGlobalData.updateTopic(msg)
+
+        }
         return  sendId
     }
 
@@ -919,6 +969,21 @@ object ChatSessionManager {
         return false
     }
 
+    fun hasAudio(drafty: Drafty?) : Pair<Boolean, Entity?>{
+        if (drafty?.ent == null) {
+            return Pair(false, null)
+        }
+
+        for (entity in drafty.ent) {
+            if (entity?.tp == null) continue
+            if (entity.tp.equals("AU") ) {
+                return Pair(true, entity)
+            }
+        }
+        return Pair(false, null)
+    }
+
+
     // 上传结束了，这个时候需要发送消息
     fun onUploadFileFinish(msgId:Long, result:String, detail:String, fileName:String, uuidName:String){
 
@@ -963,33 +1028,63 @@ object ChatSessionManager {
             SdkGlobalData.updateTopic(msg!!)
             return
         }
-
-        // 解构返回值
-        val (hasAttach, sz) = hasAttachment(draftInMsg)
-
-        if (hasAttach) {
-
-            setAttachmentProcess(draftInMsg, fileName, 100)
-
-            // 调用 attachFile 时传入文件大小
-            draft.attachFile(msg!!.mime, fileName, fullUrl, sz ?: 0L, msgId, SdkGlobalData.selfUserinfo.id)
-
-            // 序列化 Drafty
-            val txt = TextHelper.serializeDrafty(draft)
-            Log.d("send image or file drafty", txt)
-
-            // 发送消息
-            msg!!.contentOut = txt
-            this.sendMsgContent(chatSession.sessionId, msg!!)
-
-            // 4 设置最新消息
-            SdkGlobalData.updateTopic(msg!!)
-
-            return
-        }
-
         // 如果是大的语音片
+        else{
+            val (hasAudio, entity) = hasAudio(draftInMsg)
+            if (hasAudio)
+            {
+                val duration = entity?.data?.get("duration") as? Int ?: 0
+                val preview = entity?.data?.get("preview") as?  ByteArray ?:null
+                draft.insertAudio(
+                    0,
+                    "audio/mp4",
+                    null,
+                    preview,
+                    duration,
+                    uuidName,
+                    URI(fullUrl), // URI("https://lx-sycdn.kuwo.cn/c7aff93e02882b90b34e8f45387b4436/6755728e/resource/n2/3/57/2049851017.mp3?")
+                    msg!!.fileSz)
 
+                // 序列化 Drafty
+                val txt = TextHelper.serializeDrafty(draft)
+                Log.d("send audio with file drafty", txt)
+
+                // 发送消息
+                msg!!.contentOut = txt
+                this.sendMsgContent(chatSession.sessionId, msg!!)
+
+                // 4 设置最新消息
+                SdkGlobalData.updateTopic(msg!!)
+
+                return
+            }
+
+
+        // 文件类型的
+
+            // 解构返回值
+            val (hasAttach, sz) = hasAttachment(draftInMsg)
+            if (hasAttach) {
+
+                setAttachmentProcess(draftInMsg, fileName, 100)
+
+                // 调用 attachFile 时传入文件大小
+                draft.attachFile(msg!!.mime, fileName, fullUrl, sz ?: 0L, msgId, SdkGlobalData.selfUserinfo.id)
+
+                // 序列化 Drafty
+                val txt = TextHelper.serializeDrafty(draft)
+                Log.d("send image or file drafty", txt)
+
+                // 发送消息
+                msg!!.contentOut = txt
+                this.sendMsgContent(chatSession.sessionId, msg!!)
+
+                // 4 设置最新消息
+                SdkGlobalData.updateTopic(msg!!)
+
+                return
+            }
+        }
     }
 
     // 如果上传文件错误了, 这个函数还没有测试过

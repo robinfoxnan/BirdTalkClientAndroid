@@ -11,7 +11,9 @@ import android.util.Log
 import android.widget.Toast
 import java.io.IOException
 import com.bird2fish.birdtalksdk.R
+import com.bird2fish.birdtalksdk.SdkGlobalData
 import com.bird2fish.birdtalksdk.format.FullFormatter
+import com.bird2fish.birdtalksdk.net.AudioDownloader
 import com.bird2fish.birdtalksdk.uihelper.TextHelper
 
 // Actions to take in setOnPreparedListener, when the player is ready.
@@ -33,7 +35,7 @@ enum class PlayerReadyAction {
 class MediaControl {
     private var mAudioManager: AudioManager? = null
     private var mAudioPlayer: MediaPlayer? = null
-    private var mPlayingAudioSeq = -1
+    private var mPlayingAudioSeq:Long = -1L
     private var mAudioControlCallback: FullFormatter.AudioControlCallback? = null
     private var mReadyAction = PlayerReadyAction.NOOP
     private var mSeekTo = -1f
@@ -45,11 +47,17 @@ class MediaControl {
 
     @Synchronized
     @Throws(IOException::class)
-    fun ensurePlayerReady(seq: Int, data: Map<String, Any>, control: FullFormatter.AudioControlCallback) {
-        if (mAudioPlayer != null && mPlayingAudioSeq == seq) {
+    fun ensurePlayerReady(seq: Long, data: Map<String, Any>, control: FullFormatter.AudioControlCallback) {
+        // 2025-11-28 修复，原本希望同一个一个消息不再重复的播放，但是重新加载后，序号不是固定的，这里应该改为消息号
+        if (seq == 0L){
+            // ChatPageAdapter  line728 中如果是0说明没有获取到ID，那么需要重新初始化，否则播放会错误
+        }
+        // 如果是需要播放的与上次播放的一样，那么不需要重新初始化了，否则这里是初始化
+        else if (mAudioPlayer != null && mPlayingAudioSeq == seq) {
             mAudioControlCallback = control
             return
         }
+
 
         if (mPlayingAudioSeq > 0 && mAudioControlCallback != null) {
             mAudioControlCallback?.reset()
@@ -116,8 +124,10 @@ class MediaControl {
                 else if (valData is String){
                     val source = Base64.decode(valData, Base64.DEFAULT)
                     setDataSource(MemoryAudioSource(source))
+                    this.prepareAsync()
                 }else if (valData is ByteArray){
                     setDataSource(MemoryAudioSource(valData))
+                    this.prepareAsync()
                 }
             }else{
                 if (valRef is String){
@@ -125,28 +135,40 @@ class MediaControl {
                     //val url = tinode.toAbsoluteURL(valData)
                     val url = valRef
                     url?.let {
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                            setDataSource(mActivity!!, Uri.parse(url.toString()), TextHelper.getRequestHeaders(), null)
-                        } else {
-                            val uri = Uri.parse(url.toString()).buildUpon()
-                                //.appendQueryParameter("apikey", tinode.apiKey)
-                                .appendQueryParameter("auth", "token")
-                                //.appendQueryParameter("secret", tinode.authToken)
-                                .build()
-                            setDataSource(mActivity!!, uri)
+
+                        // 2025-12-18改动为下载后开始初始化
+                        AudioDownloader.download(SdkGlobalData.context!!, url) { result ->
+                            result.onSuccess { file ->
+                                this.setDataSource(file.absolutePath)
+                                this.prepareAsync()
+                            }
+                            result.onFailure { e->
+                                Log.w("MediaControl", "Playback error $e")
+                            }
                         }
+
+//                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+//                            setDataSource(mActivity!!, Uri.parse(url.toString()), TextHelper.getRequestHeaders(), null)
+//                        } else {
+//                            val uri = Uri.parse(url.toString()).buildUpon()
+//                                //.appendQueryParameter("apikey", tinode.apiKey)
+//                                .appendQueryParameter("auth", "token")
+//                                //.appendQueryParameter("secret", tinode.authToken)
+//                                .build()
+//                            setDataSource(mActivity!!, uri)
+//                        }
                     }
-        }
+                }
     }
 
 
-            prepareAsync()
+            //prepareAsync()
         }
     }
 
     @Synchronized
-    fun releasePlayer(seq: Int) {
-        if ((seq != 0 && mPlayingAudioSeq != seq) || mPlayingAudioSeq == -1) {
+    fun releasePlayer(seq: Long) {
+        if ((seq != 0L && mPlayingAudioSeq != seq) || mPlayingAudioSeq == -1L) {
             return
         }
 

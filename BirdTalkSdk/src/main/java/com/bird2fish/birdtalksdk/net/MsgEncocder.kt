@@ -220,9 +220,12 @@ class MsgEncocder {
             }else{
                 // "fail"
                 // 如果发送消息失败，说明对方已经删除了自己
-                if (gid == "0" && detail == "not friend")
+                if (gid == "0")
                 {
-                    SdkGlobalData.updateDeleteFan(fid)
+                    if (detail == "not friend")
+                    {
+                        SdkGlobalData.updateDeleteFan(fid)
+                    }
                     ChatSessionManager.onChatMsgReplyError(reply.fromId, reply.msgId, reply.sendId, detail)
                 }
                 SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(MsgEventType.MSG_SEND_ERROR, 0,

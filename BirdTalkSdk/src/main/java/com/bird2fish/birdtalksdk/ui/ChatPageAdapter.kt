@@ -40,6 +40,8 @@ import com.bird2fish.birdtalksdk.SdkGlobalData
 import com.bird2fish.birdtalksdk.format.FullFormatter
 import com.bird2fish.birdtalksdk.format.QuoteFormatter
 import com.bird2fish.birdtalksdk.model.ChatSessionManager
+import com.bird2fish.birdtalksdk.model.Drafty
+import com.bird2fish.birdtalksdk.model.Drafty.Entity
 import com.bird2fish.birdtalksdk.model.MessageContent
 import com.bird2fish.birdtalksdk.model.MessageStatus
 import com.bird2fish.birdtalksdk.net.FileDownloader
@@ -330,6 +332,22 @@ class ChatPageAdapter(private val dataList: List<MessageContent>) : RecyclerView
         onBindViewHolder(holder, position)
     }
 
+    // 给每个音频都设置一下消息的ID，用于播放缓存使用
+    fun setAudioSeq(drafty: Drafty?, msgId:Long) : Boolean{
+        if (drafty?.ent == null) {
+            return false
+        }
+
+        for (entity in drafty.ent) {
+            if (entity?.tp == null) continue
+            if (entity.tp.equals("AU") ) {
+                entity.putData("id", msgId)
+                return true
+            }
+        }
+        return true
+    }
+
     // 绑定数据到 ViewHolder
     override fun onBindViewHolder(holder: ChatPageViewHolder, position: Int) {
         val item = dataList[position]
@@ -383,6 +401,9 @@ class ChatPageAdapter(private val dataList: List<MessageContent>) : RecyclerView
         // 这里格式化消息
         // Normal message.
         if (item.content != null) {
+            // 设置一下，然后播放
+            setAudioSeq(item.content, item.msgId)
+
             // Disable clicker while message is processed.
             val formatter: FullFormatter = FullFormatter(
                 holder.mText,
@@ -703,7 +724,8 @@ class ChatPageAdapter(private val dataList: List<MessageContent>) : RecyclerView
                 return false
             }
 
-            val mSeqId = 1
+            // todo: 这里的序号应该为消息号
+            val mSeqId = data?.get("id") as? Long ?: 0L
             try {
                 val aca: FullFormatter.AudioClickAction = params as FullFormatter.AudioClickAction
                 if (aca.action === FullFormatter.AudioClickAction.Action.PLAY) {
