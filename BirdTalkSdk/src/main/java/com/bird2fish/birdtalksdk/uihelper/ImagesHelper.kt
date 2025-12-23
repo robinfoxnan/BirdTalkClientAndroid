@@ -93,6 +93,45 @@ public object ImagesHelper {
     var sVisibleTopic: String? = null
 
 
+    /**
+     * 保存Bitmap到文件
+     */
+    fun saveBitmapToAppDir(
+        context: Context,
+        bitmap: Bitmap,
+        dirName: String,
+        fileName: String
+    ): String? {
+        return try {
+            // 创建目录
+            val dir = File(context.getExternalFilesDir(null), dirName)
+            if (!dir.exists()) {
+                if (!dir.mkdirs()) {
+                    throw IOException("无法创建目录")
+                }
+            }
+
+            // 创建文件
+            val file = File(dir, fileName)
+            if (file.exists()) {
+                file.delete()
+            }
+
+            // 保存Bitmap
+            val outputStream = FileOutputStream(file)
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 100, outputStream)
+            outputStream.flush()
+            outputStream.close()
+
+            Log.d("缓存本地文件：",  file.absolutePath)
+            // 返回文件路径
+            file.absolutePath
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
     // 加载保存的图片文件
     fun loadBitmapFromAppDir(
         context: Context,
@@ -108,6 +147,7 @@ public object ImagesHelper {
             if (!file.exists()) {
                 return null // 文件不存在
             }
+            Log.d("加载本地文件：", fileName)
 
             // 加载并返回Bitmap
             BitmapFactory.decodeFile(file.absolutePath)

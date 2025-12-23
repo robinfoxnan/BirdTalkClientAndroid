@@ -219,9 +219,14 @@ class WebSocketClient private constructor() {
     }
 
     // 根据上传返回的文件名，按照约定，计算路径
-    fun getRemoteFilePath(remote: String): String {
+//    fun getRemoteFilePath(remote: String): String {
+//        val baseUrl = if (fileServerPath.startsWith("https")) fileServerPath else "https://$fileServerPath"
+//        return "$baseUrl/filestore/${remote.trimStart('/')}"
+//    }
+
+    fun getRemoteFilePathWithSign(sign: String, u:String): String {
         val baseUrl = if (fileServerPath.startsWith("https")) fileServerPath else "https://$fileServerPath"
-        return "$baseUrl/filestore/${remote.trimStart('/')}"
+        return return "$baseUrl/filestore/download?u=$u&sign=$sign"
     }
 
     fun clean() {

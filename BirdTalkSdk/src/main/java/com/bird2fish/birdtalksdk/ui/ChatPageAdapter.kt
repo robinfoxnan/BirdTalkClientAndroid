@@ -840,8 +840,7 @@ class ChatPageAdapter(private val dataList: List<MessageContent>) : RecyclerView
 
             val ref = data["ref"]
             if (ref != null){
-                val url = TextHelper.toAbsoluteURL(ref as String)
-                val dialog = FullscreenImageDialog(this@ChatPageAdapter.fragment!!.requireContext(), fileName, null, url)
+                val dialog = FullscreenImageDialog(this@ChatPageAdapter.fragment!!.requireContext(), fileName, null, ref as String)
                 dialog.show()
                 return true
             }

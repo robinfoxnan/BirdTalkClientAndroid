@@ -23,6 +23,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
+import android.provider.ContactsContract.CommonDataKinds.Im
 import android.provider.MediaStore
 import android.text.Editable
 import android.text.TextWatcher
@@ -140,7 +141,7 @@ class ChatPageFragment : Fragment() , StatusCallback {
     // Playback of audio recording.
     private var mAudioPlayer: MediaPlayer? = null
 
-    // Preview or audio amplitudes.
+    // 这个类主要是用来计算一个预览的波形图
     private var mAudioSampler: AudioSampler? = null
 
     private val mAudioSamplingHandler = Handler(Looper.getMainLooper())
@@ -579,6 +580,9 @@ class ChatPageFragment : Fragment() , StatusCallback {
         mRecyclerView?.layoutManager = LinearLayoutManager(context)
         mRecyclerView?.setAdapter(mMessagesAdapter);
         setupScrollListener(mRecyclerView!!)
+
+        // 关闭动画，提速
+        mRecyclerView?.itemAnimator = null
         // 刷新动作
 
         setupRefresher()
@@ -752,22 +756,78 @@ class ChatPageFragment : Fragment() , StatusCallback {
         mVisibleSendPanel = id
     }
 
+    ////////////////////////////////////////////////////////////////////////////////////////////
+    // 强制进入锁定
+//    private fun enterLockMode() {
+//        mab?.visibility = View.INVISIBLE
+//        lockFab?.visibility = View.GONE
+//        deleteFab?.visibility = View.GONE
+//        audio?.visibility = View.VISIBLE
+//
+//        playButton?.visibility = View.GONE
+//        stopButton?.visibility = View.VISIBLE
+//        setSendPanelVisible(this.requireActivity(), R.id.recordAudioPanel)
+//    }
+//
+//    // 强制取消
+//    private fun enterCancelMode() {
+//        releaseAudio(false)
+//        setSendPanelVisible(this.requireActivity(), R.id.sendMessagePanel)
+//        mab?.visibility = View.INVISIBLE
+//        lockFab?.visibility = View.GONE
+//        deleteFab?.visibility = View.GONE
+//        audio?.visibility = View.VISIBLE
+//    }
+
+
+
     // 音频相关操作的面板，这里执行各种设置
     @SuppressLint("ClickableViewAccessibility")
     private fun setupAudioForms(activity: AppCompatActivity, view: View): AppCompatImageButton {
-        // 真正用于控制录音的浮动按钮
-        val mab: MovableActionButton = view.findViewById(R.id.audioRecorder)
+
+        // 浮动按钮
+        var mab: MovableActionButton? = null
+        // 锁定
+        var lockFab : ImageView? =null
+        // 删除
+        var deleteFab: ImageView? =null
+        // 播放
+        var playButton :AppCompatImageButton? = null
+        // 暂停
+        var pauseButton :AppCompatImageButton? = null
+        // 停止
+        var stopButton :AppCompatImageButton? = null
+
+        var audio :AppCompatImageButton? = null
+
+        mab = view.findViewById(R.id.audioRecorder)
         // 浮动锁定
-        val lockFab = view.findViewById<ImageView>(R.id.lockAudioRecording)
+        lockFab = view.findViewById<ImageView>(R.id.lockAudioRecording)
         // 浮动删除
-        val deleteFab = view.findViewById<ImageView>(R.id.deleteAudioRecording)
+        deleteFab = view.findViewById<ImageView>(R.id.deleteAudioRecording)
 
         // 锁定的面板上的播放按钮
-        val playButton = view.findViewById<AppCompatImageButton>(R.id.playRecording)
+        playButton = view.findViewById<AppCompatImageButton>(R.id.playRecording)
         // 暂停
-        val pauseButton = view.findViewById<AppCompatImageButton>(R.id.pauseRecording)
+        pauseButton = view.findViewById<AppCompatImageButton>(R.id.pauseRecording)
         // 停止
-        val stopButton = view.findViewById<AppCompatImageButton>(R.id.stopRecording)
+        stopButton = view.findViewById<AppCompatImageButton>(R.id.stopRecording)
+
+        // 记录初始位置
+        var mabInitX = 0f
+        var mabInitY = 0f
+        var mabInitTranslationX = 0f
+        var mabInitTranslationY = 0f
+
+        mab.post {
+            mabInitX = mab!!.x
+            mabInitY = mab!!.y
+            mabInitTranslationX = mab.translationX
+            mabInitTranslationY = mab.translationY
+        }
+
+
+
         // ImageView 定制的带有波形的图片
         val wave = view.findViewById<ImageView>(R.id.audioWave)
         wave.background = WaveDrawable(resources, 5)
@@ -789,7 +849,7 @@ class ChatPageFragment : Fragment() , StatusCallback {
         val timerView = view.findViewById<TextView>(R.id.duration)
         val timerShortView = view.findViewById<TextView>(R.id.durationShort)
         // 加载面板的按钮
-        val audio = view.findViewById<AppCompatImageButton>(R.id.chatAudioButton)
+        audio = view.findViewById<AppCompatImageButton>(R.id.chatAudioButton)
         val visualizer: Runnable = object : Runnable {
             override fun run() {
                 if (mAudioRecorder != null) {
@@ -810,8 +870,8 @@ class ChatPageFragment : Fragment() , StatusCallback {
             }
         }
 
-        // 录音按钮设置调整位置的监测
-        mab.setConstraintChecker(object : MovableActionButton.ConstraintChecker {
+        // 按住后，浮动录音按钮设置调整位置的监测，函数设置只能竖直或者水平拖动
+        mab?.setConstraintChecker(object : MovableActionButton.ConstraintChecker {
             override fun check(
                 newPos: PointF,
                 startPos: PointF,
@@ -837,25 +897,24 @@ class ChatPageFragment : Fragment() , StatusCallback {
 
 
         // 录音按钮的点击
-        mab.setOnActionListener(object : MovableActionButton.ActionListener() {
+        mab?.setOnActionListener(object : MovableActionButton.ActionListener() {
             override fun onUp(x: Float, y: Float): Boolean {
-
                 onButtonUpStopRecord()
                 return true
             }
 
             override fun onZoneReached(id: Int): Boolean {
-                mab.performHapticFeedback(
+                mab?.performHapticFeedback(
                     if (android.os.Build.VERSION.SDK_INT > Build.VERSION_CODES.Q) {
                         if (id == ZONE_CANCEL) HapticFeedbackConstants.REJECT else HapticFeedbackConstants.CONFIRM
                     } else {
                         HapticFeedbackConstants.CONTEXT_CLICK
                     }
                 )
-                mab.visibility = View.INVISIBLE
-                lockFab.visibility = View.GONE
-                deleteFab.visibility = View.GONE
-                audio.visibility = View.VISIBLE
+                mab?.visibility = View.INVISIBLE
+                lockFab?.visibility = View.GONE
+                deleteFab?.visibility = View.GONE
+                audio?.visibility = View.VISIBLE
 
                 if (id == ZONE_CANCEL) {
                     if (mAudioRecorder != null) {
@@ -864,10 +923,11 @@ class ChatPageFragment : Fragment() , StatusCallback {
                     setSendPanelVisible(activity, R.id.sendMessagePanel)
                     releaseAudio(false)
                 } else {
-                    playButton.visibility = View.GONE
-                    stopButton.visibility = View.VISIBLE
+                    playButton?.visibility = View.GONE
+                    stopButton?.visibility = View.VISIBLE
                     setSendPanelVisible(activity, R.id.recordAudioPanel)
                 }
+
                 return true
             }
         })
@@ -907,30 +967,52 @@ class ChatPageFragment : Fragment() , StatusCallback {
                 }
 
                 // 开始录音之后，显示4个音频按钮
-                mab.setVisibility(View.VISIBLE)
-                lockFab.visibility = View.VISIBLE
-                deleteFab.visibility = View.VISIBLE
-                audio.visibility = View.INVISIBLE
-                mab.requestFocus()
+                mab?.setVisibility(View.VISIBLE)
+                // 这里要保证那个拖动按钮回到起始位置
+                mab?.post {
+                    mab?.translationX = mabInitTranslationX
+                    mab?.translationY = mabInitTranslationY
+                }
+
+                lockFab?.visibility = View.VISIBLE
+                deleteFab?.visibility = View.VISIBLE
+                audio?.visibility = View.INVISIBLE
+                mab?.requestFocus()
                 // 显示短音频面板
                 setSendPanelVisible(activity, R.id.recordAudioShortPanel)
 
                 // Cancel zone on the left.
-                val x: Int = mab.getLeft()
-                val y: Int = mab.getTop()
-                val width: Int = mab.getWidth()
-                val height: Int = mab.getHeight()
-                mab.addActionZone(
-                    ZONE_CANCEL, Rect(
-                        x - (width * 1.5).toInt(), y,
-                        x - (width * 0.5).toInt(), y + height
+                val x: Int = mabInitX.toInt()
+                val y: Int = mabInitY.toInt()
+
+                val width: Int = mab!!.getWidth()
+                val height: Int = mab!!.getHeight()
+
+                mab?.addActionZone(
+                    ZONE_CANCEL,
+                    Rect(
+                        x - (width * 2).toInt(), // 左边
+                        y - height,              // 上下都给余量
+                        x,
+                        y + height
                     )
                 )
-                // Lock zone above.
-                mab.addActionZone(
-                    ZONE_LOCK, Rect(
-                        x, y - (height * 1.5).toInt(),
-                        x + width, y - (height * 0.5).toInt()
+
+//                ↑ Lock
+//                │ ┌───────────┐
+//                │ │           │
+//                │ │           │
+//        ────────┼─┼───────────┼──→
+//         Cancel │ │   MAB     │
+//                │ └───────────┘
+//                // Lock zone above.
+                mab?.addActionZone(
+                    ZONE_LOCK,
+                    Rect(
+                        x,               // 左右给余量
+                        y - (height * 2).toInt(),// 上
+                        x + width,
+                        y
                     )
                 )
                 val motionEvent = MotionEvent.obtain(
@@ -940,22 +1022,30 @@ class ChatPageFragment : Fragment() , StatusCallback {
                     e.rawY,
                     0
                 )
-                mab.dispatchTouchEvent(motionEvent)
+                mab?.dispatchTouchEvent(motionEvent)
             }
         })
         // Ignore the warning: click detection is not needed here.
-        audio.setOnTouchListener { v: View?, event: MotionEvent ->
+        // 点击了话筒，如果长按了，就显示那个mab浮动按钮
+        audio?.setOnTouchListener { v: View?, event: MotionEvent ->
             val action = event.action  // 从 event 对象中获取触摸事件的动作类型（如按下、移动、抬起等）
-            if (mab.getVisibility() === View.VISIBLE) {
-                if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
-                    audio.isPressed = false
+            if (mab?.getVisibility() === View.VISIBLE) {
+                when (action) {
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                        // 小幅拖动不到位有个问题
+
+                    }
+                    else -> {
+                        // 继续转发给 MAB 处理拖动
+                        return@setOnTouchListener mab!!.dispatchTouchEvent(event)
+                    }
                 }
-                // 调用 mab.dispatchTouchEvent(event) 来将触摸事件转发给 mab 处理，并返回其结果。return@setOnTouchListener
-                // 用于返回到 setOnTouchListener 的上下文中
-                return@setOnTouchListener mab.dispatchTouchEvent(event)
+                true
             }
             gd.onTouchEvent(event)
         }
+
+
 
         // 如果点击了删除按钮，删除刚才录制的音频，不要了
         view.findViewById<View>(R.id.deleteRecording).setOnClickListener { v: View? ->
@@ -966,7 +1056,7 @@ class ChatPageFragment : Fragment() , StatusCallback {
         }
 
         // 播放按钮
-        playButton.setOnClickListener { v: View? ->
+        playButton?.setOnClickListener { v: View? ->
             pauseButton.visibility = View.VISIBLE
             playButton.visibility = View.GONE
             val wd: WaveDrawable = wave.background as WaveDrawable
@@ -975,7 +1065,7 @@ class ChatPageFragment : Fragment() , StatusCallback {
             mAudioPlayer!!.start()
         }
         // 暂停播放按钮，可以暂停的
-        pauseButton.setOnClickListener { v: View? ->
+        pauseButton?.setOnClickListener { v: View? ->
             playButton.visibility = View.VISIBLE
             pauseButton.visibility = View.GONE
             val wd: WaveDrawable = wave.background as WaveDrawable
@@ -984,7 +1074,7 @@ class ChatPageFragment : Fragment() , StatusCallback {
         }
 
         // 停止录制按钮
-        stopButton.setOnClickListener { v: View ->
+        stopButton?.setOnClickListener { v: View ->
            onClickStopAudioRecord()
         }
 
@@ -998,6 +1088,8 @@ class ChatPageFragment : Fragment() , StatusCallback {
 
         return audio
     }
+///////////////////////////////////////////////////////////////////////////////////////////////
+
 
     // 手动点击了停止录制按钮
     fun onClickStopAudioRecord(){
@@ -1092,7 +1184,9 @@ class ChatPageFragment : Fragment() , StatusCallback {
 
         mAudioRecorder!!.setAudioSource(MediaRecorder.AudioSource.MIC)
         mAudioRecorder!!.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
-        mAudioRecorder!!.setAudioEncodingBitRate(24000)
+        // 这里降低一下
+        //mAudioRecorder!!.setAudioEncodingBitRate(24000)
+        mAudioRecorder!!.setAudioEncodingBitRate(16000)
         mAudioRecorder!!.setAudioSamplingRate(16000)
         mAudioRecorder!!.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
 
@@ -1423,7 +1517,7 @@ class ChatPageFragment : Fragment() , StatusCallback {
 
     }
 
-    // 浏览文件后发送
+    // 浏览文件后发送文件
     private fun sendFile(uri:Uri){
         TextHelper.showToast(requireContext(), uri.toString())
 

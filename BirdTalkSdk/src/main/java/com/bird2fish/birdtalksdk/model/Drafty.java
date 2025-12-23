@@ -621,6 +621,9 @@ public class Drafty implements Serializable {
             scaleFactor = scaleFactor > 1 ? scaleFactor : 1; // 确保仅缩小图片，不放大
 
             // 按比例缩放图片
+            // todo :
+//            inSampleSize 必须是 2 的幂
+//            否则：解码结果不可控,有的手机会解得偏大
             options.inJustDecodeBounds = false;
             options.inSampleSize = (int) scaleFactor;
 
@@ -653,7 +656,7 @@ public class Drafty implements Serializable {
 
             //
             return insertImage(0, mime, byteArray, (int) (originalWidth / scaleFactor),
-                    (int) (originalHeight / scaleFactor), fName, null, localUri2URI(uri), 0);
+                    (int) (originalHeight / scaleFactor), fName, null, null, 0);
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -661,6 +664,91 @@ public class Drafty implements Serializable {
         }
 
     }
+
+    /* 2025-12-20 chatgtp5
+    核心思路（先说清楚）
+        1)完全忽略屏幕尺寸
+        2)固定缩略图最大边长
+        3)先缩像素，再压质量
+        4)兜底保证 ≤10KB
+     */
+    public Drafty insertLocalImagePreview(Context context,
+                                   ContentResolver resolver,
+                                   Uri uri,
+                                   String fName,
+                                   String mime) {
+        try {
+            final int MAX_EDGE = 128; // ⭐ IM 预览图核心参数
+            final int TARGET_MAX_BYTES = 7 * 1024; // Base64 ≈ 10KB
+
+            // 1️⃣ 只读尺寸
+            BitmapFactory.Options opts = new BitmapFactory.Options();
+            opts.inJustDecodeBounds = true;
+
+            InputStream is = resolver.openInputStream(uri);
+            BitmapFactory.decodeStream(is, null, opts);
+            if (is != null) is.close();
+
+            int ow = opts.outWidth;
+            int oh = opts.outHeight;
+
+            // 2️⃣ 计算等比缩放
+            float scale = Math.min(
+                    (float) MAX_EDGE / ow,
+                    (float) MAX_EDGE / oh
+            );
+            scale = Math.min(scale, 1f);
+
+            int tw = Math.round(ow * scale);
+            int th = Math.round(oh * scale);
+
+            // 3️⃣ 解码原图
+            opts.inJustDecodeBounds = false;
+            opts.inPreferredConfig = Bitmap.Config.RGB_565; // ⭐ 减半内存
+            is = resolver.openInputStream(uri);
+            Bitmap src = BitmapFactory.decodeStream(is, null, opts);
+            if (is != null) is.close();
+
+            // 4️⃣ 精确缩放到目标尺寸
+            Bitmap thumb = Bitmap.createScaledBitmap(src, tw, th, true);
+            if (src != thumb) src.recycle();
+
+            // 5️⃣ 压缩（兜底循环）
+            ByteArrayOutputStream bos = new ByteArrayOutputStream();
+            int quality = 65;
+
+            while (true) {
+                bos.reset();
+                thumb.compress(Bitmap.CompressFormat.JPEG, quality, bos);
+                if (bos.size() <= TARGET_MAX_BYTES || quality <= 40) {
+                    break;
+                }
+                quality -= 5;
+            }
+
+            byte[] data = bos.toByteArray();
+            bos.close();
+            thumb.recycle();
+
+            // 6️⃣ 插入 Drafty（这是预览图）
+            return insertImage(
+                    0,
+                    mime,
+                    data,
+                    tw,
+                    th,
+                    fName,
+                    null,
+                    localUri2URI(uri).toString(),
+                    0
+            );
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
 
     private  URI localUri2URI(Uri uri){
         // 假设已有一个 android.net.Uri 对象\
@@ -700,8 +788,8 @@ public class Drafty implements Serializable {
                               @Nullable String mime,
                               byte[] bits, int width, int height,
                               @Nullable String fname,
-                              @Nullable URI refurl,
-                              @Nullable URI localurl,
+                              @Nullable String refurl,
+                              @Nullable String localurl,
                               long size) {
         if (bits == null && refurl == null) {
             throw new IllegalArgumentException("Either image bits or reference URL must not be null.");
@@ -714,10 +802,10 @@ public class Drafty implements Serializable {
         data.put("height", height);
         addOrSkip(data,"name", fname);
         if (refurl != null) {
-            addOrSkip(data, "ref", refurl.toString());
+            addOrSkip(data, "ref", refurl);
         }
         if (localurl != null) {
-            addOrSkip(data, "local", refurl.toString());
+            addOrSkip(data, "local", refurl);
         }
 
         if (size > 0) {
@@ -831,9 +919,9 @@ public class Drafty implements Serializable {
                               byte[] preview,
                               int duration,
                               @Nullable String fname,
-                              @Nullable URI refurl,
+                              @Nullable String uuid,
                               long size) {
-        if (bits == null && refurl == null) {
+        if (bits == null && uuid == null) {
             throw new IllegalArgumentException("Either audio bits or reference URL must not be null.");
         }
 
@@ -843,8 +931,8 @@ public class Drafty implements Serializable {
         data.put("duration", duration);
         addOrSkip(data, "preview", preview);
         addOrSkip(data,"name", fname);
-        if (refurl != null) {
-            addOrSkip(data, "ref", refurl.toString());
+        if (uuid != null) {
+            addOrSkip(data, "ref", uuid);
         }
         if (size > 0) {
             data.put("size", size);

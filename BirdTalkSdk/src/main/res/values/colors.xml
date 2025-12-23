@@ -9,6 +9,8 @@
     <color name="white">#FFFFFFFF</color>
     <color name ="pink">#FFDDDD</color>
     <color name ="grey">#AADDDD</color>
+    <color name="red_600">#E53935</color>
+    <color name="green_600">#43A047</color>
 
     <color name="highlight_color">#ffe7e0ec</color> <!-- 高亮颜色 -->
 	    <!-- app colors -->

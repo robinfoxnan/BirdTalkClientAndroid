@@ -176,6 +176,10 @@ class ECDHKeyExchange {
     fun getKeyPrint(): Long {
         return keyPrint
     }
+
+    fun getKeyPrintString():String{
+        return keyPrint.toString()
+    }
 }
 
 /*

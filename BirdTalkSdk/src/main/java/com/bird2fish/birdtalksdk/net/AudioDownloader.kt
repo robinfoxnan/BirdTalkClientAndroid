@@ -7,6 +7,7 @@ import android.graphics.drawable.Drawable
 import android.widget.ImageView
 import android.widget.Toast
 import com.bird2fish.birdtalksdk.R
+import com.bird2fish.birdtalksdk.uihelper.CryptHelper
 import com.bird2fish.birdtalksdk.uihelper.ImagesHelper
 import com.squareup.picasso.Callback
 import com.squareup.picasso.OkHttp3Downloader
@@ -29,10 +30,10 @@ object AudioDownloader {
      */
     fun download(
         context: Context,
-        url: String,
+        uuid: String,
         callback: (Result<File>) -> Unit
     ) {
-        val cacheFile = getCacheFile(context, url)
+        val cacheFile = getCacheFile(context, uuid)
 
         // 已缓存，直接返回
         if (cacheFile.exists() && cacheFile.length() > 0) {
@@ -40,8 +41,13 @@ object AudioDownloader {
             return
         }
 
+        var fullUrl = uuid
+        if (!uuid.startsWith("http")){
+            fullUrl = CryptHelper.getUrl(uuid)
+        }
+
         val request = Request.Builder()
-            .url(url)
+            .url(fullUrl)
             .get()
             .build()
 
@@ -77,11 +83,11 @@ object AudioDownloader {
     /**
      * 缓存文件路径（URL hash）
      */
-    private fun getCacheFile(context: Context, url: String): File {
+    private fun getCacheFile(context: Context, uuid: String): File {
         val dir = File(context.cacheDir, DIR_NAME)
         if (!dir.exists()) dir.mkdirs()
 
-        val name = md5(url) + ".m4a"
+        val name = md5(uuid) + ".m4a"
         return File(dir, name)
     }
 

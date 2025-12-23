@@ -39,6 +39,10 @@ class MsgEncocder {
         private  var context: Context? =null
         private  val keyExchange  =  ECDHKeyExchange()
 
+
+        fun getKeyExchange() :ECDHKeyExchange{
+            return this.keyExchange
+        }
         fun setContext(ctx: Context?){
             context = ctx
         }
@@ -966,7 +970,7 @@ class MsgEncocder {
             val aesFingerPrint = ""
 
             val timestamp = System.currentTimeMillis()
-            // 创建 MsgHello 消息
+            // 创建 MsgHello 消息，这里执行加密
             val helloMessage = createHelloData(clientId!!, version, platform!!, aesFingerPrint, timestamp)
 
             // 如果 sharedKeyPrint 存在，则执行相应的操作

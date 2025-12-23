@@ -8,6 +8,7 @@ import android.graphics.drawable.Drawable
 import android.widget.ImageView
 import android.widget.Toast
 import com.bird2fish.birdtalksdk.R
+import com.bird2fish.birdtalksdk.uihelper.CryptHelper
 import com.bird2fish.birdtalksdk.uihelper.ImagesHelper
 import com.squareup.picasso.Callback
 import com.squareup.picasso.OkHttp3Downloader
@@ -17,7 +18,7 @@ import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
 
-
+// 这个类主要是头像在用
 class ImageDownloader {
 
     /**
@@ -56,8 +57,8 @@ class ImageDownloader {
         val destFile = File(mediaDir, remote)
 
         // 构建请求
-        val fullUrl = WebSocketClient.instance!!.getRemoteFilePath( remote)
-
+        //val fullUrl = WebSocketClient.instance!!.getRemoteFilePath( remote)
+        val fullUrl = CryptHelper.getUrl(remote)
 
         // 这里有个坑，这里需要强引用，避免在设置图片前被回收
         view.tag = object : com.squareup.picasso.Target {

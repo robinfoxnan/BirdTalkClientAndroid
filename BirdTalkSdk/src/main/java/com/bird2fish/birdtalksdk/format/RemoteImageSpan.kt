@@ -12,6 +12,7 @@ import android.text.style.ReplacementSpan
 import android.util.Log
 import android.view.View
 import androidx.annotation.IntRange
+import com.bird2fish.birdtalksdk.uihelper.CryptHelper
 import com.bird2fish.birdtalksdk.uihelper.ImagesHelper
 import com.bird2fish.birdtalksdk.uihelper.TextHelper
 import com.squareup.picasso.Picasso
@@ -33,7 +34,7 @@ class RemoteImageSpan(
     private val mOnError: Drawable
 ) : ReplacementSpan(), Target {
     private val mParentRef = WeakReference(parent)
-    private var mSource: URL? = null
+    private var mSource: String? = null
 
     private var mOriginalWidth = 0  // 图片原始宽度
     private var mOriginalHeight = 0 // 图片原始高度
@@ -52,12 +53,12 @@ class RemoteImageSpan(
 
     }
 
-    fun load(from: URL) {
+    fun load(uuid: String) {
 
         val parent = mParentRef.get() ?: return
 
-        mSource = from
-        this.fileName = TextHelper.getFileNameFromUrl(from.toString())
+        mSource = uuid
+        this.fileName = TextHelper.getFileNameFromUrl(uuid)
 
         val bitmap = ImagesHelper.loadBitmapFromAppDir(parent.context, "cache", this.fileName)
         if (bitmap != null) {
@@ -65,12 +66,12 @@ class RemoteImageSpan(
             return
         }
 
-        val temp = Uri.parse(from.toString())
+        val temp = CryptHelper.getUrl(uuid)
         var req = Picasso.get().load(temp)
 
-        if (mCropCenter) {
-            req = req.centerCrop()
-        }
+//        if (mCropCenter) {
+//            req = req.centerCrop()
+//        }
         req.into(this)
     }
 
@@ -85,7 +86,9 @@ class RemoteImageSpan(
             mDrawable.setBounds(0, 0, mTargetWidth, mTargetHeight)
             mOnError.setBounds(0, 0, mTargetWidth, mTargetHeight)
             // 重新加载图片
-            mSource?.let { load(it) }
+            mSource?.let {
+                load(it)
+            }
         }
     }
 
@@ -103,50 +106,14 @@ class RemoteImageSpan(
 //        }
 //    }
 
-    /**
-     * 保存Bitmap到文件
-     */
-    fun saveBitmapToAppDir(
-        context: Context,
-        bitmap: Bitmap,
-        dirName: String,
-        fileName: String
-    ): String? {
-        return try {
-            // 创建目录
-            val dir = File(context.getExternalFilesDir(null), dirName)
-            if (!dir.exists()) {
-                if (!dir.mkdirs()) {
-                    throw IOException("无法创建目录")
-                }
-            }
 
-            // 创建文件
-            val file = File(dir, fileName)
-            if (file.exists()) {
-                file.delete()
-            }
-
-            // 保存Bitmap
-            val outputStream = FileOutputStream(file)
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 100, outputStream)
-            outputStream.flush()
-            outputStream.close()
-
-            // 返回文件路径
-            file.absolutePath
-        } catch (e: Exception) {
-            e.printStackTrace()
-            null
-        }
-    }
 
     // 自定义缩放：不依赖Picasso，手动计算缩放后的Bitmap
     override fun onBitmapLoaded(bitmap: Bitmap, from: LoadedFrom) {
         val parent = mParentRef.get() ?: return
 
         // 0. 保存到本地
-        saveBitmapToAppDir(
+        ImagesHelper.saveBitmapToAppDir(
             parent.context,
             bitmap = bitmap,
             dirName = "cache",
@@ -255,19 +222,70 @@ class RemoteImageSpan(
     override fun onBitmapFailed(e: Exception, errorDrawable: Drawable?) {
         Log.w(TAG, "图片加载失败: ${e.message} (来源: $mSource)")
         val parent = mParentRef.get() ?: return
+        val d = errorDrawable ?: return
 
-        // 错误图按目标尺寸缩放
-        mOnError.setBounds(0, 0, mTargetWidth, mTargetHeight)
-        mDrawable = mOnError
+            // 错误图按目标尺寸缩放
+    //        mOnError.setBounds(0, 0, mTargetWidth, mTargetHeight)
+    //        mDrawable = mOnError
+    //        parent.postInvalidate()
+
+        val ow = d.intrinsicWidth
+        val oh = d.intrinsicHeight
+
+        if (ow > 0 && oh > 0) {
+            val (sw, sh) = calculateScaledSize(
+                originalWidth = ow,
+                originalHeight = oh,
+                targetMaxWidth = mTargetWidth,
+                targetMaxHeight = mTargetHeight
+            )
+
+            mScaledWidth = sw
+            mScaledHeight = sh
+
+            d.setBounds(0, 0, sw, sh)
+        } else {
+            // 兜底
+            d.setBounds(0, 0, mTargetWidth, mTargetHeight)
+        }
+
+        mDrawable = d
+
         parent.postInvalidate()
     }
 
     // 占位图：加载前按目标尺寸显示
     override fun onPrepareLoad(placeHolderDrawable: Drawable?) {
-        placeHolderDrawable?.let {
-            it.setBounds(0, 0, mTargetWidth, mTargetHeight)
-            mDrawable = it
+//        placeHolderDrawable?.let {
+//            it.setBounds(0, 0, mTargetWidth, mTargetHeight)
+//            mDrawable = it
+//        }
+        val parent = mParentRef.get() ?: return
+        val d = placeHolderDrawable ?: return
+
+        val ow = d.intrinsicWidth
+        val oh = d.intrinsicHeight
+
+        if (ow > 0 && oh > 0) {
+            val (sw, sh) = calculateScaledSize(
+                originalWidth = ow,
+                originalHeight = oh,
+                targetMaxWidth = mTargetWidth,
+                targetMaxHeight = mTargetHeight
+            )
+
+            mScaledWidth = sw
+            mScaledHeight = sh
+
+            d.setBounds(0, 0, sw, sh)
+        } else {
+            // 兜底
+            d.setBounds(0, 0, mTargetWidth, mTargetHeight)
         }
+
+        mDrawable = d
+
+        parent.postInvalidate()
     }
 
 //    override fun getSize(

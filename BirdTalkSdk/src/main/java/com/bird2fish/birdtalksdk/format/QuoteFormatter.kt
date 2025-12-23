@@ -106,7 +106,8 @@ open class QuoteFormatter(private val mParent: View, fontSize: Float) : PreviewF
                 mParent, size, size, true,
                 AppCompatResources.getDrawable(ctx, R.drawable.ic_image)!!, broken
             )
-            span.load(TextHelper.toAbsoluteURL(value as String))
+            // TextHelper.toAbsoluteURL(value as String)
+            span.load(value as String)
         }
 
         if (span == null) {

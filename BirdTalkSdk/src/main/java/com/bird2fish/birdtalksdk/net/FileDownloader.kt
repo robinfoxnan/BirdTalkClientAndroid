@@ -8,6 +8,7 @@ import android.text.TextUtils
 import android.webkit.MimeTypeMap
 import android.widget.Toast
 import androidx.core.content.FileProvider
+import com.bird2fish.birdtalksdk.uihelper.CryptHelper
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
@@ -46,7 +47,7 @@ object FileDownloader {
      */
     fun downloadAndOpen(
         context: Context,
-        url: String,
+        uuid: String,
         fname:String,
         onProgress: ((Float) -> Unit)? = null,
         onFinished: ((File) -> Unit)? = null,
@@ -54,7 +55,12 @@ object FileDownloader {
     ) {
         executor.execute {
             try {
-                val file = checkOrDownloadFile(context, url, fname, onProgress)
+                var fullUrl = uuid
+                if (!uuid.startsWith("http")){
+                    fullUrl = CryptHelper.getUrl(uuid)
+                }
+
+                val file = checkOrDownloadFile(context, fullUrl, fname, onProgress)
                 if (file != null) {
                     onFinished?.invoke(file)
                     openFile(context, file)
@@ -122,9 +128,9 @@ object FileDownloader {
         fname:String,
         onProgress: ((Float) -> Unit)?
     ): File? {
-        var filename = guessFileName(url, null)
-        if (!TextUtils.isEmpty(fname)){
-            filename = fname
+        var filename = fname
+        if (TextUtils.isEmpty(fname)){
+            filename = guessFileName(url, null)
         }
         val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
         if (!downloadsDir.exists()) downloadsDir.mkdirs()

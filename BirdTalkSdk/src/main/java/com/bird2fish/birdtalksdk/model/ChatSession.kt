@@ -18,6 +18,7 @@ import com.bird2fish.birdtalksdk.net.WebSocketClient
 import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass
 import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass.ChatMsgType
 import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass.ChatType
+import com.bird2fish.birdtalksdk.uihelper.CryptHelper
 import com.bird2fish.birdtalksdk.uihelper.RingPlayer
 import com.bird2fish.birdtalksdk.uihelper.TextHelper
 import kotlinx.coroutines.Dispatchers
@@ -706,6 +707,7 @@ object ChatSessionManager {
             }
 
             val mime = TextHelper.getMimeTypeFromUri(context, uri)
+            // 插入10K预览图实在是太小了
             draft.insertLocalImage(context, contentResolver, uri, fileName, mime) ?: return 0L
 
             //Log.d("文件内容", "draft: ${draft.toPlainText()}")
@@ -1009,14 +1011,16 @@ object ChatSessionManager {
         val draft = Drafty("")
 
         // "image/jpeg"
-        val fullUrl = WebSocketClient.instance!!.getRemoteFilePath(uuidName)
+        //val fullUrl = WebSocketClient.instance!!.getRemoteFilePath(uuidName)
+
+        //val fullUrl = CryptHelper.getUrl(uuidName)
         var draftInMsg = msg!!.content
 
         // 如果是图片
         if (hasImage(draftInMsg)){
             //draft.insertImage(0,"image/jpeg", null, 884, 535, "",
             draft.insertImage(0, msg!!.mime, null, 0, 0, fileName,
-                URI(fullUrl), URI(fullUrl), 0)
+                uuidName, null, 0)
 
             val txt = TextHelper.serializeDrafty(draft)
             Log.d("send image or file drafty", txt)
@@ -1042,7 +1046,7 @@ object ChatSessionManager {
                     preview,
                     duration,
                     uuidName,
-                    URI(fullUrl), // URI("https://lx-sycdn.kuwo.cn/c7aff93e02882b90b34e8f45387b4436/6755728e/resource/n2/3/57/2049851017.mp3?")
+                    uuidName, // URI("https://lx-sycdn.kuwo.cn/c7aff93e02882b90b34e8f45387b4436/6755728e/resource/n2/3/57/2049851017.mp3?")
                     msg!!.fileSz)
 
                 // 序列化 Drafty
@@ -1069,7 +1073,7 @@ object ChatSessionManager {
                 setAttachmentProcess(draftInMsg, fileName, 100)
 
                 // 调用 attachFile 时传入文件大小
-                draft.attachFile(msg!!.mime, fileName, fullUrl, sz ?: 0L, msgId, SdkGlobalData.selfUserinfo.id)
+                draft.attachFile(msg!!.mime, fileName, uuidName, sz ?: 0L, msgId, SdkGlobalData.selfUserinfo.id)
 
                 // 序列化 Drafty
                 val txt = TextHelper.serializeDrafty(draft)

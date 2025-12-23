@@ -5,6 +5,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Matrix
 import android.graphics.drawable.BitmapDrawable
+import android.graphics.drawable.Drawable
 import android.media.MediaScannerConnection
 import android.os.Bundle
 import android.os.Environment
@@ -21,18 +22,21 @@ import android.widget.ImageView
 import android.widget.Toast
 import androidx.core.view.GestureDetectorCompat
 import com.bird2fish.birdtalksdk.R
+import com.bird2fish.birdtalksdk.uihelper.CryptHelper
+import com.bird2fish.birdtalksdk.uihelper.ImagesHelper
 import com.squareup.picasso.Picasso
 import java.io.File
 import java.io.FileOutputStream
 import java.net.URL
 
-class FullscreenImageDialog(context: Context, val fileName :String, private val bitmap: Bitmap?, val uri: URL?) : Dialog(context) {
+class FullscreenImageDialog(context: Context, val fileName :String, private val bitmap: Bitmap?, val uuid: String?) : Dialog(context) {
 
     private lateinit var imageView: ImageView
     private lateinit var scaleDetector: ScaleGestureDetector
     private lateinit var gestureDetector: GestureDetectorCompat
     private var matrix = Matrix()
     private var scaleFactor = 1f
+    private var picassoTarget: com.squareup.picasso.Target? = null
 
     private var originalBitmap: Bitmap? = null
 
@@ -41,22 +45,15 @@ class FullscreenImageDialog(context: Context, val fileName :String, private val 
 
         val imageWidth = bitmap.width
         val imageHeight = bitmap.height
+        val viewWidth = imageView.width
+        val viewHeight = imageView.height
 
-        var viewWidth = 0
-        var viewHeight = 0
-        if (imageView.width > 0){
-            viewWidth = imageView.width
-        }
-        if (imageView.height > 0){
-            viewHeight = imageView.height
-        }
-
-        // 计算图片和视图的偏移量
         val dx = (viewWidth - imageWidth) / 2f
         val dy = (viewHeight - imageHeight) / 2f
 
-        // 将偏移量应用到矩阵
-        matrix = Matrix()
+        // 重置 matrix 和 scaleFactor
+        matrix.reset()
+        scaleFactor = 1f
         matrix.postTranslate(dx, dy)
         imageView.imageMatrix = matrix
     }
@@ -94,11 +91,89 @@ class FullscreenImageDialog(context: Context, val fileName :String, private val 
         }
     }
 
+//    fun centerImage(imageView: ImageView){
+//        imageView.drawable?.let {
+//            val bitmap = (it as BitmapDrawable).bitmap
+//            originalBitmap = bitmap
+//            imageView.setImageBitmap(bitmap)
+//            // 监听布局完成后设置图片居中
+//            imageView.viewTreeObserver.addOnPreDrawListener(object : ViewTreeObserver.OnPreDrawListener {
+//                override fun onPreDraw(): Boolean {
+//                    imageView.viewTreeObserver.removeOnPreDrawListener(this)
+//                    centerImage(bitmap)  // 确保图片居中
+//                    return true
+//                }
+//            })
+//
+//        }
+//    }
+
+    fun centerImage(imageView: ImageView) {
+        imageView.drawable?.let {
+            val bitmap = (it as BitmapDrawable).bitmap
+            originalBitmap = bitmap
+
+            // 获取 ImageView 的显示尺寸
+            val viewWidth = imageView.width
+            val viewHeight = imageView.height
+
+            if (viewWidth == 0 || viewHeight == 0) {
+                // 等待布局完成
+                imageView.viewTreeObserver.addOnPreDrawListener(object : ViewTreeObserver.OnPreDrawListener {
+                    override fun onPreDraw(): Boolean {
+                        imageView.viewTreeObserver.removeOnPreDrawListener(this)
+                        centerImage(imageView) // 再次调用
+                        return true
+                    }
+                })
+                return
+            }
+
+            val bitmapWidth = bitmap.width
+            val bitmapHeight = bitmap.height
+
+            // 计算缩放比例（保持宽高比）
+            val scale = minOf(viewWidth.toFloat() / bitmapWidth, viewHeight.toFloat() / bitmapHeight)
+
+            // 计算居中偏移
+            val dx = (viewWidth - bitmapWidth * scale) / 2f
+            val dy = (viewHeight - bitmapHeight * scale) / 2f
+
+            // 应用 matrix 缩放和偏移
+            matrix = Matrix()
+            matrix.postScale(scale, scale)
+            matrix.postTranslate(dx, dy)
+
+            imageView.scaleType = ImageView.ScaleType.MATRIX
+            imageView.imageMatrix = matrix
+        }
+    }
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.fragment_dialog_image)
 
+        this.picassoTarget = object :  com.squareup.picasso.Target {
+            override fun onBitmapLoaded(bitmap: Bitmap, from: Picasso.LoadedFrom) {
+
+                ImagesHelper.saveBitmapToAppDir(
+                    context,
+                    bitmap,
+                    dirName = "cache",
+                    fileName = uuid!!
+                )
+
+                imageView.setImageBitmap(bitmap)
+
+                imageView.post {
+                    centerImage(imageView)
+                }
+            }
+
+            override fun onBitmapFailed(e: Exception?, errorDrawable: Drawable?) {}
+            override fun onPrepareLoad(placeHolderDrawable: Drawable?) {}
+        }
         // 设置对话框为全屏
         // 获取当前窗口的属性并设置为全屏
         window?.apply {
@@ -117,7 +192,7 @@ class FullscreenImageDialog(context: Context, val fileName :String, private val 
             attributes = params
         }
 
-        val saveBtn = findViewById<Button>(R.id.saveBtn)
+        val saveBtn = findViewById<ImageView>(R.id.btnSave)
         saveBtn.setOnClickListener {
             val drawable = imageView.drawable
             if (drawable == null) {
@@ -130,48 +205,41 @@ class FullscreenImageDialog(context: Context, val fileName :String, private val 
             saveImageToLocal(this.context, bitmap)
         }
 
+        val closeBtn = findViewById<ImageView>(R.id.btnClose)
+        closeBtn.setOnClickListener{
+            dismiss()  // 关闭对话框
+        }
+
 
         imageView = findViewById(R.id.imageView)
+        // 这里很重要，没这2行，Picasso 一加载完就“接管显示权”
+        imageView.scaleType = ImageView.ScaleType.MATRIX
+        imageView.imageMatrix = matrix
 
         // 设置位图，或者URL
         if (bitmap != null){
             originalBitmap = bitmap
             imageView.setImageBitmap(bitmap) // 使用传入的 Bitmap
             // 监听布局完成后设置图片居中
-            imageView.viewTreeObserver.addOnPreDrawListener(object : ViewTreeObserver.OnPreDrawListener {
-                override fun onPreDraw(): Boolean {
-                    imageView.viewTreeObserver.removeOnPreDrawListener(this)
-                    centerImage(bitmap)
-                    return true
-                }
-            })
+            centerImage(imageView)
 
-        }else if (uri == null){
+        }else if (uuid == null){
             imageView.setImageResource(R.drawable.ic_broken_image)
         }else{
-            Picasso.get()
-                .load(uri.toString()) // 加载远程图片
-                .into(imageView, object : com.squareup.picasso.Callback {
-                    override fun onSuccess() {
-                        imageView.drawable?.let {
-                            val bitmap = (it as BitmapDrawable).bitmap
-                            originalBitmap = bitmap
-                            imageView.setImageBitmap(bitmap)
-                            // 监听布局完成后设置图片居中
-                            imageView.viewTreeObserver.addOnPreDrawListener(object : ViewTreeObserver.OnPreDrawListener {
-                                override fun onPreDraw(): Boolean {
-                                    imageView.viewTreeObserver.removeOnPreDrawListener(this)
-                                    centerImage(bitmap)  // 确保图片居中
-                                    return true
-                                }
-                            })
-                        }
-                    }
 
-                    override fun onError(e: Exception?) {
-                        // 处理加载失败的情况
-                    }
-                })
+            val bitmap = ImagesHelper.loadBitmapFromAppDir(context, "cache", this.uuid)
+            if (bitmap != null) {
+                originalBitmap = bitmap
+                imageView.setImageBitmap(bitmap) // 使用传入的 Bitmap
+                // 监听布局完成后设置图片居中
+                centerImage(imageView)
+
+            }
+
+            var url = CryptHelper.getUrl(uuid)
+            Picasso.get()
+                .load(url) // 加载远程图片
+                .into(this.picassoTarget!!)
         }
 
 
@@ -181,16 +249,15 @@ class FullscreenImageDialog(context: Context, val fileName :String, private val 
         // 初始化 ScaleGestureDetector
         scaleDetector = ScaleGestureDetector(context, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
             override fun onScale(detector: ScaleGestureDetector): Boolean {
-                // 获取当前缩放比例
-                val newScaleFactor = detector.scaleFactor
-                // 限制缩放比例在合理范围内
-                scaleFactor = Math.max(0.5f, Math.min(newScaleFactor, 3.0f))
+                // detector.scaleFactor 是 相对增量, 如果当做绝对变量会出问题
+                val scale = detector.scaleFactor
+                val newScale = scaleFactor * scale
 
-                // 确保从图片的中心缩放
-                val focusX = detector.focusX
-                val focusY = detector.focusY
-                matrix.postScale(scaleFactor, scaleFactor, focusX, focusY)
-                imageView.imageMatrix = matrix
+                if (newScale in 0.5f..3.0f) {
+                    scaleFactor = newScale
+                    matrix.postScale(scale, scale, detector.focusX, detector.focusY)
+                    imageView.imageMatrix = matrix
+                }
                 return true
             }
         })

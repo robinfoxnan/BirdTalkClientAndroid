@@ -235,6 +235,8 @@ object  TextHelper {
             msg.tm, msg.tm1, msg.tm2, msg.tm3,
             "", 0, msg.msgStatus.name)
 
+
+
         return msg
     }
 
@@ -254,6 +256,7 @@ object  TextHelper {
             catch (e:Exception){
                 Log.e("Sdk", e.toString())
                 txt = "解析错误"
+                Log.e("Sdk 解析消息错误", plain)
             }finally {
 
             }
@@ -911,11 +914,12 @@ object  TextHelper {
 
         }
 
-        var url: URL? = null
+        var fullUrl = CryptHelper.getUrl(value)
+
+        var url: URL? = URL("https://127.0.0.1")
         try {
-            url = URL(URL("https://127.0.0.1"), value)
+            url = URL(fullUrl)
         } catch (ignored: MalformedURLException) {
-            return URL("https://127.0.0.1")
         }
         return url!!
     }

@@ -107,6 +107,7 @@
     <string name="btn_ok">确定</string>
     <string name="btn_cancel">取消</string>
     <string name="btn_save">保存</string>
+    <string name="btn_close">关闭</string>
 
     <string name="not_friend">对方目前没有关注您，您不能发消息给对方</string>
 </resources>

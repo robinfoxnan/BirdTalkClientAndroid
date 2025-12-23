@@ -389,8 +389,8 @@ class FullFormatter(private val mContainer: TextView, private val mClicker: Clic
         // Out of band image.
         if (span == null && data["ref"].also { value = it } is String) {
             val ref = value as String?
-            val url: URL = TextHelper.toAbsoluteURL(ref!!)
-            if (url != null) {
+//            val url: URL = TextHelper.toAbsoluteURL(ref!!)
+            if (ref != null) {
                 var fg: Drawable?
                 var bg: Drawable? = null
 
@@ -437,7 +437,7 @@ class FullFormatter(private val mContainer: TextView, private val mClicker: Clic
                     placeholder,
                     onError
                 )
-                span.load(url)
+                span.load(ref!!)
             }
         }
 
