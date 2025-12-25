@@ -115,6 +115,19 @@
     <string name="btn_save">save</string>
     <string name="btn_close">close</string>
 
+    <string name="msg_text">text</string>
+    <string name="msg_voice">voice</string>
+    <string name="msg_audio">audio</string>
+    <string name="msg_file">file</string>
+    <string name="msg_image">image</string>
+    <string name="msg_video">video</string>
+
+    <string name="hide">hide</string>
+    <string name="delete">remove</string>
+
+    <string name="input_remaining">can hold %1$d char</string>
+    <string name="input_reach_max">text too long</string>
+
     <string name="not_friend">peer is not your friend, can not send msg yet</string>
 
 </resources>

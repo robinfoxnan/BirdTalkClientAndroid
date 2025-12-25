@@ -671,10 +671,16 @@ class ChatPageAdapter(private val dataList: List<MessageContent>) : RecyclerView
             }
 
             // 本地文件直接打开
+//            *  - 本地路径 /storage/emulated/0/Download/test.pdf
+//            *  - file:// URI
+//            *  - content:// URI
             if (!url!!.startsWith("http", true))
             {
-                FileDownloader.openLocalFile(SdkGlobalData.context!!, url)
-                return true
+                val index = url!!.indexOf('/')
+                if (index > -1){
+                    FileDownloader.openLocalFile(SdkGlobalData.context!!, url)
+                    return true
+                }
             }
 
             var msgId :Long = 0L

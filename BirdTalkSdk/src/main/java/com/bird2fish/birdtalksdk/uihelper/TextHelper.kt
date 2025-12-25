@@ -150,6 +150,7 @@ object  TextHelper {
                 chatSession.sessionTitle, chatSession.sessionIcon,
                 UserStatus.ONLINE, MessageStatus.OK, inOut, false, false, "", draft, chatMsg.tm)
         }
+        msg!!.msgType = chatMsg.msgType
         msg!!.isP2p = isP2p
 
         // 如果是收消息，并且没有填写过回执

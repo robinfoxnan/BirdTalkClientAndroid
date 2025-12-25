@@ -109,5 +109,18 @@
     <string name="btn_save">保存</string>
     <string name="btn_close">关闭</string>
 
+    <string name="msg_text">文本消息</string>
+    <string name="msg_voice">语音</string>
+    <string name="msg_audio">音频</string>
+    <string name="msg_file">文件</string>
+    <string name="msg_image">图片</string>
+    <string name="msg_video">视频</string>
+
+    <string name="hide">隐藏</string>
+    <string name="delete">移除</string>
+
+    <string name="input_remaining">还能输入 %1$d 个字符</string>
+    <string name="input_reach_max">达到最长文本字符限制</string>
+
     <string name="not_friend">对方目前没有关注您，您不能发消息给对方</string>
 </resources>

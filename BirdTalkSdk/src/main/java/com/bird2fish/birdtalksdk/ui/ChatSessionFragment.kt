@@ -15,11 +15,14 @@ import androidx.recyclerview.widget.RecyclerView
 import com.bird2fish.birdtalksdk.InterErrorType
 import com.bird2fish.birdtalksdk.MsgEventType
 import com.bird2fish.birdtalksdk.R
+import com.bird2fish.birdtalksdk.R.*
 import com.bird2fish.birdtalksdk.SdkGlobalData
 import com.bird2fish.birdtalksdk.StatusCallback
 import com.bird2fish.birdtalksdk.model.Topic
 import com.bird2fish.birdtalksdk.model.User
 import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass
+import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass.ChatMsgType
+import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass.ChatMsgType.*
 import com.bird2fish.birdtalksdk.uihelper.AvatarHelper
 import com.bird2fish.birdtalksdk.uihelper.ImagesHelper
 import com.bird2fish.birdtalksdk.uihelper.TextHelper
@@ -43,7 +46,7 @@ class ChatSessionFragment : Fragment()  , StatusCallback {
         savedInstanceState: Bundle?
     ): View? {
         // Inflate the layout for this fragment
-        val view = inflater.inflate(R.layout.fragment_chat_session, container, false)
+        val view = inflater.inflate(layout.fragment_chat_session, container, false)
 
         recyclerView = view.findViewById(R.id.recycler_view_sessions)
 
@@ -64,7 +67,7 @@ class ChatSessionFragment : Fragment()  , StatusCallback {
 
 
         // 搜索按钮点击事件
-        val searchButton: ImageButton = view.findViewById<ImageButton>(com.bird2fish.birdtalksdk.R.id.btn_search)
+        val searchButton: ImageButton = view.findViewById<ImageButton>(R.id.btn_search)
         searchButton.setOnClickListener { v: View? -> }
 
         SdkGlobalData.userCallBackManager.addCallback(this)
@@ -156,11 +159,11 @@ class ChatSessionAdapter(private val dataMap: LinkedHashMap<Long, Topic>) : Recy
     // 创建 ViewHolder
     inner class ChatSessionViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         // ViewHolder 中的视图元素，例如 TextView、ImageView 等
-        val imgIcon : ImageView = itemView.findViewById(R.id.iconTv)
-        val tvNick: TextView = itemView.findViewById(R.id.nameTv)
-        val tvDes : TextView = itemView.findViewById(R.id.desTv)
-        val tvTime :TextView = itemView.findViewById(R.id.timeTv)
-        val tvState:ImageView = itemView.findViewById(R.id.StateTv)
+        val imgIcon : ImageView = itemView.findViewById(id.iconTv)
+        val tvNick: TextView = itemView.findViewById(id.nameTv)
+        val tvDes : TextView = itemView.findViewById(id.desTv)
+        val tvTime :TextView = itemView.findViewById(id.timeTv)
+        val tvState:ImageView = itemView.findViewById(id.StateTv)
 
         var index: Int = 0
         var selectedPosition = RecyclerView.NO_POSITION
@@ -181,7 +184,7 @@ class ChatSessionAdapter(private val dataMap: LinkedHashMap<Long, Topic>) : Recy
 
     // 创建 ViewHolder
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ChatSessionViewHolder {
-        val itemView = LayoutInflater.from(parent.context).inflate(R.layout.layout_session_item, parent, false)
+        val itemView = LayoutInflater.from(parent.context).inflate(layout.layout_session_item, parent, false)
         return ChatSessionViewHolder(itemView)
     }
 
@@ -209,7 +212,17 @@ class ChatSessionAdapter(private val dataMap: LinkedHashMap<Long, Topic>) : Recy
             if (item.lastMsg.content == null){
                 holder.tvDes.setText(item.lastMsg.text)
             }else{
-                holder.tvDes.setText("非文本消息")
+                when (item.lastMsg.msgType){
+                    TEXT ->  holder.tvDes.setText(item.lastMsg.text)
+                    IMAGE ->  holder.tvDes.setText(R.string.msg_image)
+                    VOICE ->  holder.tvDes.setText(R.string.msg_voice)
+                    VIDEO ->  holder.tvDes.setText(R.string.msg_video)
+                    FILE ->  holder.tvDes.setText(R.string.msg_file)
+                    DELETE ->  holder.tvDes.setText("")
+                    KEY ->  holder.tvDes.setText("")
+                    PLUGIN ->  holder.tvDes.setText("")
+                    UNRECOGNIZED ->  holder.tvDes.setText("未知")
+                }
             }
         }
 
@@ -221,6 +234,18 @@ class ChatSessionAdapter(private val dataMap: LinkedHashMap<Long, Topic>) : Recy
             holder.tvState.setImageResource(android.R.drawable.ic_lock_silent_mode)
         }
 
+
+        // 是否静音的代码，点击了切换是否静音
+        holder.tvState.setOnClickListener{
+            if (item.mute == 0){
+                item.mute = 1
+                holder.tvState.setImageResource(android.R.drawable.ic_lock_silent_mode)
+            }else{
+                item.mute = 0
+                holder.tvState.setImageResource(android.R.drawable.ic_lock_silent_mode_off)
+                holder.tvState.setColorFilter(Color.GRAY, PorterDuff.Mode.SRC_IN)
+            }
+        }
 
         // 可以添加其他逻辑...
 //        holder.tvDelete.setOnClickListener{

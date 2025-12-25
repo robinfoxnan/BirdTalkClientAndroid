@@ -3,6 +3,7 @@ package com.bird2fish.birdtalksdk.ui
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.content.ClipData
 import android.content.ContentResolver
 import android.content.Context
 import android.content.Intent
@@ -26,8 +27,11 @@ import android.os.SystemClock
 import android.provider.ContactsContract.CommonDataKinds.Im
 import android.provider.MediaStore
 import android.text.Editable
+import android.text.InputFilter
+import android.text.Spanned
 import android.text.TextWatcher
 import android.util.Log
+import android.view.ContentInfo
 import android.view.GestureDetector
 import android.view.GestureDetector.SimpleOnGestureListener
 import android.view.HapticFeedbackConstants
@@ -85,8 +89,19 @@ class ChatPageFragment : Fragment() , StatusCallback {
 
     private var root :View? =null
     private var parentView :ChatManagerFragment? = null
-    private val SUPPORTED_MIME_TYPES: Array<String> = arrayOf("image/*")
-    // Number of milliseconds between audio samples for recording visualization.
+
+    // 在下面的过滤器中
+    private val SUPPORTED_MIME_TYPES = arrayOf(
+        "text/plain",
+        "text/html",      // 某些输入法/浏览器
+        "image/png",
+        "image/jpeg",
+        "image/webp",     // 现在很多贴纸
+        "image/gif"       // 如果你允许 GIF
+    )
+    // 微信同款：单条消息最大字符数2000字符
+    private val MAX_MESSAGE_LENGTH = 2000
+
     private val AUDIO_SAMPLING: Int = 100
     // Minimum duration of an audio recording in milliseconds.
     private val MIN_DURATION: Int = 1000
@@ -383,12 +398,45 @@ class ChatPageFragment : Fragment() , StatusCallback {
         //TextHelper.showToast(requireContext(), txt)
         ChatSessionManager.markSessionReadItems(this.mChatIdLong, firstVisible, lastVisible)
 
-        if (lastVisible == mMessagesAdapter!!.itemCount - 1){
-            mGoToLatest?.hide()
-        }else{
-            mGoToLatest?.show()
+//        if (lastVisible == mMessagesAdapter!!.itemCount - 1){
+//            mGoToLatest?.hide()
+//        }else{
+//            mGoToLatest?.show()
+//        }
+        checkShowGoToLatestBtn(linearManager)
+    }
+
+    // 是否显示跳转最后一条按钮  判断方法
+    private fun checkShowGoToLatestBtn(layoutManager: LinearLayoutManager) {
+        val itemCount = mMessagesAdapter?.itemCount ?: 0
+        if (itemCount <= 2) {
+            mGoToLatest?.hide() // 无数据时隐藏
+            return
         }
 
+        // 1. 获取最后一个可见条目索引
+        val lastVisiblePos = layoutManager.findLastVisibleItemPosition()
+        // 2. 判断是否是最后一条
+        val isLastItem = lastVisiblePos == itemCount - 1
+        if (!isLastItem) {
+            mGoToLatest?.show()
+            return
+        }
+
+        // 3. 关键：判断最后一个条目是否完全显示（无截断）
+        val lastView = layoutManager.findViewByPosition(lastVisiblePos)
+        val isLastItemCompletelyVisible = layoutManager.isViewPartiallyVisible(
+            lastView!!,
+            false, // 是否考虑垂直方向（false = 检查整个View是否完全可见）
+            false  // 是否考虑水平方向（文本长一般是垂直滚动，设为false）
+        )
+
+        // 最终判断
+        if (isLastItemCompletelyVisible) {
+            mGoToLatest?.hide() // 真·到底了，隐藏按钮
+        } else {
+            mGoToLatest?.show() // 最后一条但未完全显示，显示按钮
+        }
     }
 
 
@@ -693,9 +741,25 @@ class ChatPageFragment : Fragment() , StatusCallback {
         val editor = view.findViewById<EditText>(R.id.editMessage)
         ViewCompat.setOnReceiveContentListener(
             editor,
-            SUPPORTED_MIME_TYPES,
-            StickerReceiver()
+            SUPPORTED_MIME_TYPES,   //  在过滤器中再过滤，
+            StickerAndLengthReceiver()
         )
+        // 逐字输入长度限制（不覆盖原有 filter）
+//        editor.filters = editor.filters
+//            .filterNot { it is MessageLengthFilter }
+//            .plus(MessageLengthFilter(MAX_MESSAGE_LENGTH))
+//            .toTypedArray()
+
+        val hintView = view.findViewById<TextView>(R.id.tvLimitHint)
+        editor.filters = editor.filters
+            .filterNot { it is MessageLengthFilter }
+            .plus(
+                MessageLengthFilter(MAX_MESSAGE_LENGTH) {
+                    hintView.text = getString(R.string.input_reach_max)
+                    hintView.visibility = View.VISIBLE
+                }
+            )
+            .toTypedArray()
 
 
         // 当编辑器被激活的时候，切换按钮
@@ -709,6 +773,18 @@ class ChatPageFragment : Fragment() , StatusCallback {
                 before: Int,
                 count: Int
             ) {
+                if (charSequence != null) {
+                    val remaining = MAX_MESSAGE_LENGTH - charSequence.length
+                    if (remaining <= 10) {
+                        // 文本已到上限
+                        val text =requireActivity().getString(R.string.input_remaining, remaining)
+                        hintView.text = text
+                        hintView.visibility = View.VISIBLE
+                    } else {
+                        hintView.visibility = View.GONE
+                    }
+                }
+
                 if (count > 0 || before > 0) {
                     //activity.sendKeyPress()
                 }
@@ -729,7 +805,7 @@ class ChatPageFragment : Fragment() , StatusCallback {
 
         setShowHide(true)
 
-        scrollToBottom(true)
+        scrollToBottom(false)
         return view
     }
 
@@ -1635,6 +1711,141 @@ class ChatPageFragment : Fragment() , StatusCallback {
             return split.second
         }
     }
+
+    // 输入框的内容检查类，
+    //    当用户做这些事时：
+    //    📋 粘贴文本
+    //    😊 输入法发送表情 / 贴纸
+    //    🖼 从相册 / 拖拽图片到输入框
+
+    //    系统调用顺序是：
+    //    用户操作
+    //    ↓
+    //    IME / Clipboard / Drag
+    //    ↓
+    //    ViewCompat.performReceiveContent()
+    //    ↓
+    //    StickerAndLengthReceiver.onReceiveContent()
+    //    ↓
+    //    你返回 ContentInfoCompat
+    //    ↓
+    //    系统把内容插入 EditText
+    class StickerAndLengthReceiver : OnReceiveContentListener {
+        companion object {
+            private const val MAX_MESSAGE_LENGTH = 20
+            private val SUPPORTED_IMAGE_MIME = setOf("image/png", "image/jpeg")
+        }
+
+        override fun onReceiveContent(view: View, payload: ContentInfoCompat): ContentInfoCompat? {
+            val editText = view as? EditText ?: return payload
+            val context = view.context
+            val clip = payload.clip
+            val currentLength = editText.text.length
+            val remaining = MAX_MESSAGE_LENGTH - currentLength
+
+            val acceptedItems = ArrayList<ClipData.Item>()
+
+            for (i in 0 until clip.itemCount) {
+                val item = clip.getItemAt(i)
+
+                // 文本
+                if (item.text != null && remaining > 0) {
+                    val text = item.text.toString()
+                    val finalText = if (text.length > remaining) {
+                        text.substring(0, remaining)
+                    } else {
+                        text
+                    }
+                    acceptedItems.add(ClipData.Item(finalText))
+                    continue
+                }
+
+                // 图片 / 贴纸
+                val uri = item.uri
+                if (uri != null) {
+                    val mime = context.contentResolver.getType(uri)
+                    if (mime in SUPPORTED_IMAGE_MIME) {
+                        acceptedItems.add(ClipData.Item(uri))
+                    }
+                }
+            }
+
+            // 没有可接受内容 → 全部消费但不插入
+            if (acceptedItems.isEmpty()) {
+                return null
+            }
+
+            // 构造新的 ClipData（⚠ 这里还只是 ClipData）
+            val newClip = ClipData(
+                payload.clip.description,
+                acceptedItems[0]
+            ).apply {
+                for (i in 1 until acceptedItems.size) {
+                    addItem(acceptedItems[i])
+                }
+            }
+
+            // 🔑 关键点：ClipData → ContentInfoCompat
+            return ContentInfoCompat.Builder(newClip,  payload.source)
+                .setLinkUri(payload.linkUri)
+                .build()
+        }
+    }
+     // end of input textview 输入检查
+
+    // 对手动输入拦截太长的输入
+    class MessageLengthFilter(
+        private val maxLength: Int,
+        private val onLimitReached: (() -> Unit)? = null
+    ) : InputFilter {
+
+        private var notified = false
+
+        override fun filter(
+            source: CharSequence?,
+            start: Int,
+            end: Int,
+            dest: Spanned?,
+            dstart: Int,
+            dend: Int
+        ): CharSequence? {
+
+            if (source.isNullOrEmpty() || dest == null) {
+                return null
+            }
+
+            // 删除操作放行
+            if (start == end) {
+                notified = false
+                return null
+            }
+
+            val keep = maxLength - (dest.length - (dend - dstart))
+
+            if (keep <= 0) {
+                notifyOnce()
+                return ""
+            }
+
+            val inputLength = end - start
+            return if (keep >= inputLength) {
+                notified = false
+                null
+            } else {
+                notifyOnce()
+                source.subSequence(start, start + keep)
+            }
+        }
+
+        private fun notifyOnce() {
+            if (!notified) {
+                notified = true
+                onLimitReached?.invoke()
+            }
+        }
+    }
+
+
 
 
 }

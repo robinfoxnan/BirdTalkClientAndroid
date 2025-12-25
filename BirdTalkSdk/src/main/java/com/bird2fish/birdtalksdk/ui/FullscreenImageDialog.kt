@@ -227,19 +227,23 @@ class FullscreenImageDialog(context: Context, val fileName :String, private val 
             imageView.setImageResource(R.drawable.ic_broken_image)
         }else{
 
-            val bitmap = ImagesHelper.loadBitmapFromAppDir(context, "cache", this.uuid)
-            if (bitmap != null) {
-                originalBitmap = bitmap
-                imageView.setImageBitmap(bitmap) // 使用传入的 Bitmap
+            val bitmap1 = ImagesHelper.loadBitmapFromAppDir(context, "cache", this.uuid)
+            if (bitmap1 != null) {
+                originalBitmap = bitmap1
+                imageView.setImageBitmap(bitmap1) // 使用传入的 Bitmap
                 // 监听布局完成后设置图片居中
                 centerImage(imageView)
 
             }
+            // 本地加载失败从网络加载
+            else{
+                var url = CryptHelper.getUrl(uuid)
+                Picasso.get()
+                    .load(url) // 加载远程图片
+                    .into(this.picassoTarget!!)
+            }
 
-            var url = CryptHelper.getUrl(uuid)
-            Picasso.get()
-                .load(url) // 加载远程图片
-                .into(this.picassoTarget!!)
+
         }
 
 
