@@ -2,29 +2,30 @@ package com.bird2fish.birdtalksdk
 
 import android.content.Context
 import android.os.Build
-import com.bird2fish.birdtalksdk.db.BaseDb
-import com.bird2fish.birdtalksdk.model.User
-import com.bird2fish.birdtalksdk.model.Topic
-import com.bird2fish.birdtalksdk.net.CRC64
-import com.bird2fish.birdtalksdk.net.MsgEncocder
-import com.bird2fish.birdtalksdk.net.UnsafeOkHttpClient
-import com.bird2fish.birdtalksdk.uihelper.UserHelper
-import com.squareup.picasso.OkHttp3Downloader
-import com.squareup.picasso.Picasso
-import java.util.LinkedList
-import java.util.concurrent.atomic.AtomicLong
-import android.provider.Settings;
+import android.provider.Settings
 import android.util.Log
+import com.bird2fish.birdtalksdk.db.BaseDb
 import com.bird2fish.birdtalksdk.db.SeqDbHelper
 import com.bird2fish.birdtalksdk.db.TopicDbHelper
+import com.bird2fish.birdtalksdk.db.TopicFlag
 import com.bird2fish.birdtalksdk.db.UserDbHelper
 import com.bird2fish.birdtalksdk.model.ChatSessionManager
 import com.bird2fish.birdtalksdk.model.MessageContent
+import com.bird2fish.birdtalksdk.model.Topic
+import com.bird2fish.birdtalksdk.model.User
+import com.bird2fish.birdtalksdk.net.CRC64
+import com.bird2fish.birdtalksdk.net.MsgEncocder
+import com.bird2fish.birdtalksdk.net.UnsafeOkHttpClient
 import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass
 import com.bird2fish.birdtalksdk.uihelper.TextHelper
+import com.bird2fish.birdtalksdk.uihelper.UserHelper
+import com.squareup.picasso.OkHttp3Downloader
+import com.squareup.picasso.Picasso
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
+import java.util.LinkedList
+import java.util.concurrent.atomic.AtomicLong
 
 
 data class PlatformInfo(
@@ -69,6 +70,8 @@ class SdkGlobalData {
 
         )
 
+        // 默认是使用扬声器播放的
+        var useLoudSpeaker = true
         var context :Context? = null
         // 个人信息
         val selfUserinfo :com.bird2fish.birdtalksdk.model.User = User()
@@ -94,6 +97,7 @@ class SdkGlobalData {
 
         // 当前会话列表
         var chatTopicList :LinkedHashMap<Long, Topic> = LinkedHashMap()
+        var chatTopicListInited = false
 
         // 当前显示的消息界面，如果是负数，就是群组
         var currentChatFid = 0L
@@ -206,21 +210,40 @@ class SdkGlobalData {
             ChatSessionManager.getSession(fid)
         }
 
-
-
-
         // 每次收到消息，都要设置最后的消息
         // 这里如果是允许提醒，发出声音
-        fun updateTopic(msg:MessageContent){
+        // 如果之前是隐藏的，这里如果有新消息，需要改回来
+        fun updateTopic(msg:MessageContent):Topic? {
+            var retTopic :Topic? = null
+            var bNeedBuild = false
             if (msg.isP2p){
                 val fid = msg.tId
                 synchronized(chatTopicList){
                     if (!chatTopicList.containsKey(fid)){
-                        val t = Topic(fid, 0, 0, MsgOuterClass.ChatType.ChatTypeP2P.number, 1, msg.nick, msg.iconUrl)
-                        chatTopicList[fid] = t
+                        val t = Topic(fid, 0, 0, MsgOuterClass.ChatType.ChatTypeP2P.number, TopicFlag.VISIBLE, msg.nick, msg.iconUrl)
+                        synchronized(chatTopicList){
+                            chatTopicList[fid] = t
+                        }
+                        bNeedBuild = true   // 新的也需要重建
                         TopicDbHelper.insertOrReplacePTopic(t)
                     }
                     chatTopicList[fid]!!.lastMsg = msg
+
+                    // 如果之前没有显示，那么这里应该重新设置
+                    retTopic = chatTopicList[fid]
+                    if (!retTopic!!.showHide ){
+                        retTopic!!.showHide = true
+                        bNeedBuild = true
+                        TopicDbHelper.insertOrReplacePTopic(retTopic)
+                    }
+
+                    if (bNeedBuild){
+                        rebuildDisplayList()
+                    }
+                    else{
+                        // 这里需要重排序
+                        resortDisplayChatList()
+                    }
                 }
             }else{
                 val gid = msg.tId
@@ -229,6 +252,7 @@ class SdkGlobalData {
 
             // 收到消息了，自然要更新会话界面；
             userCallBackManager.invokeOnEventCallbacks(MsgEventType.FRIEND_CHAT_SESSION, 0, msg.msgId, msg.userId, mapOf("msg" to "p2p"))
+            return retTopic
         }
 
 
@@ -274,9 +298,36 @@ class SdkGlobalData {
 
         /////////////////////////////////////////////////////////////////////////
         // 给那个对话的界面使用的
-        fun getChatSessionMap() :java.util.LinkedHashMap<Long, Topic>{
+        private var displayChatList: MutableList<Topic> = ArrayList()
+        // 重建会话列表显示的部分，因为隐藏了，或者显示了一部分
+        fun rebuildDisplayList(): MutableList<Topic>{
             synchronized(chatTopicList){
-                return chatTopicList
+                displayChatList.clear()
+                for (t in chatTopicList.values) {
+                    if (t.showHide) {
+                        displayChatList.add(t)
+                    }
+                }
+            }
+
+            resortDisplayChatList()
+
+            return displayChatList
+        }
+
+        // 每次收到消息都需要排序
+        private fun resortDisplayChatList(){
+            // 这里执行一个排序，优先考虑置顶，然后考虑有新消息的
+            // lambda 必须返回 Int：负数 表示 a 在 b 之前，正数 表示 a 在 b 之后，0 表示相等（保持原顺序若排序稳定
+            displayChatList.sortWith { a, b ->
+                // 1️⃣ 置顶优先
+                if (a.pinned != b.pinned) {
+                    return@sortWith if (a.pinned) -1 else 1
+                }
+
+                // 2️⃣ 时间倒序（最新在前）
+                // 这里，如果是a大，则需要返回负数，所以这里参数反着用
+                return@sortWith b.tm.compareTo(a.tm)
             }
         }
 
@@ -528,10 +579,11 @@ class SdkGlobalData {
 //           TopicDbHelper.clearPChatData(10006)
 //          TopicDbHelper.clearPChatData()
             try {
-                TopicDbHelper.dropPChatTopic(10006)
-                TopicDbHelper.dropPChatTopic(10001)
-                TopicDbHelper.dropPChatTable()
-                TopicDbHelper.deleteFromPTopic(10001)
+                //TopicDbHelper.dropPChatTopic(10006)
+                //TopicDbHelper.deleteFromPTopic(10006)
+                //TopicDbHelper.dropPChatTopic(10001)
+                //TopicDbHelper.dropPChatTable()
+
             }catch (e:Exception){
                 Log.e("Sdk", e.toString())
             }
@@ -543,7 +595,7 @@ class SdkGlobalData {
         fun initLoad(uid:Long){
             BaseDb.changeToDB(this.context, uid.toString())
 
-//            debugClean()
+            debugClean()
 
             if (BaseDb.getInstance() == null) {
                 Log.e(TAG, "BaseDb.changeToDB error")
@@ -557,7 +609,9 @@ class SdkGlobalData {
 
             // 重连时候不加载数据库
             synchronized(chatTopicList){
-                if (chatTopicList.isEmpty()){
+                // 重要：这里不能用空来判断是否初始化，因为登录成功后，可能会收到消息，异步创建会话实例
+                // 这里不考虑隐藏的会话，在显示时候二次rebuild一个list
+                if (!chatTopicListInited){
                     val p2pTopics = TopicDbHelper.getAllPTopics()
                     val gTopics = TopicDbHelper.getAllGTopics()
                     for (t in p2pTopics){
@@ -575,6 +629,7 @@ class SdkGlobalData {
                             SdkGlobalData.currentChatFid = -t.tid
                         }
                     }
+                    chatTopicListInited = true
                 }
 
             }

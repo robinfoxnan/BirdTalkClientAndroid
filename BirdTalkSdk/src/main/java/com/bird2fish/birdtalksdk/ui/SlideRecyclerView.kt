@@ -4,67 +4,100 @@ import android.content.Context
 import android.graphics.Rect
 import android.util.AttributeSet
 import android.view.*
-import android.widget.OverScroller
-import kotlin.jvm.JvmOverloads
-import androidx.recyclerview.widget.RecyclerView
 import android.widget.Scroller
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
+import kotlin.jvm.JvmOverloads
 
 /**
- * 支持侧滑删除的RecyclerView
- *
+ * 支持侧滑删除的RecyclerView（已修复删除后菜单不复位问题）
  *
  * Created by DavidChen on 2018/5/29.
  * 也可以用com.chauthai.swipereveallayout.SwipeRevealLayout
  */
 class SlideRecyclerView @JvmOverloads constructor(
-    context: Context, attrs: AttributeSet? = null, defStyle: Int = 0
-) : RecyclerView(context, attrs, defStyle) {
-
-    private var mVelocityTracker: VelocityTracker? = null
-    private val mTouchSlop = ViewConfiguration.get(context).scaledTouchSlop
-    private var mTouchFrame: Rect? = null
-    private val mScroller = OverScroller(context)
-
-    private var mLastX = 0f
+    context: Context?,
+    attrs: AttributeSet? = null,
+    defStyle: Int = 0
+) : RecyclerView(
+    context!!, attrs, defStyle
+) {
+    private var mVelocityTracker // 速度追踪器
+            : VelocityTracker? = null
+    private val mTouchSlop // 认为是滑动的最小距离（一般由系统提供）
+            : Int
+    private var mTouchFrame // 子View所在的矩形范围
+            : Rect? = null
+    private val mScroller: Scroller
+    private var mLastX // 滑动过程中记录上次触碰点X
+            = 0f
     private var mFirstX = 0f
-    private var mFirstY = 0f
-    private var mIsSlide = false
-    private var mFlingView: ViewGroup? = null
-    private var mPosition = INVALID_POSITION
-    private var mMenuViewWidth = 0
+    private var mFirstY // 首次触碰范围
+            = 0f
+    private var mIsSlide // 是否滑动子View
+            = false
+    private var mFlingView // 触碰的子View
+            : ViewGroup? = null
+    private var mPosition // 触碰的view的位置
+            = 0
+    private var mMenuViewWidth // 菜单按钮宽度
+            = 0
+
+    init {
+        mTouchSlop = ViewConfiguration.get(context).scaledTouchSlop
+        mScroller = Scroller(context)
+    }
 
     override fun onInterceptTouchEvent(e: MotionEvent): Boolean {
         val x = e.x.toInt()
         val y = e.y.toInt()
-        when (e.actionMasked) {
+        obtainVelocity(e)
+        when (e.action) {
             MotionEvent.ACTION_DOWN -> {
-                if (!mScroller.isFinished) mScroller.abortAnimation()
-                mLastX = x.toFloat()
-                mFirstX = mLastX
-                mFirstY = y.toFloat()
-
-                mPosition = pointToPosition(x, y)
-                if (mPosition != INVALID_POSITION) {
-                    val oldView = mFlingView
-                    mFlingView = getChildAt(mPosition - (layoutManager as LinearLayoutManager).findFirstVisibleItemPosition()) as ViewGroup
-                    if (oldView != null && mFlingView !== oldView && oldView.scrollX != 0) oldView.scrollTo(0, 0)
-                    mMenuViewWidth = if (mFlingView!!.childCount == 2) mFlingView!!.getChildAt(1).width else INVALID_CHILD_WIDTH
+                if (!mScroller.isFinished) {  // 如果动画还没停止，则立即终止动画
+                    mScroller.abortAnimation()
                 }
-
-                obtainVelocity(e)
+                run {
+                    mLastX = x.toFloat()
+                    mFirstX = mLastX
+                }
+                mFirstY = y.toFloat()
+                mPosition = pointToPosition(x, y) // 获取触碰点所在的position
+                if (mPosition != INVALID_POSITION) {
+                    val view: View? = mFlingView
+                    // 获取触碰点所在的view
+                    mFlingView =
+                        getChildAt(mPosition - (layoutManager as LinearLayoutManager?)!!.findFirstVisibleItemPosition()) as ViewGroup
+                    // 这里判断一下如果之前触碰的view已经打开，而当前碰到的view不是那个view则立即关闭之前的view，此处并不需要担动画没完成冲突，因为之前已经abortAnimation
+                    if (view != null && mFlingView !== view && view.scrollX != 0) {
+                        view.scrollTo(0, 0)
+                    }
+                    // 这里进行了强制的要求，RecyclerView的子ViewGroup必须要有2个子view,这样菜单按钮才会有值，
+                    // 需要注意的是:如果不定制RecyclerView的子View，则要求子View必须要有固定的width。
+                    // 比如使用LinearLayout作为根布局，而content部分width已经是match_parent，此时如果菜单view用的是wrap_content，menu的宽度就会为0。
+                    mMenuViewWidth = if (mFlingView!!.childCount == 2) {
+                        mFlingView!!.getChildAt(1).width
+                    } else {
+                        INVALID_CHILD_WIDTH
+                    }
+                }
             }
-
             MotionEvent.ACTION_MOVE -> {
-                val dx = x - mFirstX
-                val dy = y - mFirstY
-                if (Math.abs(dx) > mTouchSlop && Math.abs(dx) > Math.abs(dy)) {
+                mVelocityTracker!!.computeCurrentVelocity(1000)
+                // 此处有俩判断，满足其一则认为是侧滑：
+                // 1.如果x方向速度大于y方向速度，且大于最小速度限制；
+                // 2.如果x方向的侧滑距离大于y方向滑动距离，且x方向达到最小滑动距离；
+                val xVelocity = mVelocityTracker!!.xVelocity
+                val yVelocity = mVelocityTracker!!.yVelocity
+                if (Math.abs(xVelocity) > SNAP_VELOCITY && Math.abs(xVelocity) > Math.abs(yVelocity)
+                    || Math.abs(x - mFirstX) >= mTouchSlop
+                    && Math.abs(x - mFirstX) > Math.abs(y - mFirstY)
+                ) {
                     mIsSlide = true
                     return true
                 }
             }
-
-            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> releaseVelocity()
+            MotionEvent.ACTION_UP -> releaseVelocity()
         }
         return super.onInterceptTouchEvent(e)
     }
@@ -72,80 +105,148 @@ class SlideRecyclerView @JvmOverloads constructor(
     override fun onTouchEvent(e: MotionEvent): Boolean {
         if (mIsSlide && mPosition != INVALID_POSITION) {
             val x = e.x
-            when (e.actionMasked) {
-                MotionEvent.ACTION_MOVE -> {
+            obtainVelocity(e)
+            when (e.action) {
+                MotionEvent.ACTION_DOWN -> {}
+                MotionEvent.ACTION_MOVE ->                     // 随手指滑动
                     if (mMenuViewWidth != INVALID_CHILD_WIDTH) {
-                        val dx = (mLastX - x).toInt()
-                        mFlingView?.let {
-                            val scrollX = it.scrollX + dx
-                            it.scrollTo(scrollX.coerceIn(0, mMenuViewWidth), 0)
+                        val dx = mLastX - x
+                        if (mFlingView!!.scrollX + dx <= mMenuViewWidth
+                            && mFlingView!!.scrollX + dx > 0
+                        ) {
+                            mFlingView!!.scrollBy(dx.toInt(), 0)
                         }
                         mLastX = x
                     }
-                }
-
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    mVelocityTracker?.computeCurrentVelocity(1000)
-                    val scrollX = mFlingView!!.scrollX
-                    val xVel = mVelocityTracker!!.xVelocity.toInt()
-
-                    val target = when {
-                        xVel < -SNAP_VELOCITY -> mMenuViewWidth
-                        xVel > SNAP_VELOCITY -> 0
-                        scrollX >= mMenuViewWidth / 2 -> mMenuViewWidth
-                        else -> 0
+                MotionEvent.ACTION_UP -> {
+                    if (mMenuViewWidth != INVALID_CHILD_WIDTH) {
+                        val scrollX = mFlingView!!.scrollX
+                        mVelocityTracker!!.computeCurrentVelocity(1000)
+                        // 此处有两个原因决定是否打开菜单：
+                        // 1.菜单被拉出宽度大于菜单宽度一半；
+                        // 2.横向滑动速度大于最小滑动速度；
+                        // 注意：之所以要小于负值，是因为向左滑则速度为负值
+                        if (mVelocityTracker!!.xVelocity < -SNAP_VELOCITY) {    // 向左侧滑达到侧滑最低速度，则打开
+                            mScroller.startScroll(
+                                scrollX,
+                                0,
+                                mMenuViewWidth - scrollX,
+                                0,
+                                Math.abs(mMenuViewWidth - scrollX)
+                            )
+                        } else if (mVelocityTracker!!.xVelocity >= SNAP_VELOCITY) {  // 向右侧滑达到侧滑最低速度，则关闭
+                            mScroller.startScroll(scrollX, 0, -scrollX, 0, Math.abs(scrollX))
+                        } else if (scrollX >= mMenuViewWidth / 2) { // 如果超过删除按钮一半，则打开
+                            mScroller.startScroll(
+                                scrollX,
+                                0,
+                                mMenuViewWidth - scrollX,
+                                0,
+                                Math.abs(mMenuViewWidth - scrollX)
+                            )
+                        } else {    // 其他情况则关闭
+                            mScroller.startScroll(scrollX, 0, -scrollX, 0, Math.abs(scrollX))
+                        }
+                        invalidate()
                     }
-
-                    mScroller.startScroll(scrollX, 0, target - scrollX, 0, 300)
-                    postInvalidateOnAnimation()
+                    mMenuViewWidth = INVALID_CHILD_WIDTH
                     mIsSlide = false
                     mPosition = INVALID_POSITION
-                    releaseVelocity()
+                    releaseVelocity() // 这里之所以会调用，是因为如果前面拦截了，就不会执行ACTION_UP,需要在这里释放追踪
                 }
             }
             return true
+        } else {
+            // 此处防止RecyclerView正常滑动时，还有菜单未关闭
+            closeMenu()
+            // Velocity，这里的释放是防止RecyclerView正常拦截了，但是在onTouchEvent中却没有被释放；
+            // 有三种情况：1.onInterceptTouchEvent并未拦截，在onInterceptTouchEvent方法中，DOWN和UP一对获取和释放；
+            // 2.onInterceptTouchEvent拦截，DOWN获取，但事件不是被侧滑处理，需要在这里进行释放；
+            // 3.onInterceptTouchEvent拦截，DOWN获取，事件被侧滑处理，则在onTouchEvent的UP中释放。
+            releaseVelocity()
         }
         return super.onTouchEvent(e)
     }
 
-    override fun computeScroll() {
-        if (mScroller.computeScrollOffset()) {
-            mFlingView?.scrollTo(mScroller.currX, mScroller.currY)
-            postInvalidateOnAnimation()
+    private fun releaseVelocity() {
+        if (mVelocityTracker != null) {
+            mVelocityTracker!!.clear()
+            mVelocityTracker!!.recycle()
+            mVelocityTracker = null
         }
     }
 
     private fun obtainVelocity(event: MotionEvent) {
-        if (mVelocityTracker == null) mVelocityTracker = VelocityTracker.obtain()
+        if (mVelocityTracker == null) {
+            mVelocityTracker = VelocityTracker.obtain()
+        }
         mVelocityTracker!!.addMovement(event)
     }
 
-    private fun releaseVelocity() {
-        mVelocityTracker?.recycle()
-        mVelocityTracker = null
-    }
-
     fun pointToPosition(x: Int, y: Int): Int {
-        if (layoutManager == null) return INVALID_POSITION
-        val firstPosition = (layoutManager as LinearLayoutManager).findFirstVisibleItemPosition()
-        val frame = mTouchFrame ?: Rect().also { mTouchFrame = it }
-        for (i in childCount - 1 downTo 0) {
+        if (null == layoutManager) return INVALID_POSITION
+        val firstPosition = (layoutManager as LinearLayoutManager?)!!.findFirstVisibleItemPosition()
+        var frame = mTouchFrame
+        if (frame == null) {
+            mTouchFrame = Rect()
+            frame = mTouchFrame
+        }
+        val count = childCount
+        for (i in count - 1 downTo 0) {
             val child = getChildAt(i)
             if (child.visibility == VISIBLE) {
                 child.getHitRect(frame)
-                if (frame.contains(x, y)) return firstPosition + i
+                if (frame!!.contains(x, y)) {
+                    return firstPosition + i
+                }
             }
         }
         return INVALID_POSITION
     }
 
+    override fun computeScroll() {
+        if (mScroller.computeScrollOffset()) {
+            mFlingView!!.scrollTo(mScroller.currX, mScroller.currY)
+            invalidate()
+        }
+    }
+
+    /**
+     * 关闭当前打开的菜单（原有方法）
+     */
     fun closeMenu() {
-        mFlingView?.scrollTo(0, 0)
+        if (mFlingView != null && mFlingView!!.scrollX != 0) {
+            mFlingView!!.scrollTo(0, 0)
+        }
+    }
+
+    /**
+     * 新增：强制关闭所有打开的侧滑菜单（解决删除后复位问题）
+     */
+    fun closeAllMenu() {
+        // 1. 关闭当前记录的打开菜单
+        closeMenu()
+
+        // 2. 遍历所有可见item，确保没有遗漏的打开菜单
+        val childCount = childCount
+        for (i in 0 until childCount) {
+            val child = getChildAt(i)
+            if (child is ViewGroup && child.scrollX != 0) {
+                child.scrollTo(0, 0)
+            }
+        }
+
+        // 3. 重置状态
+        mFlingView = null
+        mPosition = INVALID_POSITION
+        mMenuViewWidth = INVALID_CHILD_WIDTH
     }
 
     companion object {
-        private const val INVALID_POSITION = -1
-        private const val INVALID_CHILD_WIDTH = -1
-        private const val SNAP_VELOCITY = 600
+        private const val TAG = "SlideRecyclerView"
+        private const val INVALID_POSITION = -1 // 触摸到的点不在子View范围内
+        private const val INVALID_CHILD_WIDTH = -1 // 子ItemView不含两个子View
+        private const val SNAP_VELOCITY = 600 // 最小滑动速度
     }
 }
+

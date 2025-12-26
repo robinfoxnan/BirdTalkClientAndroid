@@ -18,6 +18,7 @@ import com.bird2fish.birdtalksdk.R
 import com.bird2fish.birdtalksdk.R.*
 import com.bird2fish.birdtalksdk.SdkGlobalData
 import com.bird2fish.birdtalksdk.StatusCallback
+import com.bird2fish.birdtalksdk.db.TopicDbHelper
 import com.bird2fish.birdtalksdk.model.Topic
 import com.bird2fish.birdtalksdk.model.User
 import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass
@@ -30,7 +31,7 @@ import com.bird2fish.birdtalksdk.uihelper.TextHelper
 
 class ChatSessionFragment : Fragment()  , StatusCallback {
 
-    private lateinit var recyclerView: RecyclerView
+    private lateinit var recyclerView: SlideRecyclerView
     private lateinit var adapter: ChatSessionAdapter
     private lateinit var addBtn : ImageButton
 
@@ -58,7 +59,7 @@ class ChatSessionFragment : Fragment()  , StatusCallback {
 
 
         // 初始化适配器
-        this.adapter = ChatSessionAdapter(SdkGlobalData.getChatSessionMap())
+        this.adapter = ChatSessionAdapter(SdkGlobalData.rebuildDisplayList())
         adapter.setView(this)
 
         // 配置 RecyclerView
@@ -142,12 +143,16 @@ class ChatSessionFragment : Fragment()  , StatusCallback {
 
     }
 
+    fun onClickRemove(){
+        recyclerView.closeMenu()
+    }
+
 }
 
 
 
 // 双向关注的列表，适配器
-class ChatSessionAdapter(private val dataMap: LinkedHashMap<Long, Topic>) : RecyclerView.Adapter<ChatSessionAdapter.ChatSessionViewHolder>() {
+class ChatSessionAdapter(private val dataMap: MutableList<Topic>) : RecyclerView.Adapter<ChatSessionAdapter.ChatSessionViewHolder>() {
 
     private var fragment : ChatSessionFragment? = null
 
@@ -164,6 +169,7 @@ class ChatSessionAdapter(private val dataMap: LinkedHashMap<Long, Topic>) : Recy
         val tvDes : TextView = itemView.findViewById(id.desTv)
         val tvTime :TextView = itemView.findViewById(id.timeTv)
         val tvState:ImageView = itemView.findViewById(id.StateTv)
+        val tvHide:TextView = itemView.findViewById(id.tv_remove_chat)
 
         var index: Int = 0
         var selectedPosition = RecyclerView.NO_POSITION
@@ -173,7 +179,7 @@ class ChatSessionAdapter(private val dataMap: LinkedHashMap<Long, Topic>) : Recy
             itemView.setOnClickListener {
                 // 处理点击事件
                 if (fragment != null){
-                    val list = dataMap.values.toList()
+                    val list = dataMap
                     val t = list[index]
                     fragment!!.switchSendMsgPage(t)
                 }
@@ -191,7 +197,7 @@ class ChatSessionAdapter(private val dataMap: LinkedHashMap<Long, Topic>) : Recy
 
     // 绑定数据到 ViewHolder
     override fun onBindViewHolder(holder: ChatSessionViewHolder, position: Int) {
-        val dataList = dataMap.values.toList()
+        val dataList = dataMap
         val item = dataList[position]
         holder.index = position
 
@@ -226,25 +232,38 @@ class ChatSessionAdapter(private val dataMap: LinkedHashMap<Long, Topic>) : Recy
             }
         }
 
-        // 静音
-        if (item.mute == 0){
+        // 根据静音状态设置图标
+        if (item.mute){
+            holder.tvState.setImageResource(android.R.drawable.ic_lock_silent_mode)
+        }else{
             holder.tvState.setImageResource(android.R.drawable.ic_lock_silent_mode_off)
             holder.tvState.setColorFilter(Color.GRAY, PorterDuff.Mode.SRC_IN)
-        }else{
-            holder.tvState.setImageResource(android.R.drawable.ic_lock_silent_mode)
+
         }
 
 
         // 是否静音的代码，点击了切换是否静音
         holder.tvState.setOnClickListener{
-            if (item.mute == 0){
-                item.mute = 1
-                holder.tvState.setImageResource(android.R.drawable.ic_lock_silent_mode)
-            }else{
-                item.mute = 0
+            if (item.mute){
+                item.mute = false
                 holder.tvState.setImageResource(android.R.drawable.ic_lock_silent_mode_off)
                 holder.tvState.setColorFilter(Color.GRAY, PorterDuff.Mode.SRC_IN)
+                TopicDbHelper.insertOrReplacePTopic(item);
+            }else{
+                item.mute = true
+                holder.tvState.setImageResource(android.R.drawable.ic_lock_silent_mode)
+                TopicDbHelper.insertOrReplacePTopic(item);
             }
+        }
+
+        // 点击隐藏，不显示这个对话
+        holder.tvHide.setOnClickListener{
+            item.showHide = false
+            fragment?.onClickRemove()
+            TopicDbHelper.insertOrReplacePTopic(item);
+            SdkGlobalData.rebuildDisplayList()
+            notifyDataSetChanged()
+
         }
 
         // 可以添加其他逻辑...

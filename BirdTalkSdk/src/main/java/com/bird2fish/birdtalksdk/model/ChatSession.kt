@@ -96,7 +96,7 @@ class ChatSession (val sessionId:Long)
     var msgUnReadList : MutableMap<Long, MessageContent> = LinkedHashMap()
 
     // 初始化时候用的
-    fun loadMessage(lst:  List<MessageData>, t:Topic):Long{
+    fun loadMessageOnLogin(lst:  List<MessageData>, t:Topic):Long{
         // 如果没有收到服务器回执的
         val tempSendingList = LinkedList<MessageContent>()
         val tempUnReadList = LinkedList<MessageContent>()
@@ -109,8 +109,9 @@ class ChatSession (val sessionId:Long)
                 msgList.addFirst(msgContent)
                 msgListMask[msgContent.msgId] = msgContent
 
-                // 这里是设置会话的最新消息
-                if (i == lst.size - 1){
+                // 这里倒序，第一条是设置会话的最新消息
+                if (i == 0){
+                    // 单独设置会话
                     t.lastMsg = msgContent
                 }
                 i += 1
@@ -165,7 +166,7 @@ class ChatSession (val sessionId:Long)
     }
 
     // 加载的历史数据
-    fun addP2PMessageToHead(lst:  List<MessageData>, topic:Topic, bRemote:Boolean) {
+    fun addP2PMessageToHeadOnDrag(lst:  List<MessageData>, topic:Topic, bRemote:Boolean) {
         val tempList = LinkedList<MessageContent>()
 
         synchronized(msgList) {
@@ -1162,7 +1163,7 @@ object ChatSessionManager {
         chatSession.addMessageToTail(msg!!)
 
         // 需要创建topic 并设置最新消息
-        SdkGlobalData.updateTopic(msg!!)
+        val topic = SdkGlobalData.updateTopic(msg!!)
 
         val resultMap = mapOf(
             "status" to "coming",
@@ -1172,7 +1173,11 @@ object ChatSessionManager {
         SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(MsgEventType.MSG_COMING, chatMsg.msgType.number,
             chatMsg.msgId, chatMsg.fromId, resultMap)
 
-        RingPlayer.playNotifyRing(SdkGlobalData.context!!)
+        // 播放铃声，需要检测对应的topic是否需要响
+        if (topic != null && ! topic.mute){
+            RingPlayer.playNotifyRing(SdkGlobalData.context!!)
+        }
+
         return msg!!
     }
 
@@ -1227,6 +1232,10 @@ object ChatSessionManager {
         for (p in chatTopicList){
             val sid = p.key
             val t = p.value
+            // 如果不显示的会话，不加载数据，也不显示
+            if (!t.showHide){
+                continue
+            }
             val chatSession = getSession(sid)
 
             if (t.type == ChatType.ChatTypeP2P.number){
@@ -1235,7 +1244,7 @@ object ChatSessionManager {
                 lst = TopicDbHelper.getGChatMessagesById(t.tid, max, SdkGlobalData.LOAD_MSG_BATCH, false)
             }
             // 将数据库里的数据插入到列表中, 这是反向加载，所以是倒序的
-            val tm = chatSession.loadMessage(lst, t)
+            val tm = chatSession.loadMessageOnLogin(lst, t)
             if (tm > lastTm){
                 lastTm = tm
             }
@@ -1248,6 +1257,7 @@ object ChatSessionManager {
 
 
     // 重链接成功后需要与服务器, 这里是一组消息
+    // 重要：如果这里不加1，会返回重复的数据，造成隐藏的会话项重新设置为显示，后续如果清理数据，也至少需要保留一条！！！
     fun loadP2pMessageFromServerOnLogin(){
 
         // 找出当前私聊或者群聊中最后一条记录, +1 是为了防止重复
@@ -1255,7 +1265,7 @@ object ChatSessionManager {
         if (maxId > 0){
 
             // 说明此时表中有数据，应该正向查找
-            MsgEncocder.sendSynPChatDataForward(maxId)
+            MsgEncocder.sendSynPChatDataForward(maxId + 1)
         }else{
             // 没有数据说明是多终端登录或者的清理过数据,
             // 设置fid==0，就是加载所有的数据，默认返回100条
@@ -1468,16 +1478,16 @@ object ChatSessionManager {
     }
 
     // 页面上下拉控件，触发事件， 加载历史数据
-    fun onLoadHistoryMessage(sessionId :Long, firstMsg:MessageContent?){
+    fun onLoadHistoryMessageOnDrag(sessionId :Long, firstMsg:MessageContent?){
         if (sessionId > 0){
-            onLoadP2pHistoryMessage(sessionId, firstMsg)
+            onLoadP2pHistoryMessageOnDrag(sessionId, firstMsg)
         }else{
 
         }
     }
 
-    // 私聊的数据，先尝试本地加载，这里是从向前边的历史数据开始加载
-    fun onLoadP2pHistoryMessage(sessionId :Long, firstMsg:MessageContent?){
+    // 页面上下拉控件，触发事件， 加载历史数据:  {私聊的数据，先尝试本地加载，这里是从向前边的历史数据开始加载}
+    fun onLoadP2pHistoryMessageOnDrag(sessionId :Long, firstMsg:MessageContent?){
         var firstId = Long.MAX_VALUE
         if (firstMsg != null){
             firstId= firstMsg.msgId
@@ -1493,7 +1503,7 @@ object ChatSessionManager {
         val topic = SdkGlobalData.getPTopic(sessionId) ?: return
 
         // 添加到界面消息列表中
-        chatSession.addP2PMessageToHead(lst, topic!!, false)
+        chatSession.addP2PMessageToHeadOnDrag(lst, topic!!, false)
         SdkGlobalData.invokeOnEventCallbacks(MsgEventType.MSG_HISTORY, 0, 0, sessionId, mapOf("from" to "db"))
 
         // 如果数据库里面的消息太少，这里还需要去服务器找

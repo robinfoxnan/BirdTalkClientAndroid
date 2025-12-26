@@ -16,6 +16,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
+
 public class TopicDbHelper {
     // 表名
     public static final String TABLE_PCHAT = "pchat";
@@ -50,6 +51,8 @@ public class TopicDbHelper {
     public static final String COLUMN_TITLE = "title";
     public static final String COLUMN_ICON = "icon";
 
+
+
     private static final String SQL_CREATE_PTOPIC_TABLE =
             "CREATE TABLE IF NOT EXISTS " + TABLE_PTOPIC + " (" +
                     COLUMN_TID + " INTEGER PRIMARY KEY," +
@@ -69,6 +72,7 @@ public class TopicDbHelper {
                     COLUMN_VISIBLE + " INTEGER," +
                     COLUMN_TITLE + " TEXT," +
                     COLUMN_ICON + " TEXT);";
+
 
 
     private static final String SQL_CREATE_PCHAT_TABLE =
@@ -1171,7 +1175,7 @@ public class TopicDbHelper {
         values.put("sync_id", topic.getSyncId());
         values.put("read_id", topic.getReadId());
         values.put("type", topic.getType());
-        values.put("visible", topic.getVisible());
+        values.put("visible", topic.getData());
         values.put("title", topic.getTitle());
         values.put("icon", topic.getIcon());
 
@@ -1267,7 +1271,7 @@ public class TopicDbHelper {
                     topic.setSyncId(cursor.getLong(cursor.getColumnIndexOrThrow("sync_id")));
                     topic.setReadId(cursor.getLong(cursor.getColumnIndexOrThrow("read_id")));
                     topic.setType(cursor.getInt(cursor.getColumnIndexOrThrow("type")));
-                    topic.setVisible(cursor.getInt(cursor.getColumnIndexOrThrow("visible")));
+                    topic.setData(cursor.getInt(cursor.getColumnIndexOrThrow("visible")));
                     topic.setTitle(cursor.getString(cursor.getColumnIndexOrThrow("title")));
                     topic.setIcon(cursor.getString(cursor.getColumnIndexOrThrow("icon")));
 
@@ -1288,6 +1292,33 @@ public class TopicDbHelper {
     public  static List<Topic> getAllGTopics(){
         return getAllTopics(TABLE_GTOPIC);
     }
+
+    // 设置用户会话静音或者非静音, 隐藏，置顶等
+    public static boolean setPChatTopicData(Topic t){
+        return  setChatTopicData(TABLE_PTOPIC, t);
+    }
+
+    public static boolean setGChatTopicData(Topic t){
+        return  setChatTopicData(TABLE_GTOPIC, t);
+    }
+
+    public static boolean setChatTopicData(String tableName, Topic t){
+        ContentValues values = new ContentValues();
+        values.put(COLUMN_VISIBLE, t.getData());
+
+
+        String whereClause = "tid = ?";
+        String[] whereArgs = { String.valueOf(t.getTid()) };
+
+        SQLiteDatabase db = BaseDb.getInstance().getWritableDatabase();
+        int rowsUpdated = db.update(tableName, values, whereClause, whereArgs);
+        if (rowsUpdated > 0){
+            return true;
+        }else{
+            return false;
+        }
+    }
+
 
     // 建表
     public  static void InitGTables(List<Topic> gList, List<Topic> pList){

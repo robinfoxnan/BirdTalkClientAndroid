@@ -1,13 +1,19 @@
 package com.bird2fish.birdtalksdk.ui
 
+import android.app.Activity
+import android.media.AudioManager
 import android.os.Bundle
+import android.provider.ContactsContract.CommonDataKinds.Im
 import android.provider.Settings.Global
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.ImageView
+import android.widget.PopupMenu
 import android.widget.TextView
+import androidx.appcompat.view.menu.MenuPopupHelper
+import androidx.core.view.size
 import androidx.fragment.app.Fragment
 import androidx.viewpager2.adapter.FragmentStateAdapter
 import androidx.viewpager2.widget.ViewPager2
@@ -26,6 +32,9 @@ class ChatManagerFragment : Fragment() {
     //private var filePreviewPage = FilePreviewFragment()  // 预览文件信息
     private lateinit var chatImage : ImageView             //
     private lateinit var chatTitle : TextView              //
+//    private lateinit var  buttonNext: ImageView            // 上一页
+//    private lateinit var  buttonPre: ImageView             // 下一页
+    private lateinit var  buttonSetting: ImageView
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -43,21 +52,58 @@ class ChatManagerFragment : Fragment() {
 
 
 
-        // 设置按钮点击事件以切换页面
-        val buttonNext = view.findViewById<Button>(R.id.btn_next_page)
-        buttonNext.setOnClickListener {
-            // 获取当前页面索引
-            val currentItem = this.viewPager.currentItem
-            // 切换到下一个页面
-            this.viewPager.setCurrentItem(currentItem + 1, true)
-        }
+//        // 设置按钮点击事件以切换页面
+//        buttonNext = view.findViewById<ImageView>(R.id.btn_next_page)
+//        buttonNext.setOnClickListener {
+//            // 获取当前页面索引
+//            val currentItem = this.viewPager.currentItem
+//            // 切换到下一个页面
+//            this.viewPager.setCurrentItem(currentItem + 1, true)
+//        }
+//
+//        buttonPre = view.findViewById<ImageView>(R.id.btn_pre_page)
+//        buttonPre.setOnClickListener {
+//            // 获取当前页面索引
+//            val currentItem = this.viewPager.currentItem
+//            // 切换到下一个页面
+//            this.viewPager.setCurrentItem(currentItem - 1, true)
+//        }
 
-        val buttonPre = view.findViewById<Button>(R.id.btn_pre_page)
-        buttonPre.setOnClickListener {
-            // 获取当前页面索引
-            val currentItem = this.viewPager.currentItem
-            // 切换到下一个页面
-            this.viewPager.setCurrentItem(currentItem - 1, true)
+        // 设置按钮
+        buttonSetting  = view.findViewById<ImageView>(R.id.btn_setting)
+        buttonSetting.setOnClickListener {
+            // 1. 初始化PopupMenu，传入上下文和触发按钮
+            val popupMenu = PopupMenu(requireContext(), it)
+            // 2. 加载菜单资源
+            popupMenu.menuInflater.inflate(R.menu.menu_chat_page_manager, popupMenu.menu)
+            // 2. 根据当前音频模式，动态控制菜单项显示/隐藏（核心步骤）
+            // 2.1 找到对应的菜单项
+            val speakerItem = popupMenu.menu.findItem(R.id.menu_speaker_play)
+            val headphoneItem = popupMenu.menu.findItem(R.id.menu_headphone_play)
+
+            // 比如：当前是扬声器模式，就隐藏“扬声器播放”项，显示“耳机播放”项
+            speakerItem.setVisible(!SdkGlobalData.useLoudSpeaker)
+            headphoneItem.setVisible(SdkGlobalData.useLoudSpeaker)
+
+            // 3. 设置菜单选项的点击监听
+            popupMenu.setOnMenuItemClickListener { menuItem ->
+                when (menuItem.itemId) {
+                    R.id.menu_speaker_play -> {
+                        // 处理扬声器播放的逻辑
+                        switchToSpeakerPlayback()
+                        true // 表示已处理该点击事件
+                    }
+                    R.id.menu_headphone_play -> {
+                        // 处理耳机播放的逻辑
+                        switchToHeadphonePlayback()
+                        true
+                    }
+                    else -> false
+                }
+            }
+
+            // 4. 显示弹出菜单
+            popupMenu.show()
         }
 
         chatImage = view.findViewById(R.id.header_image)
@@ -66,13 +112,56 @@ class ChatManagerFragment : Fragment() {
         return view
     }
 
+    // 切换到扬声器播放模式
+    fun switchToSpeakerPlayback(){
+        SdkGlobalData.useLoudSpeaker = true
+        val audioManager = requireActivity().getSystemService(Activity.AUDIO_SERVICE) as? AudioManager
+        audioManager?.apply {
+            // 取消静音，设置为扬声器外放
+            setSpeakerphoneOn(true)
+            // 设置音频流为铃声模式（适配通知铃声）
+            mode = AudioManager.MODE_NORMAL
+        }
+    }
+
+    // 播放系统默认通知铃声（带 1 秒节流 + 音频输出控制）
+    fun switchToHeadphonePlayback(){
+        SdkGlobalData.useLoudSpeaker = false
+        val audioManager = requireActivity().getSystemService(Activity.AUDIO_SERVICE) as? AudioManager
+        audioManager?.apply {
+            // 关闭扬声器，切换到听筒（无耳机时）/耳机（有耳机时）
+            setSpeakerphoneOn(false)
+            // 设置为通话模式（适配听筒播放）
+            mode = AudioManager.MODE_IN_COMMUNICATION
+        }
+    }
+
+//    fun checkShowButtons(){
+//        // 1. 正确获取ViewPager的页面数量（适配标准ViewPager）
+//        val pageCount = viewPager.adapter!!.itemCount ?: 0
+//        // 2. 页面数<2时，直接隐藏两个按钮
+//        if (pageCount < 2) {
+//            buttonPre.visibility = View.GONE
+//            buttonNext.visibility = View.GONE
+//            return
+//        }
+//        // 3. 获取当前页码
+//        val currentPos = viewPager.currentItem
+//
+//        // 4. 完整处理上一页按钮：有上一页则显示，否则隐藏
+//        buttonPre.visibility = if (currentPos > 0) View.VISIBLE else View.GONE
+//
+//        // 5. 完整处理下一页按钮：有下一页则显示，否则隐藏
+//        buttonNext.visibility = if (currentPos < pageCount - 1) View.VISIBLE else View.GONE
+//    }
+
     // 切换到某个好友的页面
 
     // 当 Fragment 被隐藏或显示时调用
     override fun onHiddenChanged(hidden: Boolean) {
         super.onHiddenChanged(hidden)
         if (!hidden) {
-            switchToPage(SdkGlobalData.currentChatFid)
+            switchToPage()
         } else {
 
         }
@@ -89,7 +178,12 @@ class ChatManagerFragment : Fragment() {
 //    }
 
     // 初始化后才能切换
-    private fun switchToPage(fid: Long){
+    private fun switchToPage(){
+
+        val fid = SdkGlobalData.currentChatFid
+        if (fid == 0L){
+            return
+        }
 
         var index = 0
         if (this.chatPagerAdapter != null){
@@ -117,6 +211,8 @@ class ChatManagerFragment : Fragment() {
             this.viewPager.setCurrentItem(index, true)
 
         }
+
+        //checkShowButtons()
 
     }
 

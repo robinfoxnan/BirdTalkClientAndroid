@@ -417,26 +417,29 @@ class ChatPageFragment : Fragment() , StatusCallback {
         // 1. 获取最后一个可见条目索引
         val lastVisiblePos = layoutManager.findLastVisibleItemPosition()
         // 2. 判断是否是最后一条
-        val isLastItem = lastVisiblePos == itemCount - 1
+        val isLastItem = (lastVisiblePos == itemCount - 1) || (lastVisiblePos == itemCount - 2)
         if (!isLastItem) {
             mGoToLatest?.show()
             return
+        }else{
+            mGoToLatest?.hide()
+            return
         }
 
-        // 3. 关键：判断最后一个条目是否完全显示（无截断）
-        val lastView = layoutManager.findViewByPosition(lastVisiblePos)
-        val isLastItemCompletelyVisible = layoutManager.isViewPartiallyVisible(
-            lastView!!,
-            false, // 是否考虑垂直方向（false = 检查整个View是否完全可见）
-            false  // 是否考虑水平方向（文本长一般是垂直滚动，设为false）
-        )
-
-        // 最终判断
-        if (isLastItemCompletelyVisible) {
-            mGoToLatest?.hide() // 真·到底了，隐藏按钮
-        } else {
-            mGoToLatest?.show() // 最后一条但未完全显示，显示按钮
-        }
+//        // 3. 关键：判断最后一个条目是否完全显示（无截断）
+//        val lastView = layoutManager.findViewByPosition(lastVisiblePos)
+//        val isLastItemCompletelyVisible = layoutManager.isViewPartiallyVisible(
+//            lastView!!,
+//            false, // 是否考虑垂直方向（false = 检查整个View是否完全可见）
+//            false  // 是否考虑水平方向（文本长一般是垂直滚动，设为false）
+//        )
+//
+//        // 最终判断
+//        if (isLastItemCompletelyVisible) {
+//            mGoToLatest?.hide() // 真·到底了，隐藏按钮
+//        } else {
+//            mGoToLatest?.show() // 最后一条但未完全显示，显示按钮
+//        }
     }
 
 
@@ -546,7 +549,7 @@ class ChatPageFragment : Fragment() , StatusCallback {
         if (mMessagesAdapter!!.itemCount > 0){
             lastMsg = mMessagesAdapter!!.getFirst()
         }
-        ChatSessionManager.onLoadHistoryMessage(this.mChatIdLong, lastMsg)
+        ChatSessionManager.onLoadHistoryMessageOnDrag(this.mChatIdLong, lastMsg)
         // 模拟网络加载
         Handler(Looper.getMainLooper()).postDelayed({
             // 设置一个定时器，如果5秒都无法加载完成，也不能一直加载
@@ -587,6 +590,7 @@ class ChatPageFragment : Fragment() , StatusCallback {
             scrollToBottom(
                 true
             )
+            mGoToLatest?.hide()
         })
 
         mRefresher = view.findViewById(R.id.swipe_refresher)
@@ -1237,11 +1241,13 @@ class ChatPageFragment : Fragment() , StatusCallback {
         }
     }
 
+    // 目前是页面缓存的方式，只触发一次，
     override fun onResume() {
         super.onResume()
         setShowHide(true)
         Log.d("MyFragment", "onResume called")
     }
+
 
     // 初始化录音按钮
     private fun initAudioRecorder(activity: Activity) {
@@ -1320,7 +1326,7 @@ class ChatPageFragment : Fragment() , StatusCallback {
                 it.mode = AudioManager.MODE_NORMAL
 
                 // 打开扬声器
-                it.isSpeakerphoneOn = true
+                it.isSpeakerphoneOn = SdkGlobalData.useLoudSpeaker
             } else {
                 // 处理低版本逻辑（如果需要）
                 // 例如，你可以记录日志或提供兼容性说明
@@ -1479,12 +1485,18 @@ class ChatPageFragment : Fragment() , StatusCallback {
             Toast.makeText(requireContext(), "send image fail", Toast.LENGTH_LONG)
         }
         mMessagesAdapter?.notifyDataSetChanged()
+        markVisibleItemsAsRead(this.mRecyclerView!!)
     }
 
-    fun hideSoftKeyboard() {
+    private fun hideSoftKeyboard() {
         val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
         // 隐藏软键盘
         imm.hideSoftInputFromWindow(this.root?.windowToken, 0)
+
+        // 2. 延迟执行检查（异步）
+        root?.postDelayed({
+            markVisibleItemsAsRead(this.mRecyclerView!!)
+        }, 3000)
     }
 
     // 发送文本
@@ -1510,11 +1522,12 @@ class ChatPageFragment : Fragment() , StatusCallback {
         val message = inputField.text.toString().trim { it <= ' ' }
         if (message != "") {
             // 提交消息，然后刷新显示
+            hideSoftKeyboard()
             ChatSessionManager.sendTextMessageOut(this.mChatIdLong, message)
             inputField.text.clear()
-            hideSoftKeyboard()
             this.mMessagesAdapter!!.notifyDataSetChanged()
         }
+
     }
 
 
@@ -1590,7 +1603,7 @@ class ChatPageFragment : Fragment() , StatusCallback {
             null, // URI("https://lx-sycdn.kuwo.cn/c7aff93e02882b90b34e8f45387b4436/6755728e/resource/n2/3/57/2049851017.mp3?")
             sz.toLong())
         ChatSessionManager.sendAudioOut(this.mChatIdLong, requireContext(), draft, bits, mAudioRecord!!)
-
+        markVisibleItemsAsRead(this.mRecyclerView!!)
     }
 
     // 浏览文件后发送文件
@@ -1599,6 +1612,7 @@ class ChatPageFragment : Fragment() , StatusCallback {
 
         ChatSessionManager.sendFileMessageUploading(this.mChatIdLong, requireContext(), uri)
         this.mMessagesAdapter?.notifyDataSetChanged()
+        markVisibleItemsAsRead(this.mRecyclerView!!)
     }
 
     // 打开图片浏览器

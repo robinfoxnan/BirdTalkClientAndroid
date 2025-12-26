@@ -37,18 +37,43 @@
             android:layout_weight="1"
             android:gravity="left"/>
 
-        <Button
+        <ImageView
             android:id="@+id/btn_pre_page"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:layout_marginLeft="10dp"
+            android:layout_marginTop="3dp"
+            android:layout_marginRight="0dp"
+            android:layout_marginBottom="3dp"
+            android:contentDescription="左翻页"
+            android:src="@drawable/ic_arrow_left"
+            android:visibility="gone" />
 
-            android:text="pre" />
-        <Button
+        <ImageView
             android:id="@+id/btn_next_page"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:layout_marginLeft="10dp"
+            android:layout_marginTop="3dp"
+            android:layout_marginRight="0dp"
+            android:layout_marginBottom="3dp"
+            android:contentDescription="右翻页"
 
-            android:text="next" />
+            android:src="@drawable/ic_arrow_right_rounded"
+            android:visibility="gone" />
+
+        <ImageView
+            android:id="@+id/btn_setting"
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:layout_marginLeft="10dp"
+            android:layout_marginTop="3dp"
+            android:layout_marginRight="10dp"
+            android:layout_marginBottom="3dp"
+            android:contentDescription="右翻页"
+
+            android:src="@drawable/ic_setting_dot_gray" />
+
     </LinearLayout>
 
     <androidx.viewpager2.widget.ViewPager2
