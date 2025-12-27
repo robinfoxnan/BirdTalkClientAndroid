@@ -7,6 +7,7 @@ import android.net.Uri
 import android.text.TextUtils
 import android.util.Log
 import androidx.core.net.toUri
+import androidx.drawerlayout.widget.DrawerLayout.SimpleDrawerListener
 import com.bird2fish.birdtalksdk.MsgEventType
 import com.bird2fish.birdtalksdk.SdkGlobalData
 import com.bird2fish.birdtalksdk.db.TopicDbHelper
@@ -19,6 +20,7 @@ import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass
 import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass.ChatMsgType
 import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass.ChatType
 import com.bird2fish.birdtalksdk.uihelper.CryptHelper
+import com.bird2fish.birdtalksdk.uihelper.ImagesHelper
 import com.bird2fish.birdtalksdk.uihelper.RingPlayer
 import com.bird2fish.birdtalksdk.uihelper.TextHelper
 import kotlinx.coroutines.Dispatchers
@@ -698,6 +700,12 @@ object ChatSessionManager {
         val me = SdkGlobalData.selfUserinfo.id
 
 
+        // 检测是否需要缩放到1024大小
+        var (resizeUri, needResize) = ImagesHelper.resizeImageIfNeeded(SdkGlobalData.context!!, uri, "upload")
+        if (!needResize){
+            resizeUri = uri
+        }
+
         val draft = Drafty("")
         try {
 
@@ -705,29 +713,33 @@ object ChatSessionManager {
             var fileName = TextHelper.getFileNameFromUri(context, uri)
             if (fileName == null) {
                 fileName = ""
+            }else{
+                fileName = toJpgFileName(fileName!!)
             }
 
-            val mime = TextHelper.getMimeTypeFromUri(context, uri)
+            val mime = TextHelper.getMimeTypeFromUri(context, resizeUri)
             // 插入10K预览图实在是太小了
-            draft.insertLocalImage(context, contentResolver, uri, fileName, mime) ?: return 0L
+            draft.insertLocalImage(context, contentResolver, resizeUri, fileName, mime) ?: return 0L
 
             //Log.d("文件内容", "draft: ${draft.toPlainText()}")
 
             val msg = MessageContent(sendId, sendId, tid, me,
                 chatSession.sessionTitle, chatSession.sessionIcon,
                 UserStatus.ONLINE, MessageStatus.UPLOADING, false, false, false,
-                "", draft,  System.currentTimeMillis(), uri, mime)
+                "", draft,  System.currentTimeMillis(), resizeUri, mime)
             msg.msgType = ChatMsgType.IMAGE
 
-            val sz = TextHelper.getFileSize(context, uri)
+            val sz = TextHelper.getFileSize(context, resizeUri)
             msg.fileSz = sz
+            msg.fileName = fileName
 
             // 得保存到临时列表，等待上传结束
             synchronized(this.uploadingMap){
                 this.uploadingMap[sendId] = msg
             }
             // 异步上传
-            msg.fileHashCode = Session.uploadFileChunk(context, uri,  tid, sendId, 0, "")
+            msg.fileHashCode = Session.uploadFileChunk(context, resizeUri,  tid,
+                sendId, 0, "", msg.fileName)
 
             // 先写数据库,更新到发送表
             val msgData = TextHelper.MsgContentToDbMsg(msg)
@@ -749,6 +761,13 @@ object ChatSessionManager {
         }
 
         return sendId
+    }
+
+    fun toJpgFileName(fileName: String): String {
+        // 去掉后缀
+        val nameWithoutExt = fileName.substringBeforeLast('.', fileName)
+        // 拼接 .jpg
+        return "$nameWithoutExt.jpg"
     }
 
     // 将文件上传后发送消息，与那个图片不一样在于处理draft方式不同
@@ -784,6 +803,7 @@ object ChatSessionManager {
             "", draft,  System.currentTimeMillis(), uri, mime)
         msg.fileSz = sz
         msg.msgType = ChatMsgType.FILE
+        msg.fileName = fileName!!
 
         val (hasAttach, sz1) = hasAttachment(draft)
         Log.d("SendFile", "文件大小为：${sz1}")
@@ -794,7 +814,7 @@ object ChatSessionManager {
         }
         // 异步上传
         //Session.uploadSmallFile(context, uri,  uId, msgId)
-        msg.fileHashCode = Session.uploadFileChunk(context, uri,  tid, sendId, 0, "")
+        msg.fileHashCode = Session.uploadFileChunk(context, uri,  tid, sendId, 0, "", fileName)
 
         // 先写数据库,更新到发送表
         val msgData = TextHelper.MsgContentToDbMsg(msg)
@@ -825,7 +845,9 @@ object ChatSessionManager {
 
             val draft = msg!!.content
             setAttachmentProcess(draft, fileName, percent.toInt())
-            Session.uploadFileChunk(SdkGlobalData.context!!, msg!!.fileUri, msg!!.userId, msgId, index + 1, msg!!.fileHashCode)
+            Session.uploadFileChunk(SdkGlobalData.context!!, msg!!.fileUri, msg!!.userId,
+                msgId, index + 1, msg!!.fileHashCode,
+                msg!!.fileName)
 
             SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(MsgEventType.MSG_UPLOAD_PROCESS, percent.toInt(), msgId, 0L, params)
         }
@@ -873,7 +895,8 @@ object ChatSessionManager {
             }
             // 异步上传
             //Session.uploadSmallFile(context, uri,  uId, msgId)
-            msg.fileHashCode = Session.uploadFileChunk(context, mAudioFile.toUri(),  tid, sendId, 0, "")
+            msg.fileHashCode = Session.uploadFileChunk(context, mAudioFile.toUri(),
+                tid, sendId, 0, "", "")
 
             // 先写数据库,更新到发送表
             val msgData = TextHelper.MsgContentToDbMsg(msg)
@@ -1217,9 +1240,14 @@ object ChatSessionManager {
     // 这里是全局数据的索引
     fun loadMessageOnLogin(chatTopicList :LinkedHashMap<Long, Topic>){
         var lstTm = 0L
+        // 如果是启动登录就加载数据库的历史消息，然后与服务器同步，
         if (!bInit){
-            lstTm = loadPMessageFormDbOnLogin(chatTopicList)
+            loadPMessageFormDbOnLogin(chatTopicList)
             bInit = true
+        }
+        // 如果是断开后的链接后登录，直接同步消息
+        else{
+            loadP2pMessageFromServerOnLogin()
         }
     }
     // 启动时候需要从数据库加载消息

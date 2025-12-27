@@ -32,6 +32,7 @@ class MessageContent(
     var msgType:ChatMsgType = ChatMsgType.TEXT,
     var msgRefId:Long = 0L,
     var contentOut:String = "",
+    var fileName:String = "",
        // 开始时候为0，服务器应答后，这里改为自己发送的ID
     var tm1:Long =0L,
     var tm2:Long =0L,

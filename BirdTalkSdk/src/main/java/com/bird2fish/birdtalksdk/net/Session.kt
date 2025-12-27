@@ -2,6 +2,7 @@ package com.bird2fish.birdtalksdk.net
 
 import android.content.Context
 import android.net.Uri
+import android.text.TextUtils
 import android.util.Log
 import androidx.core.net.toFile
 import com.bird2fish.birdtalksdk.InterErrorType
@@ -244,7 +245,8 @@ object Session  {
         groupId: Long,
         msgId: Long,
         index: Int, // 要发送的块号
-        hash:String
+        hash:String,
+        fileName:String
     ) :String {
         if (uri == null) {
             //println("URI is null, cannot upload file.")
@@ -260,7 +262,10 @@ object Session  {
 
         try {
             // 获取文件名
-            var name = TextHelper.getFileNameFromUri(ctx, uri)
+            var name = fileName
+            if (TextUtils.isEmpty(name))
+                TextHelper.getFileNameFromUri(ctx, uri)
+
             if (name.isNullOrEmpty()) {
                 name = TextHelper.generateRandomByteString()
             }

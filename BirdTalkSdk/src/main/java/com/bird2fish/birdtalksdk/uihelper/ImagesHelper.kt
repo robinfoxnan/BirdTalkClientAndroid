@@ -33,6 +33,7 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
+import java.io.InputStream
 import kotlin.math.max
 import kotlin.math.min
 
@@ -92,6 +93,140 @@ public object ImagesHelper {
 
     var sVisibleTopic: String? = null
 
+
+    /**
+     * 尝试从图片 Uri 获取经纬度和高度
+     * @return 四元组: (latitude, longitude, altitude, hasGps)
+     *         如果没有GPS信息，latitude/longitude/altitude为0，hasGps=false
+     */
+    fun getPhotoGpsInfo(context: Context, uri: Uri): Quadruple<Double, Double, Double, Boolean> {
+        try {
+            val inputStream: InputStream = context.contentResolver.openInputStream(uri) ?: return Quadruple(0.0, 0.0, 0.0, false)
+            val exif = ExifInterface(inputStream)
+            inputStream.close()
+
+            val latLong = exif.latLong // 返回 DoubleArray? [lat, long]
+            val altitude = exif.getAltitude(0.0) // 如果没有高度返回默认值 0.0
+
+            return if (latLong != null) {
+                Quadruple(latLong[0], latLong[1], altitude, true)
+            } else {
+                Quadruple(0.0, 0.0, 0.0, false)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            return Quadruple(0.0, 0.0, 0.0, false)
+        }
+    }
+
+    /**
+     * Kotlin 没有内置四元组类，这里自定义一个
+     */
+    data class Quadruple<A, B, C, D>(
+        val first: A,
+        val second: B,
+        val third: C,
+        val fourth: D
+    )
+
+    fun resizeImageIfNeeded(context: Context, uri: Uri, destDir: String): Pair<Uri, Boolean> {
+        // 获取输入流
+        val inputStream = context.contentResolver.openInputStream(uri)
+            ?: return Pair(uri, false) // 无法打开则直接返回原Uri
+
+        // 先解码尺寸，不加载到内存
+        val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeStream(inputStream, null, options)
+        inputStream.close()
+
+        val originalWidth = options.outWidth
+        val originalHeight = options.outHeight
+        val maxSide = maxOf(originalWidth, originalHeight)
+
+        // 如果长边 <= 1024，直接返回原Uri
+        if (maxSide <= 1024) return Pair(uri, false)
+
+        // 计算缩放比例
+        val scale = 1024f / maxSide
+        val newWidth = (originalWidth * scale).toInt()
+        val newHeight = (originalHeight * scale).toInt()
+
+        // 解码并缩放
+        val inputStream2 = context.contentResolver.openInputStream(uri)
+            ?: return Pair(uri, false)
+        val bitmap = BitmapFactory.decodeStream(inputStream2)
+        inputStream2.close()
+        val resizedBitmap = Bitmap.createScaledBitmap(bitmap, newWidth, newHeight, true)
+        bitmap.recycle()
+
+        // 保存到 cache 目录
+        val mediaDir = File(context.getExternalFilesDir(null), destDir)
+        if (!mediaDir.exists()) mediaDir.mkdirs()
+        val outputFile = File(mediaDir, "resized_${System.currentTimeMillis()}.jpg")
+        FileOutputStream(outputFile).use { out ->
+            resizedBitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
+        }
+        resizedBitmap.recycle()
+
+        return  Pair(Uri.fromFile(outputFile), true)
+    }
+
+    fun resizeImageIfNeeded1(context: Context, uri: Uri, destDir: String): Pair<Uri, Boolean> {
+        // 获取输入流
+        val inputStream = context.contentResolver.openInputStream(uri)
+            ?: return Pair(uri, false) // 无法打开则直接返回原Uri
+
+        // 先解码尺寸，不加载到内存
+        val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeStream(inputStream, null, options)
+        inputStream.close()
+
+        val originalWidth = options.outWidth
+        val originalHeight = options.outHeight
+        val maxSide = maxOf(originalWidth, originalHeight)
+
+        // 如果长边 <= 1024，直接返回原Uri
+        if (maxSide <= 1024) return Pair(uri, false)
+
+        // 计算缩放比例
+        val scale = 1024f / maxSide
+        val newWidth = (originalWidth * scale).toInt()
+        val newHeight = (originalHeight * scale).toInt()
+
+        // 解码并缩放
+        val inputStream2 = context.contentResolver.openInputStream(uri)
+            ?: return Pair(uri, false)
+        val bitmap = BitmapFactory.decodeStream(inputStream2)
+        inputStream2.close()
+        val resizedBitmap = Bitmap.createScaledBitmap(bitmap, newWidth, newHeight, true)
+        bitmap.recycle()
+
+        // 保存到 cache 目录
+        val mediaDir = File(context.getExternalFilesDir(null), destDir)
+        if (!mediaDir.exists()) mediaDir.mkdirs()
+
+        // 获取原始文件格式
+        val mimeType = context.contentResolver.getType(uri)
+        val format = when (mimeType?.lowercase()) {
+            "image/png" -> Bitmap.CompressFormat.PNG
+            "image/webp" -> Bitmap.CompressFormat.WEBP
+            else -> Bitmap.CompressFormat.JPEG
+        }
+        // 获取文件扩展名
+        val ext = when (format) {
+            Bitmap.CompressFormat.PNG -> "png"
+            Bitmap.CompressFormat.WEBP -> "webp"
+            else -> "jpg"
+        }
+
+        val outputFile = File(mediaDir, "resized_${System.currentTimeMillis()}.$ext")
+        FileOutputStream(outputFile).use { out ->
+            resizedBitmap.compress(format, 90, out)
+        }
+        resizedBitmap.recycle()
+
+        return Pair(Uri.fromFile(outputFile), true)
+    }
 
     /**
      * 保存Bitmap到文件
