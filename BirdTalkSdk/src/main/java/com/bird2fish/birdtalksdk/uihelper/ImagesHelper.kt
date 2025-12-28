@@ -14,6 +14,7 @@ import android.graphics.Paint
 import android.graphics.PorterDuff
 import android.graphics.PorterDuffXfermode
 import android.graphics.Shader
+import android.graphics.Typeface
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.Drawable
@@ -93,6 +94,67 @@ public object ImagesHelper {
 
     var sVisibleTopic: String? = null
 
+
+
+    enum class AvatarBgType(val color: Int) {
+        MALE(Color.parseColor("#AED6F1")),     // 淡蓝
+        FEMALE(Color.parseColor("#F5B7B1")),   // 淡粉
+        UNKNOWN(Color.parseColor("#CDE8E6"))   // 中性
+    }
+    /**
+     * 根据名字生成默认头像
+     * @param name 用户名或群名
+     * @param size 图片边长（正方形）
+     * @return Bitmap 圆形头像，透明背景
+     */
+    fun generateDefaultAvatar(name: String?, isMale:Int = 0, size: Int = 200): Bitmap {
+        val avatar = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(avatar)
+
+        // 背景色：淡蓝色或淡粉色
+        val bgColor = if (isMale == 1) {
+            Color.parseColor("#AED6F1") // 淡蓝色
+        } else if (isMale == 0){
+            Color.parseColor("#F5B7B1") // 淡粉色
+        }else{
+            Color.parseColor("#CDE8E6") // 中性
+        }
+
+        // 画圆形背景
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+        paint.color = bgColor
+        canvas.drawCircle(size / 2f, size / 2f, size / 2f, paint)
+
+        // 准备文字
+        val textPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+        textPaint.color = Color.WHITE
+        textPaint.textSize = size / 3f
+        textPaint.textAlign = Paint.Align.CENTER
+        textPaint.typeface = Typeface.DEFAULT_BOLD
+
+        // 提取显示文字：前2汉字或前5英文
+        val displayText = name?.let {
+            val trimmed = it.trim()
+            if (trimmed.isEmpty()) "?" else {
+                val first = if (trimmed[0].toInt() in 0x4e00..0x9fff) { // 汉字范围
+                    trimmed.take(2)
+                } else {
+                    trimmed.replace("\\s+".toRegex(), "").take(5)
+                }
+                first
+            }
+        } ?: "?"
+
+        // 测量文字居中位置
+        val fontMetrics = textPaint.fontMetrics
+        val x = size / 2f
+        val y = size / 2f - (fontMetrics.ascent + fontMetrics.descent) / 2
+
+        canvas.drawText(displayText, x, y, textPaint)
+
+        // 返回 Bitmap
+        return avatar
+    }
 
     /**
      * 尝试从图片 Uri 获取经纬度和高度

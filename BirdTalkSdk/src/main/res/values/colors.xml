@@ -74,6 +74,8 @@
     <color name="back_stop">#39bc88</color>
     <color name="back_suspend">#39bc88</color>
     <color name="toolbar_gray">#b0b0b0</color>
+    <color name="back_gray">#F5F5F5</color>>
+    <color name="back_gray1">#EEEEEE</color>>
 	
 	
 	  <color name="colorNegativeAction">#B71C1C</color>

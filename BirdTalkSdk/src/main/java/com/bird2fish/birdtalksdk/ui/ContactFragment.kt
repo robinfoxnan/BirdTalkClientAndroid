@@ -55,9 +55,10 @@ class ContactFragment : Fragment() {
             tab.text = when (position) {
                 0 -> getString(R.string.contact_followed) //"互相关注"
                 1 -> getString(R.string.contact_following) //"关注"
-                2 -> getString(R.string.contact_fans) //"粉丝"
-                3-> getString(R.string.contact_recommend) //"推荐"
-                else -> getString(R.string.contact_search) //"推荐"
+                2 -> getString(R.string.contact_fans) //"粉丝
+                3 -> getString(R.string.group)         // 群组
+                4-> getString(R.string.contact_recommend) //"推荐"
+                else -> getString(R.string.contact_search) //"搜索"
             }
         }.attach()
 
@@ -66,14 +67,15 @@ class ContactFragment : Fragment() {
 
     class ViewPagerAdapter(fragment: Fragment) : FragmentStateAdapter(fragment) {
 
-        override fun getItemCount(): Int = 5  // Tab 数量
+        override fun getItemCount(): Int = 6  // Tab 数量
 
         override fun createFragment(position: Int): Fragment {
             return when (position) {
                 0 -> FollowedFragment()      // 自定义 Fragment
                 1 -> FollowingFragment()     // 自定义 Fragment
                 2 -> FansFragment()          // 自定义 Fragment
-                3-> RecommendedFragment()  // 自定义 Fragment
+                3 -> GroupFragment()
+                4-> RecommendedFragment()  // 自定义 Fragment
                 else -> SearchFriendFragment()
             }
         }

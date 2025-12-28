@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#FFFFFF">
+
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/back_gray"
+        android:orientation="vertical">
+
+        <!-- 顶部栏 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:background="@color/back_gray"
+            android:paddingTop="10dp"
+            android:paddingBottom="4dp"
+            android:paddingStart="14dp"
+            android:paddingEnd="14dp"
+            android:gravity="center_vertical">
+
+            <!-- 搜索框 -->
+            <EditText
+                android:id="@+id/etSearch"
+                android:layout_width="0dp"
+                android:layout_height="36dp"
+                android:layout_weight="1"
+                android:background="@drawable/rounded_background_gray_input"
+                android:hint="@string/contact_search"
+                android:paddingStart="10dp"
+                android:drawableStart="@drawable/ic_search"
+                android:singleLine="true"
+                android:imeOptions="actionSearch"/>
+
+            <!-- 取消按钮 -->
+            <TextView
+                android:id="@+id/tvBtnCancel"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:layout_marginStart="8dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:text="@string/btn_cancel"
+                android:textSize="16sp"
+                android:visibility="gone" />
+        </LinearLayout>
+
+
+
+    </LinearLayout>
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rvMain"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:overScrollMode="never"/>
+
+
+    <!-- 底部横向容器，用来居中并限制按钮宽度为 60% -->
+    <LinearLayout
+        android:id="@+id/cv_bottom"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_horizontal"
+        android:orientation="horizontal"
+        android:paddingVertical="8dp"
+        android:paddingStart="14dp"
+        android:paddingEnd="14dp"
+        android:visibility="gone">
+
+        <!-- 左边占比 20% -->
+        <View
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:layout_weight="0.15" />
+
+        <!-- 按钮：占比 60%，高度 wrap_content --> <!-- 确定按钮 -->
+        <TextView
+            android:id="@+id/tvBtnOk"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="0.7"
+            android:background="@drawable/rounded_background_gray_input"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:minHeight="36dp"
+            android:paddingTop="6dp"
+            android:paddingBottom="6dp"
+            android:text="@string/btn_ok"
+            android:textSize="16sp" />
+
+        <!-- 右边占比 20% -->
+        <View
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:layout_weight="0.16" />
+    </LinearLayout>
+</LinearLayout>

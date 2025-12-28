@@ -42,6 +42,11 @@ class ChatSessionFragment : Fragment()  , StatusCallback {
         }
     }
 
+    // 从选择的界面返回数据
+    private fun handleFriendSelected(list: List<ListItem>) {
+        // 处理选中的用户
+    }
+
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
@@ -52,9 +57,26 @@ class ChatSessionFragment : Fragment()  , StatusCallback {
         recyclerView = view.findViewById(R.id.recycler_view_sessions)
 
         addBtn = view.findViewById(R.id.btn_add_chat_session)
+
+
+        // 点击加号按钮
         addBtn.setOnClickListener {
-            // 打开新聊天页面或创建聊天会话
-            openNewChatSession()
+
+            CreateGroupFragment().show(parentFragmentManager, "CreateGroupDialog")
+
+        }
+
+        // 打开创建群的界面
+        fun onCreateGroup(){
+
+        }
+
+        fun testSelectUser(){
+            FriendSelectDialog().apply {
+                setOnFriendSelectedListener { list ->
+                    handleFriendSelected(list)
+                }
+            }.show(parentFragmentManager, "FriendSelectDialog")
         }
 
 
@@ -203,7 +225,7 @@ class ChatSessionAdapter(private val dataMap: MutableList<Topic>) : RecyclerView
 
         //val id = ImagesHelper.getIconResId(item!!.icon)
         //holder.imgIcon.setImageResource(id)
-        AvatarHelper.tryLoadAvatar(fragment!!.requireContext(), item.icon, holder.imgIcon, "")
+        AvatarHelper.tryLoadAvatar(fragment!!.requireContext(), item.icon, holder.imgIcon, "", item.title)
         holder.tvNick.setText(item!!.title)
 
         if (item.lastMsg == null){

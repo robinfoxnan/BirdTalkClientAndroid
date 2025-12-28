@@ -2,6 +2,7 @@ package com.bird2fish.birdtalksdk.uihelper
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.text.TextUtils
 import android.widget.ImageView
 import com.bird2fish.birdtalksdk.R
 import com.bird2fish.birdtalksdk.net.ImageDownloader
@@ -10,22 +11,14 @@ object AvatarHelper {
 
 
     // 本地加载
-    private  fun loadLocalAvatar( ctx: Context, iconName:String, view: ImageView, isMale:Int) : Boolean{
+    private  fun loadLocalAvatar( ctx: Context, iconName:String, nick:String, view: ImageView, isMale:Int) : Boolean{
 
         if (iconName.isBlank()){
-            when (isMale) {
-                1 -> {
-                    view.setImageResource(R.drawable.icon27)
-                }
-
-                0 -> {
-                    view.setImageResource(R.drawable.icon7)
-                }
-
-                2->{
-                    view.setImageResource(R.drawable.icon19)
-                }
-            }
+            var name = nick
+            if (TextUtils.isEmpty(name))
+                name = "momo"
+            val bitmap = ImagesHelper.generateDefaultAvatar(name, isMale)
+            view.setImageBitmap(bitmap)
             return true
         }
 
@@ -64,9 +57,9 @@ object AvatarHelper {
 
     }
     // 加载头像
-    fun tryLoadAvatar(ctx: Context, iconName:String, view: ImageView, gender:String = "male"){
+    fun tryLoadAvatar(ctx: Context, iconName:String, view: ImageView,  gender:String = "male", nick:String="momo"){
         val isMale = isMale(gender)
-        val ret = loadLocalAvatar(ctx, iconName, view, isMale)
+        val ret = loadLocalAvatar(ctx, iconName, nick, view, isMale)
         //val ret = false
         if (!ret){
             loadRemoteImage(ctx, iconName, view)

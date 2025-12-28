@@ -34,6 +34,7 @@
     <string name="followed">followed</string>
     <string name="follow_back">follow back</string>
     <string name="mutual_following">mutual</string>
+    <string name="group">group</string>
     <string name="user_id">user ID</string>
     <string name="age">age</string>
     <string name="gender">gender</string>
@@ -88,7 +89,6 @@
     <string name="uploading">uploading %1$d%% </string>
 
 
-
     <string name="processing">processing</string>
     <string name="failed">failed</string>
     <string name="invalid_content">invalid_content</string>
@@ -122,6 +122,7 @@
     <string name="msg_image">image</string>
     <string name="msg_video">video</string>
 
+    <string name="share_to">share to </string>
     <string name="hide">hide</string>
     <string name="delete">remove</string>
 

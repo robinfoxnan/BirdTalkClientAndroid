@@ -805,8 +805,7 @@ object ChatSessionManager {
         msg.msgType = ChatMsgType.FILE
         msg.fileName = fileName!!
 
-        val (hasAttach, sz1) = hasAttachment(draft)
-        Log.d("SendFile", "文件大小为：${sz1}")
+        //Log.d("SendFile", "文件大小为：${sz1}")
 
         // 得保存到临时列表，等待上传结束
         synchronized(this.uploadingMap){
@@ -933,7 +932,7 @@ object ChatSessionManager {
         return  sendId
     }
 
-    fun hasAttachment(drafty: Drafty?, filename: String? = null): Pair<Boolean, Long?> {
+    fun hasAttachment(drafty: Drafty?, filename: String?, uuidName: String): Pair<Boolean, Long?> {
         if (drafty?.ent.isNullOrEmpty()) return Pair(false, null)
 
         for (entity in drafty!!.ent!!) {
@@ -949,8 +948,10 @@ object ChatSessionManager {
                     else -> null
                 }
 
+
                 if (!filename.isNullOrEmpty()) {
                     if (name != null && name == filename) {
+                        entity.data["ref"] = uuidName
                         return Pair(true, size)
                     }
                 } else {
@@ -981,7 +982,8 @@ object ChatSessionManager {
         return false
     }
 
-    fun hasImage(drafty: Drafty?): Boolean {
+    // 将上传的结果补充进去
+    fun hasImage(drafty: Drafty?, fileName: String, uuidName: String): Boolean {
         if (drafty?.ent == null) {
             return false
         }
@@ -989,13 +991,14 @@ object ChatSessionManager {
         for (entity in drafty.ent) {
             if (entity?.tp == null) continue
             if (entity.tp.equals("IM") ) {
+                entity.data["ref"] = uuidName
                 return true
             }
         }
         return false
     }
 
-    fun hasAudio(drafty: Drafty?) : Pair<Boolean, Entity?>{
+    fun hasAudio(drafty: Drafty?, fileName: String, uuidName: String) : Pair<Boolean, Entity?>{
         if (drafty?.ent == null) {
             return Pair(false, null)
         }
@@ -1003,6 +1006,7 @@ object ChatSessionManager {
         for (entity in drafty.ent) {
             if (entity?.tp == null) continue
             if (entity.tp.equals("AU") ) {
+                entity.data["ref"] = uuidName
                 return Pair(true, entity)
             }
         }
@@ -1041,7 +1045,7 @@ object ChatSessionManager {
         var draftInMsg = msg!!.content
 
         // 如果是图片
-        if (hasImage(draftInMsg)){
+        if (hasImage(draftInMsg, fileName, uuidName)){
             //draft.insertImage(0,"image/jpeg", null, 884, 535, "",
             draft.insertImage(0, msg!!.mime, null, 0, 0, fileName,
                 uuidName, null, 0)
@@ -1058,7 +1062,7 @@ object ChatSessionManager {
         }
         // 如果是大的语音片
         else{
-            val (hasAudio, entity) = hasAudio(draftInMsg)
+            val (hasAudio, entity) = hasAudio(draftInMsg, fileName, uuidName)
             if (hasAudio)
             {
                 val duration = entity?.data?.get("duration") as? Int ?: 0
@@ -1091,7 +1095,7 @@ object ChatSessionManager {
         // 文件类型的
 
             // 解构返回值
-            val (hasAttach, sz) = hasAttachment(draftInMsg)
+            val (hasAttach, sz) = hasAttachment(draftInMsg, fileName, uuidName)
             if (hasAttach) {
 
                 setAttachmentProcess(draftInMsg, fileName, 100)

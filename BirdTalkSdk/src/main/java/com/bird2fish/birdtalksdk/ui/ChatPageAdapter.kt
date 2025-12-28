@@ -366,7 +366,7 @@ class ChatPageAdapter(private val dataList: List<MessageContent>) : RecyclerView
 //            holder.mAvatar.setImageResource(index)
             val chatSession = ChatSessionManager.getSession(this.sessionId)
             if (chatSession != null){
-                AvatarHelper.tryLoadAvatar(this.fragment!!.requireContext(), chatSession.sessionIcon, holder.mAvatar, "")
+                AvatarHelper.tryLoadAvatar(this.fragment!!.requireContext(), chatSession.sessionIcon, holder.mAvatar, "", chatSession.sessionTitle)
             }
         }
         // 私聊不显示用户名，群聊才显示

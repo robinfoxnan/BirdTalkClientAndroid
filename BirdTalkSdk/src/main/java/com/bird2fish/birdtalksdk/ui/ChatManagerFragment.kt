@@ -199,7 +199,7 @@ class ChatManagerFragment : Fragment() {
             val f = UserDbHelper.getUserById(fid)
             if (f != null){
                 this.chatTitle.text = f.nick
-                AvatarHelper.tryLoadAvatar(requireContext(), f.icon, this.chatImage, f.gender)
+                AvatarHelper.tryLoadAvatar(requireContext(), f.icon, this.chatImage, f.gender, f.nick)
             }
         }
         // 显示群组信息，群使用负数表示，这样可以保证一致性

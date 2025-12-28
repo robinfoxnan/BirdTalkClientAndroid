@@ -231,7 +231,7 @@ class ProfileFragment : Fragment(), StatusCallback {
                 //TextHelper.showToast(requireContext(), "上传头像完毕，重新加载：" + newValue)
                 //loadImage(newValue!!)
                 synchronized(profileImageView){
-                    AvatarHelper.tryLoadAvatar(requireContext(), newValue!!, profileImageView, SdkGlobalData.selfUserinfo.gender)
+                    AvatarHelper.tryLoadAvatar(requireContext(), newValue!!, profileImageView, SdkGlobalData.selfUserinfo.gender, SdkGlobalData.selfUserinfo.nick)
                 }
 
             }
@@ -269,7 +269,7 @@ class ProfileFragment : Fragment(), StatusCallback {
         //profileImageView.setImageResource(R.drawable.icon4)
         //loadLocalAvatar(SdkGlobalData.selfUserinfo.icon)
         synchronized(profileImageView){
-            AvatarHelper.tryLoadAvatar(requireContext(), SdkGlobalData.selfUserinfo.icon, profileImageView, SdkGlobalData.selfUserinfo.gender)
+            AvatarHelper.tryLoadAvatar(requireContext(), SdkGlobalData.selfUserinfo.icon, profileImageView, SdkGlobalData.selfUserinfo.gender, SdkGlobalData.selfUserinfo.nick)
         }
 
         profileImageView.setOnClickListener { showImagePickerDialog() }

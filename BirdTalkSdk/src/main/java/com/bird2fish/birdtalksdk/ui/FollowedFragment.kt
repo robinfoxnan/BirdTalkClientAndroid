@@ -159,7 +159,7 @@ class FollowedItemAdapter(private val dataList: List<User>) : RecyclerView.Adapt
 
         //val id = ImagesHelper.getIconResId(item!!.icon)
         //holder.imgIcon.setImageResource(id)
-        AvatarHelper.tryLoadAvatar(fragment!!.requireContext(), item!!.icon, holder.imgIcon, item!!.gender)
+        AvatarHelper.tryLoadAvatar(fragment!!.requireContext(), item!!.icon, holder.imgIcon, item!!.gender, item!!.nick)
 
         val formattedName = "${item!!.nick}(${item!!.id})"
         holder.tvNick.setText(formattedName)

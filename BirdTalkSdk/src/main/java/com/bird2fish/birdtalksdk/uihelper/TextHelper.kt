@@ -58,6 +58,20 @@ object  TextHelper {
     private val mOsVersion:String? = "6.0"
 
 
+
+    fun splitTags(tagString: String?): List<String> {
+        if (tagString.isNullOrBlank()) return emptyList()
+
+        // 正则匹配所有分隔符：空格、逗号、中英文逗号、顿号、|、/
+        val regex = "[ ,，、|/]".toRegex()
+
+        return tagString
+            .split(regex)
+            .map { it.trim() }       // 去掉首尾空格
+            .filter { it.isNotEmpty() } // 去掉空字符串
+            .distinct()               // 可选：去重
+    }
+
     /**
      * 适配 API 24+，获取当前日期（年月日，格式：yyyy-MM-dd）
      * 例：2025-10-18

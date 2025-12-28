@@ -1,0 +1,25 @@
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- 外层蓝色圆 -->
+    <item>
+        <shape android:shape="oval">
+            <solid android:color="#FF3B30"/> <!-- 可换成主题色 -->
+            <size
+                android:width="20dp"
+                android:height="20dp"/>
+        </shape>
+    </item>
+
+    <!-- 内层白色小圆 -->
+    <item
+        android:left="6dp"
+        android:top="6dp"
+        android:right="6dp"
+        android:bottom="6dp">
+
+        <shape android:shape="oval">
+            <solid android:color="@android:color/white"/>
+        </shape>
+    </item>
+
+</layer-list>
