@@ -16,7 +16,7 @@
             android:id="@+id/tvTitle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="创建群组"
+            android:text="@string/create_group"
             android:textSize="20sp"
             android:textStyle="bold"
             android:textColor="#222222"
@@ -38,7 +38,7 @@
             android:id="@+id/tvAvatarHint"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="点击设置群头像"
+            android:text="@string/click_avatar"
             android:textSize="12sp"
             android:textColor="#999999"
             app:layout_constraintTop_toBottomOf="@id/ivAvatar"
@@ -62,7 +62,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="群名称"
+                android:text="@string/group_name"
                 android:textColor="#333333"
                 android:textSize="14sp"/>
 
@@ -71,7 +71,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="44dp"
                 android:layout_marginTop="8dp"
-                android:hint="请输入群名称（必填）"
+                android:hint="@string/group_name_hint"
                 android:background="@drawable/bg_edittext"
                 android:paddingHorizontal="12dp"
                 android:textSize="14sp"/>
@@ -80,7 +80,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="群 TAG"
+                android:text="@string/group_tag"
                 android:layout_marginTop="16dp"
                 android:textColor="#333333"
                 android:textSize="14sp"/>
@@ -90,7 +90,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="44dp"
                 android:layout_marginTop="8dp"
-                android:hint="例如：摄影 / 编程 / 留学"
+                android:hint="@string/group_tag_hint"
                 android:background="@drawable/bg_edittext"
                 android:paddingHorizontal="12dp"
                 android:textSize="14sp"/>
@@ -99,7 +99,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="群简介"
+                android:text="@string/group_des"
                 android:layout_marginTop="16dp"
                 android:textColor="#333333"
                 android:textSize="14sp"/>
@@ -109,7 +109,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="100dp"
                 android:layout_marginTop="8dp"
-                android:hint="介绍一下这个群是做什么的吧"
+                android:hint="@string/group_des_hint"
                 android:gravity="top"
                 android:background="@drawable/bg_edittext"
                 android:padding="12dp"
@@ -133,7 +133,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="群类型"
+                android:text="@string/group_type"
                 android:textSize="14sp"
                 android:textColor="#333333"/>
 
@@ -148,21 +148,21 @@
                     android:id="@+id/rbPublic"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="公有群"/>
+                    android:text="@string/group_type_public"/>
 
                 <RadioButton
                     android:id="@+id/rbPrivate"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="24dp"
-                    android:text="私有群"/>
+                    android:text="@string/group_type_private"/>
             </RadioGroup>
 
             <!-- 入群方式 -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="入群方式"
+                android:text="@string/group_join"
                 android:layout_marginTop="16dp"
                 android:textSize="14sp"
                 android:textColor="#333333"/>
@@ -176,22 +176,22 @@
 
                 <RadioButton
                     android:id="@+id/rbJoinDirect"
-                    android:text="允许直接加入"
+                    android:text="@string/group_join_direct"
                     android:layout_height="wrap_content"
                     android:layout_width="wrap_content"
                     />
 
                 <RadioButton
-                    android:id="@+id/rbJoinApply"
+                    android:id="@+id/rbJoinAuth"
                     android:layout_height="wrap_content"
                     android:layout_width="wrap_content"
-                    android:text="需要申请审核"/>
+                    android:text="@string/group_join_auth"/>
 
                 <RadioButton
                     android:id="@+id/rbJoinInvite"
                     android:layout_height="wrap_content"
                     android:layout_width="wrap_content"
-                    android:text="仅限邀请"/>
+                    android:text="@string/group_join_invite"/>
             </RadioGroup>
         </LinearLayout>
 
@@ -200,7 +200,7 @@
             android:id="@+id/btnCreateGroup"
             android:layout_width="0dp"
             android:layout_height="48dp"
-            android:text="创建群组"
+            android:text="@string/create_group"
             android:textSize="16sp"
             android:textColor="#333333"
             android:background="@drawable/rounded_background_gray_input"
@@ -209,6 +209,21 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"/>
 
-    </androidx.constraintlayout.widget.ConstraintLayout>
 
+        <!-- 动态等待动画 / ProgressBar -->
+        <com.airbnb.lottie.LottieAnimationView
+            android:id="@+id/loadingAnimation"
+            android:layout_width="100dp"
+            android:layout_height="100dp"
+            android:visibility="gone"
+            app:lottie_fileName="dot_circle.lottie"
+            app:lottie_loop="true"
+            app:lottie_autoPlay="false"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"/>
+
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
 </ScrollView>

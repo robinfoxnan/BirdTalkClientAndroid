@@ -10,6 +10,7 @@ import com.bird2fish.birdtalksdk.db.TopicDbHelper
 import com.bird2fish.birdtalksdk.db.TopicFlag
 import com.bird2fish.birdtalksdk.db.UserDbHelper
 import com.bird2fish.birdtalksdk.model.ChatSessionManager
+import com.bird2fish.birdtalksdk.model.Group
 import com.bird2fish.birdtalksdk.model.MessageContent
 import com.bird2fish.birdtalksdk.model.Topic
 import com.bird2fish.birdtalksdk.model.User
@@ -94,6 +95,9 @@ class SdkGlobalData {
 
         // 搜索用户返回的结果
         private var searchFriendList : LinkedList<User> = LinkedList<User>()
+
+        // 自己保存到所属的群组的信息
+        var groupList :MutableMap<Long, Group> = LinkedHashMap()
 
         // 当前会话列表
         var chatTopicList :LinkedHashMap<Long, Topic> = LinkedHashMap()
@@ -643,6 +647,11 @@ class SdkGlobalData {
                         followingList[f.id] = f
                     }
                 }
+            }
+
+            // 启动时候加载数据中存储的群组信息
+            synchronized(groupList){
+                MsgEncocder.sendListSelfInGroup()
             }
 
             // 重连时候不加载数据库

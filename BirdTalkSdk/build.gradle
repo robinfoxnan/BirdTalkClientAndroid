@@ -82,5 +82,7 @@ dependencies {
     // 手机号检测
     implementation 'com.googlecode.libphonenumber:libphonenumber:8.13.10'
     //implementation 'com.google.firebase:protolite-well-known-types:18.0.1'
+    // 动画
+    implementation "com.airbnb.android:lottie:6.0.0"
 
 }

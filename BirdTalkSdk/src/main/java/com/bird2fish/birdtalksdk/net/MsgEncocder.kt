@@ -8,8 +8,10 @@ import com.bird2fish.birdtalksdk.InterErrorType
 import com.bird2fish.birdtalksdk.MsgEventType
 import com.bird2fish.birdtalksdk.SdkGlobalData
 import com.bird2fish.birdtalksdk.db.TopicDbHelper
+import com.bird2fish.birdtalksdk.db.TopicFlag
 import com.bird2fish.birdtalksdk.model.ChatSessionManager
 import com.bird2fish.birdtalksdk.model.Drafty
+import com.bird2fish.birdtalksdk.model.Group
 import com.bird2fish.birdtalksdk.pbmodel.*
 import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass.*
 import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass.ComMsgType.*
@@ -18,6 +20,7 @@ import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass.ErrorMsgType.UNRECOGNIZED
 import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass.QueryDataType.*
 import com.bird2fish.birdtalksdk.pbmodel.User.FriendOpReq
 import com.bird2fish.birdtalksdk.pbmodel.User.GroupInfo
+import com.bird2fish.birdtalksdk.pbmodel.User.GroupOperationType.*
 import com.bird2fish.birdtalksdk.pbmodel.User.UserInfo
 import com.bird2fish.birdtalksdk.pbmodel.User.UserOpReq
 import com.bird2fish.birdtalksdk.pbmodel.User.UserOpResult
@@ -129,8 +132,8 @@ class MsgEncocder {
                 MsgTUserOpRet -> onUserRet(msg)         // 登录等操做，也在这里来
                 MsgTFriendOp -> doNothing()
                 MsgTFriendOpRet -> onFriendOpRet(msg)   // 所有好友操作相关的处理
-                MsgTGroupOp -> doNothing()
-                MsgTGroupOpRet -> doNothing()
+                MsgTGroupOp -> onGroupOp(msg)
+                MsgTGroupOpRet -> onGroupRet(msg)
 
                 MsgTOther -> doNothing()
                 ComMsgType.UNRECOGNIZED -> doNothing()
@@ -144,6 +147,116 @@ class MsgEncocder {
         }
 
         fun doNothing(){
+
+        }
+
+        // 收到组操作的请求
+        fun onGroupOp(msg: MsgOuterClass.Msg){
+
+        }
+
+        // 组操作应答
+        private fun onGroupRet(msg: MsgOuterClass.Msg) {
+            val reply = msg.plainMsg.groupOpRet
+            when (reply.operation) {
+                GroupNoneAction -> doNothing()
+                GroupCreate -> onGroupCreateReply(reply)
+                GroupDissolve -> doNothing()
+                GroupSetInfo -> doNothing()
+                GroupKickMember -> doNothing()
+                GroupInviteRequest -> doNothing()
+                GroupInviteAnswer -> doNothing()
+                GroupJoinRequest -> doNothing()
+                GroupJoinAnswer -> doNothing()
+                GroupQuit -> doNothing()
+                GroupAddAdmin -> doNothing()
+                GroupDelAdmin -> doNothing()
+                GroupTransferOwner -> doNothing()
+                GroupSetMemberInfo -> doNothing()
+                GroupSearch -> doNothing()
+                GroupSearchMember -> doNothing()
+                GroupListIn -> onGroupListSelfInGroupRet(reply)
+                User.GroupOperationType.UNRECOGNIZED ->doNothing()
+            }
+        }// end
+
+        // 列举自己所在的所有群，
+//        operation: GroupListIn
+//        result: "ok"
+//        detail: "find user in group"
+//        sendId: 2221
+//        msgId: 925639609327685632
+//        groups {
+//            groupId: 10001
+//        }
+//        groups {
+//            groupId: 10002
+//        }
+
+        fun groupInfo2Group(info:GroupInfo):Group{
+            val groupType = info.groupType
+            var groupIcon = ""
+            var groupDes = ""
+            var groupJoinType = ""
+            if (info.paramsMap!= null){
+                if (info.paramsMap["icon"] != null){
+                    groupIcon = info.paramsMap["icon"]!!
+                }
+                if (info.paramsMap["jointype"] != null){
+                    groupJoinType = info.paramsMap["jointype"]!!
+                }
+                if (info.paramsMap["brief"] != null){
+                    groupDes = info.paramsMap["brief"]!!
+                }
+            }
+            val g = Group(info.groupId, 0, 0,  MsgOuterClass.ChatType.ChatTypeGroup.number, TopicFlag.VISIBLE, info.groupName, groupIcon)
+            return g
+        }
+
+        // 网络消息转换为本地的群组列表
+        fun groupInfoList2Groups(infoList : List<GroupInfo>):List<Group>{
+            val gList = LinkedList<Group>()
+            for (info in infoList){
+                val g = groupInfo2Group(info)
+                gList.add(g)
+            }
+            return gList
+        }
+
+        // 列出自己所在的群列表返回的信息
+        fun onGroupListSelfInGroupRet(reply: User.GroupOpResult){
+            Log.d("GroupRetList",  reply.toString())
+            val result = reply.result
+            val detail = reply.detail
+            val sendId = reply.sendId
+            val msgId = reply.msgId
+
+            ChatSessionManager.onGroupListSelfInGroupRet(result, detail,sendId, msgId, groupInfoList2Groups(reply.groupsList))
+        }
+
+        //创建群组结束
+        private fun onGroupCreateReply(reply: User.GroupOpResult){
+            Log.d("GroupRetCreate", reply.toString())
+
+            val result = reply.result
+            val detail = reply.detail
+            val groupId = reply.group.groupId
+            val groupName = reply.group.groupName
+            val groupType = reply.group.groupType
+            var groupIcon = ""
+            var groupDes = ""
+            var groupJoinType = ""
+            if (reply.group.paramsMap!= null){
+                if (reply.group.paramsMap["icon"] != null){
+                    groupIcon = reply.group.paramsMap["icon"]!!
+                }
+                if (reply.group.paramsMap["jointype"] != null){
+                    groupJoinType = reply.group.paramsMap["jointype"]!!
+                }
+                if (reply.group.paramsMap["brief"] != null){
+                    groupDes = reply.group.paramsMap["brief"]!!
+                }
+            }
 
         }
 
@@ -1292,17 +1405,42 @@ class MsgEncocder {
 
         //////////////////////////////////////////////////////
         // 群操作
-        // 创建群  "public"  "private"
-        fun sendCrateGroupMessage(name:String, visibility:String){
+        // 创建群
+        // .name = "ddd"
+        // .groupType = "chat" | "channel" | "map"
+        // .tags = []
+        // params["tag"]
+        // params[visibility"]:  "public" | "private"
+        // params["brief"]: 简介
+        // params["icon"]: ""
+        // params["jointype"] = "direct" | "invite" | "auth" | "question"
+        fun sendCrateGroupMessage(name:String, tags: List<String>, des:String,
+                                  icon:String, visibility:Boolean, joinType:String){
             val timestamp = System.currentTimeMillis()
 
             val group = GroupInfo.newBuilder()
                 .setGroupName(name)
-                .putParams("visibility", visibility)
+                .setGroupType("chat")
+                .putParams("icon", icon)
+                .putParams("brief", des)
+                .putParams("jointype", joinType)
+
+            if (visibility){
+                group.putParams("visibility", "public")
+            }else{
+                group.putParams("visibility", "private")
+            }
+
+            for (tag in tags){
+                group.addTags(tag)
+            }
+
 
             val opReq = User.GroupOpReq.newBuilder()
-            opReq.setOperation(User.GroupOperationType.GroupCreate);
+            opReq.setOperation(GroupCreate);
             opReq.setGroup(group)
+            val sendId = SdkGlobalData.nextId()
+            opReq.setSendId(sendId).setMsgId(sendId)
 
             val plainMsg = MsgPlain.newBuilder().setGroupOp(opReq)
             val msg = wrapMsg(plainMsg, timestamp, MsgTGroupOp)
@@ -1314,12 +1452,11 @@ class MsgEncocder {
         fun sendFindGroupMessage(keyword:String){
             val timestamp = System.currentTimeMillis()
 
-
-
-
             val opReq = User.GroupOpReq.newBuilder()
-            opReq.setOperation(User.GroupOperationType.GroupSearch)
+            opReq.setOperation(GroupSearch)
             opReq.putParams("keyword", keyword)
+            val sendId = SdkGlobalData.nextId()
+            opReq.setSendId(sendId).setMsgId(sendId)
 
             val plainMsg = MsgPlain.newBuilder().setGroupOp(opReq)
             val msg = wrapMsg(plainMsg, timestamp, MsgTGroupOp)
@@ -1345,8 +1482,28 @@ class MsgEncocder {
             group.putParams("jointype", "any")
 
             val opReq = User.GroupOpReq.newBuilder()
-            opReq.setOperation(User.GroupOperationType.GroupSetInfo);
+            opReq.setOperation(GroupSetInfo);
             opReq.setGroup(group)
+            val sendId = SdkGlobalData.nextId()
+            opReq.setSendId(sendId).setMsgId(sendId)
+
+            val plainMsg = MsgPlain.newBuilder().setGroupOp(opReq)
+            val msg = wrapMsg(plainMsg, timestamp, MsgTGroupOp)
+            sendMsg(msg)
+        }
+
+        // 链接成功后需要同步自己所在的群
+        fun sendListSelfInGroup(){
+            val timestamp = System.currentTimeMillis()
+
+            val group = GroupInfo.newBuilder().setGroupId(0)
+
+
+            val opReq = User.GroupOpReq.newBuilder()
+            opReq.setOperation(GroupListIn);
+            opReq.setGroup(group)
+            val sendId = SdkGlobalData.nextId()
+            opReq.setSendId(sendId).setMsgId(sendId)
 
             val plainMsg = MsgPlain.newBuilder().setGroupOp(opReq)
             val msg = wrapMsg(plainMsg, timestamp, MsgTGroupOp)

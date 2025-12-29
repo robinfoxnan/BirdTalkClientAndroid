@@ -1545,5 +1545,15 @@ object ChatSessionManager {
             // 如果是刚刚好，那么等待拖动界面下一次加载，这里啥也不做了
         }
     }
+    ///////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // 列举自己所在的群信息
+    fun onGroupListSelfInGroupRet(result:String, detail:String, sendId: Long, msgId: Long, groups:List<Group>){
+        synchronized(SdkGlobalData.groupList){
+            for (g in groups){
+
+            }
+        }
+    }
 
 } // end of class

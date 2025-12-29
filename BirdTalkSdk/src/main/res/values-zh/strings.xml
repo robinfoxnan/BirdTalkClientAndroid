@@ -125,4 +125,22 @@
     <string name="input_reach_max">达到最长文本字符限制</string>
 
     <string name="not_friend">对方目前没有关注您，您不能发消息给对方</string>
+
+    <string name="create_group">创建群组</string>
+    <string name="click_avatar">"点击设置头像"</string>
+    <string name="group_name">群名称</string>
+    <string name="group_name_hint">请输入群名称（必填）</string>
+    <string name="group_tag">群 TAG</string>
+    <string name="group_tag_hint">例如：摄影 / 编程 / 留学</string>
+    <string name="group_des">群简介</string>
+    <string name="group_des_hint">介绍一下这个群是做什么的吧</string>
+    <string name="group_type">群类型</string>
+    <string name="group_type_public">公有群</string>
+    <string name="group_type_private">私有群</string>
+    <string name="group_join">入群方式</string>
+    <string name="group_join_direct">允许直接加入</string>
+    <string name="group_join_auth">需要申请审核</string>
+    <string name="group_join_invite">仅限邀请</string>
+
+
 </resources>

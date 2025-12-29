@@ -128,7 +128,7 @@ public object ImagesHelper {
         // 准备文字
         val textPaint = Paint(Paint.ANTI_ALIAS_FLAG)
         textPaint.color = Color.WHITE
-        textPaint.textSize = size / 3f
+        textPaint.textSize = size / 3.5f
         textPaint.textAlign = Paint.Align.CENTER
         textPaint.typeface = Typeface.DEFAULT_BOLD
 

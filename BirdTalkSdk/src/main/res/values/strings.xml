@@ -131,4 +131,20 @@
 
     <string name="not_friend">peer is not your friend, can not send msg yet</string>
 
+    <string name="create_group">Create Group</string>
+    <string name="click_avatar">"Click to set avatar"</string>
+    <string name="group_name">Group Name</string>
+    <string name="group_name_hint">Enter group name (required)</string>
+    <string name="group_tag">Group Tag</string>
+    <string name="group_tag_hint">e.g., Photography / Programming / Study Abroad</string>
+    <string name="group_des">Group Description</string>
+    <string name="group_des_hint">Introduce what this group is about</string>
+    <string name="group_type">Group Type</string>
+    <string name="group_type_public">Public Group</string>
+    <string name="group_type_private">Private Group</string>
+    <string name="group_join">Join Method</string>
+    <string name="group_join_direct">Allow direct join</string>
+    <string name="group_join_auth">Requires approval</string>
+    <string name="group_join_invite">Invitation only</string>
+
 </resources>
