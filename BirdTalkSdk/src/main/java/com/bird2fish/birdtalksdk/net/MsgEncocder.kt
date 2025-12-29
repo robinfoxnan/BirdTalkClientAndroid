@@ -240,23 +240,10 @@ class MsgEncocder {
 
             val result = reply.result
             val detail = reply.detail
-            val groupId = reply.group.groupId
-            val groupName = reply.group.groupName
-            val groupType = reply.group.groupType
-            var groupIcon = ""
-            var groupDes = ""
-            var groupJoinType = ""
-            if (reply.group.paramsMap!= null){
-                if (reply.group.paramsMap["icon"] != null){
-                    groupIcon = reply.group.paramsMap["icon"]!!
-                }
-                if (reply.group.paramsMap["jointype"] != null){
-                    groupJoinType = reply.group.paramsMap["jointype"]!!
-                }
-                if (reply.group.paramsMap["brief"] != null){
-                    groupDes = reply.group.paramsMap["brief"]!!
-                }
-            }
+            val sendId = reply.sendId
+            val msgId = reply.msgId
+            val group = TextHelper.groupInfo2Group(reply.group)
+            ChatSessionManager.onCreateGroupRet(result, detail, sendId, msgId, group)
 
         }
 

@@ -142,5 +142,8 @@
     <string name="group_join_auth">需要申请审核</string>
     <string name="group_join_invite">仅限邀请</string>
 
+    <string name="group_create_fail">群组创建失败</string>
+    <string name="group_create_success">群组创建完成</string>
+
 
 </resources>

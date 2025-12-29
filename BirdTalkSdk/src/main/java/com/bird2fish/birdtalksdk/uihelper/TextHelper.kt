@@ -24,6 +24,7 @@ import com.bird2fish.birdtalksdk.SdkGlobalData
 import com.bird2fish.birdtalksdk.model.ChatSessionManager
 import com.bird2fish.birdtalksdk.model.ChatSessionManager.getSession
 import com.bird2fish.birdtalksdk.model.Drafty
+import com.bird2fish.birdtalksdk.model.Group
 import com.bird2fish.birdtalksdk.model.MessageContent
 import com.bird2fish.birdtalksdk.model.MessageData
 import com.bird2fish.birdtalksdk.model.MessageInOut
@@ -57,7 +58,46 @@ object  TextHelper {
     private val mAppName: String? = "BirdTalk"
     private val mOsVersion:String? = "6.0"
 
+    // 从服务器返回的类型转换为本地类型
+    fun groupInfo2Group(info:com.bird2fish.birdtalksdk.pbmodel.User.GroupInfo): Group {
+        val groupId = info.groupId
+        val groupName = info.groupName
+        val groupType = info.groupType
+        var groupIcon = ""
+        var groupDes = ""
+        var groupJoinType = ""
+        var question = ""
+        var answer = ""
 
+
+        if (info.paramsMap!= null){
+            if (info.paramsMap["icon"] != null){
+                groupIcon = info.paramsMap["icon"]!!
+            }
+            if (info.paramsMap["jointype"] != null){
+                groupJoinType = info.paramsMap["jointype"]!!
+            }
+            if (info.paramsMap["brief"] != null){
+                groupDes = info.paramsMap["brief"]!!
+            }
+
+            if (info.paramsMap["question"] != null){
+                question = info.paramsMap["brief"]!!
+            }
+
+            if (info.paramsMap["answer"] != null){
+                answer = info.paramsMap["brief"]!!
+            }
+        }
+        val group = Group(groupId, 0, 0,  MsgOuterClass.ChatType.ChatTypeGroup.number, 1, groupName, groupIcon)
+        group.joinType = groupJoinType
+        group.brief = groupDes
+        group.chatType = groupType
+        group.question = question
+        group.answer = answer
+
+        return group
+    }
 
     fun splitTags(tagString: String?): List<String> {
         if (tagString.isNullOrBlank()) return emptyList()

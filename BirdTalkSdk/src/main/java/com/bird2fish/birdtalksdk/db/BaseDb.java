@@ -75,6 +75,7 @@ public class BaseDb extends SQLiteOpenHelper {
          UserDbHelper.onCreate(db);
          TopicDbHelper.onCreate(db);
          SeqDbHelper.onCreate(db);
+         GroupDbHelper.onCreate(db);
     }
 
     /////////////////////////////////////////////

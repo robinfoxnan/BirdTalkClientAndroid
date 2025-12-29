@@ -99,7 +99,7 @@ class ActionListener :StatusCallback{
             FRIEND_LIST_FAN -> doNothing()
             LOGIN_CODE -> doNothing()
             APP_NOTIFY_SEND_MSG -> doNothing()
-            APP_NOTIFY_REMOVE_SESSION -> doNothing()
+            APP_NOTIFY_CHANGE_SESSION -> doNothing()
             CONNECTING -> doNothing()
             RECONNECTING -> doNothing()
             CONNECTED -> doNothing()
@@ -112,6 +112,16 @@ class ActionListener :StatusCallback{
             FRIEND_ADD_NOTICE -> doNothing()
             FRIEND_REMOVE_NOTICE -> doNothing()
             MSG_HISTORY -> doNothing()
+            GROUP_CREATE_OK -> doNothing()
+            GROUP_CREATE_FAIL -> doNothing()
+            GROUP_MEMBER_JOIN -> doNothing()
+            GROUP_MEMBER_LEAVE -> doNothing()
+            GROUP_MEMBER_NEED_AUTH -> doNothing()
+            GROUP_MEMBER_INVITE -> doNothing()
+            GROUP_DISMESS -> doNothing()
+            GROUP_OWNER_CHANGE -> doNothing()
+            GROUP_UPDATE_INFO -> doNothing()
+            GROUP_MANAGER_CHANGE -> doNothing()
         }
     }
 }

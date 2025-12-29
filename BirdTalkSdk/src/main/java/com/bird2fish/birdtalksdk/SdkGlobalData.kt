@@ -5,6 +5,7 @@ import android.os.Build
 import android.provider.Settings
 import android.util.Log
 import com.bird2fish.birdtalksdk.db.BaseDb
+import com.bird2fish.birdtalksdk.db.GroupDbHelper
 import com.bird2fish.birdtalksdk.db.SeqDbHelper
 import com.bird2fish.birdtalksdk.db.TopicDbHelper
 import com.bird2fish.birdtalksdk.db.TopicFlag
@@ -594,6 +595,31 @@ class SdkGlobalData {
 
         }
 
+        // 服务器返回了信息，这里应该更新
+        fun updateGroups(groups:List<Group>){
+            synchronized(SdkGlobalData.groupList){
+                for (g in groups){
+                    if (SdkGlobalData.groupList.containsKey(g.tid)){
+                        val oldG = SdkGlobalData.groupList[g.tid]
+                        if (oldG != null){
+                            oldG.icon = g.icon
+                            oldG.title = g.title
+                            oldG.brief = g.brief
+                            oldG.question = g.question
+                            oldG.answer = g.answer
+                            oldG.visibleType = g.visibleType
+                            oldG.chatType = g.chatType
+                            oldG.joinType = g.joinType
+                        }
+                    }else{
+                        SdkGlobalData.groupList[g.tid] = g
+                    }
+
+                }
+
+            }
+        }
+
         // 登录成功后操作
         // 尝试加载用户的好友和粉丝等各种预加载信息
         fun initLoad(uid:Long){
@@ -649,10 +675,7 @@ class SdkGlobalData {
                 }
             }
 
-            // 启动时候加载数据中存储的群组信息
-            synchronized(groupList){
-                MsgEncocder.sendListSelfInGroup()
-            }
+
 
             // 重连时候不加载数据库
             synchronized(fanList) {
@@ -684,6 +707,22 @@ class SdkGlobalData {
             MsgEncocder.sendListFriend("fans", 10000)
             // 如果关注的太多才使用服务器同步，因为数量少直接本地计算一下就好了
             //MsgEncocder.sendListFriend("friends", 10000)
+
+            // 启动时候加载数据中存储的群组信息, 在前面
+
+            // 从数据库中加载群组信息
+            synchronized(groupList){
+                if (groupList.isEmpty()){
+                    val gList  = GroupDbHelper.findGroupsFrom(0, 1000);
+                    for (g in gList){
+                        groupList.put(g.tid, g)
+                    }
+                }
+
+            }
+
+            // 向服务器请求同步所在群的信息，最多返回100条
+            MsgEncocder.sendListSelfInGroup()
 
             // 申请同步数据消息
             try {

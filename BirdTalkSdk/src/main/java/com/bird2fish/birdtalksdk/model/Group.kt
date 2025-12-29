@@ -11,11 +11,26 @@ class Group : Topic {
     private var admins: MutableMap<Long, User> = LinkedHashMap()
     //群成员 uid 列表
     private var members: MutableMap<Long, User> = LinkedHashMap()
-    // 群人数（可冗余，便于快速展示）
-    var memberCount: Int = 0
+
 
     // 是否全员禁言
     var isMuteAll: Boolean = false
+
+    var ownerId:Long = 0
+    var brief:String = ""
+    // 群人数（可冗余，便于快速展示）
+    var membersCount: Int = 0
+    // chat channel map
+    var chatType:String = "chat"
+    // direct auth question invite
+    var joinType:String = "direct"
+    // public private
+    var visibleType :String = "public"
+
+    // 进群的问题
+    var question:String = ""
+    var answer:String = ""
+
 
     constructor() : super() {
 
@@ -71,7 +86,7 @@ class Group : Topic {
                 "tid=" + tid +
                 ", title='" + title + '\'' +
 
-                ", members=" + memberCount +
+                ", members=" + membersCount +
                 ", muteAll=" + isMuteAll +
                 '}'
     }

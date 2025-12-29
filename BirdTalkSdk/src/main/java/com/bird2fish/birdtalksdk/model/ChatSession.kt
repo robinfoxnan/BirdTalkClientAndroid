@@ -10,6 +10,7 @@ import androidx.core.net.toUri
 import androidx.drawerlayout.widget.DrawerLayout.SimpleDrawerListener
 import com.bird2fish.birdtalksdk.MsgEventType
 import com.bird2fish.birdtalksdk.SdkGlobalData
+import com.bird2fish.birdtalksdk.db.GroupDbHelper
 import com.bird2fish.birdtalksdk.db.TopicDbHelper
 import com.bird2fish.birdtalksdk.db.UserDbHelper
 import com.bird2fish.birdtalksdk.model.Drafty.Entity
@@ -1546,14 +1547,40 @@ object ChatSessionManager {
         }
     }
     ///////////////////////////////////////////////////////////////////////////////////////////////////
+    // 创建群组结束后
+    fun onCreateGroupRet(result:String, detail:String, sendId: Long, msgId: Long, group:Group){
+        if (result == "ok"){
+            // 写库，群组
+            GroupDbHelper.insertOrUpdateGroup(group)
+            // 添加到会话
+            SdkGlobalData.addNewTopic(group, false)
 
+            // 刷新会话界面
+            SdkGlobalData.rebuildDisplayList()
+            SdkGlobalData.invokeOnEventCallbacks(MsgEventType.APP_NOTIFY_CHANGE_SESSION, 0, msgId, group.tid,
+                mapOf("group" to group.title))
+
+            // 通知创建成功
+            SdkGlobalData.invokeOnEventCallbacks(MsgEventType.GROUP_CREATE_OK, 0, msgId, group.tid,
+                mapOf("group" to group.title))
+        }else{
+            //通知创建失败
+            SdkGlobalData.invokeOnEventCallbacks(MsgEventType.GROUP_CREATE_FAIL,0, msgId, group.tid,
+                mapOf("error" to detail))
+        }
+
+
+
+    }
     // 列举自己所在的群信息
     fun onGroupListSelfInGroupRet(result:String, detail:String, sendId: Long, msgId: Long, groups:List<Group>){
-        synchronized(SdkGlobalData.groupList){
-            for (g in groups){
 
-            }
+        if (result != "ok"){
+            return
         }
+        SdkGlobalData.updateGroups(groups)
+        // 更新数据库
+        GroupDbHelper.insertOrUpdateGroups(groups)
     }
 
 } // end of class

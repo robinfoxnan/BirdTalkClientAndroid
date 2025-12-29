@@ -147,4 +147,8 @@
     <string name="group_join_auth">Requires approval</string>
     <string name="group_join_invite">Invitation only</string>
 
+    <string name="group_create_fail">group create fail</string>
+    <string name="group_create_success">group create success</string>
+
+
 </resources>

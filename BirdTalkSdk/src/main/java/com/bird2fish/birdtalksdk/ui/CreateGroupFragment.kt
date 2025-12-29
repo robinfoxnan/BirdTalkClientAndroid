@@ -24,7 +24,11 @@ import android.widget.Toast
 import androidx.fragment.app.DialogFragment
 import androidx.lifecycle.lifecycleScope
 import com.airbnb.lottie.LottieAnimationView
+import com.bird2fish.birdtalksdk.InterErrorType
+import com.bird2fish.birdtalksdk.MsgEventType
 import com.bird2fish.birdtalksdk.R
+import com.bird2fish.birdtalksdk.SdkGlobalData
+import com.bird2fish.birdtalksdk.StatusCallback
 import com.bird2fish.birdtalksdk.net.MsgEncocder
 import com.bird2fish.birdtalksdk.uihelper.AvatarHelper
 import com.bird2fish.birdtalksdk.uihelper.ImagesHelper
@@ -35,7 +39,7 @@ import kotlinx.coroutines.launch
 import org.w3c.dom.Text
 
 
-class CreateGroupFragment : DialogFragment() {
+class CreateGroupFragment : DialogFragment() , StatusCallback {
 
     private lateinit var avatarView:ImageView
     private lateinit var nameView: EditText
@@ -47,8 +51,24 @@ class CreateGroupFragment : DialogFragment() {
     //private lateinit var progressBar: ProgressBar
     private lateinit var loadingAnimation: LottieAnimationView
 
+    private lateinit var cancelButton :TextView
+
 
     private var avatarUuid:String = ""
+
+    override fun onError(code : InterErrorType, lastAction:String, errType:String, detail:String){
+
+    }
+
+    override fun onEvent(eventType: MsgEventType, msgType:Int, msgId:Long, fid:Long, params:Map<String, String>){
+        if (eventType == MsgEventType.GROUP_CREATE_FAIL){
+            TextHelper.showToast(this.requireContext(), getString(R.string.group_create_fail))
+            enableControls()
+        }else if (eventType == MsgEventType.GROUP_CREATE_OK){
+            TextHelper.showToast(this.requireContext(), getString(R.string.group_create_success))
+            this.dismiss()
+        }
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -56,6 +76,7 @@ class CreateGroupFragment : DialogFragment() {
     ): View? {
         // Inflate the layout for this fragment
         val root = inflater.inflate(R.layout.fragment_create_group, container, false)
+
 
         avatarView = root.findViewById(R.id.ivAvatar)
         nameView = root.findViewById(R.id.etGroupName)
@@ -67,14 +88,15 @@ class CreateGroupFragment : DialogFragment() {
         radioGJoin = root.findViewById(R.id.rgJoinType)
         radioGJoin.check(R.id.rbJoinDirect)
         loadingAnimation = root.findViewById(R.id.loadingAnimation)
+        cancelButton = root.findViewById(R.id.btnCancel)
 
 
         val bitmap2 = ImagesHelper.generateDefaultAvatar(getString(R.string.create_group), 2)
         avatarView.setImageBitmap(bitmap2)
         initDefaultValue()
         createButton.setOnClickListener {
-            //disableControls()
-            createG()
+            disableControls()
+            createGroup()
         }
 
         return root
@@ -171,9 +193,13 @@ class CreateGroupFragment : DialogFragment() {
             }
         }
 
+        cancelButton.setOnClickListener{
+            this.dismiss()
+        }
+
     }
 
-    fun createG(){
+    fun createGroup(){
         val name = nameView.text.toString()
         val tag = tagView.text.toString()
         val des = desView.text.toString()
@@ -211,6 +237,7 @@ class CreateGroupFragment : DialogFragment() {
             // 底部弹出（可选）
             //setGravity(Gravity.BOTTOM)
         }
+        SdkGlobalData.userCallBackManager.addCallback(this)
     }
 
 
@@ -218,7 +245,7 @@ class CreateGroupFragment : DialogFragment() {
         super.onDismiss(dialog)
         // Dialog 真正被关闭
         Log.d("CreateGroupFragment", "dialog dismissed")
-
+        SdkGlobalData.userCallBackManager.removeCallback(this)
     }
 
 }
