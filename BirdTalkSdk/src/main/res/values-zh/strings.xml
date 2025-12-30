@@ -141,9 +141,19 @@
     <string name="group_join_direct">允许直接加入</string>
     <string name="group_join_auth">需要申请审核</string>
     <string name="group_join_invite">仅限邀请</string>
-
+    <string name="group_join_question">入群问题</string>
+    <string name="group_join_question_hint">填写一个问题</string>
+    <string name="group_join_answer">入群验证答案</string>
+    <string name="group_join_answer_hint">输入正确答案</string>
+    <string name="group_setting">群设置</string>
+    <string name="manage_members">群成员</string>
+    <string name="manage_admins">群成员管理</string>
     <string name="group_create_fail">群组创建失败</string>
     <string name="group_create_success">群组创建完成</string>
+
+    <string name="menu_item_speaker">扬声器播放</string>
+    <string name="menu_item_headmic">耳机播放</string>
+
 
 
 </resources>

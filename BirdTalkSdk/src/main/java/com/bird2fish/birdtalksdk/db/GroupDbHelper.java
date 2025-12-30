@@ -43,6 +43,8 @@ public class GroupDbHelper {
     public static final String COLUMN_QUESTION = "question";
     public static final String COLUMN_ANSWER = "answer";
 
+    public static final String COLUMN_TAGS = "tags";
+
     // 创建 groups 表
     public static final String SQL_CREATE_GROUPS =
             "CREATE TABLE IF NOT EXISTS " + TABLE_GROUPS + " (" +
@@ -51,6 +53,7 @@ public class GroupDbHelper {
                     COLUMN_NAME + " TEXT," +
                     COLUMN_BRIEF + " TEXT," +
                     COLUMN_ICON + " TEXT," +
+                    COLUMN_TAGS + " TEXT," +
                     COLUMN_MEMBERS_COUNT + " INTEGER," +
                     COLUMN_MASK + " INTEGER," +
                     COLUMN_CHAT_TYPE + " TEXT," +
@@ -74,6 +77,7 @@ public class GroupDbHelper {
         values.put(COLUMN_NAME, group.getTitle());
         values.put(COLUMN_BRIEF, group.getBrief());
         values.put(COLUMN_ICON, group.getIcon());
+        values.put(COLUMN_TAGS, group.getTags());
         values.put(COLUMN_MEMBERS_COUNT, group.getMembersCount());
         values.put(COLUMN_MASK, group.getData());
         values.put(COLUMN_CHAT_TYPE, group.getChatType());
@@ -109,6 +113,7 @@ public class GroupDbHelper {
                 values.put(COLUMN_NAME, group.getTitle());
                 values.put(COLUMN_BRIEF, group.getBrief());
                 values.put(COLUMN_ICON, group.getIcon());
+                values.put(COLUMN_TAGS, group.getTags());
                 values.put(COLUMN_MEMBERS_COUNT, group.getMembersCount());
                 values.put(COLUMN_MASK, group.getData());
                 values.put(COLUMN_CHAT_TYPE, group.getChatType());
@@ -206,6 +211,17 @@ public class GroupDbHelper {
                 );
     }
 
+    public static void resetGroupTable() {
+        String tableName = TABLE_GROUPS;
+        SQLiteDatabase db = BaseDb.getInstance().getWritableDatabase();
+
+        String dropTableSql = "DROP TABLE IF EXISTS " + tableName;
+        db.execSQL(dropTableSql);
+
+        GroupDbHelper.onCreate(db);
+    }
+
+
     // 更新成员数量
     public static void updateMemberCount(long groupId, int count) {
         ContentValues values = new ContentValues();
@@ -230,6 +246,7 @@ public class GroupDbHelper {
         group.setTitle(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_NAME)));
         group.setBrief(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_BRIEF)));
         group.setIcon(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ICON)));
+        group.setTags(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_TAGS)));
         group.setMembersCount(cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_MEMBERS_COUNT)));
         group.setData(cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_MASK)));
         group.setChatType(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CHAT_TYPE)));

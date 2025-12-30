@@ -1615,6 +1615,9 @@ object ChatSessionManager {
         SdkGlobalData.updateGroups(groups)
         // 更新数据库
         GroupDbHelper.insertOrUpdateGroups(groups)
+
+        // 这里需要后期群的人员信息
+        SdkGlobalData.loadGroupTopicMembers()
     }
 
 } // end of class

@@ -26,6 +26,7 @@ class Group : Topic {
     var joinType:String = "direct"
     // public private
     var visibleType :String = "public"
+    var tags :String = ""
 
     // 进群的问题
     var question:String = ""

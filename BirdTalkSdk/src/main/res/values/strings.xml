@@ -146,9 +146,19 @@
     <string name="group_join_direct">Allow direct join</string>
     <string name="group_join_auth">Requires approval</string>
     <string name="group_join_invite">Invitation only</string>
+    <string name="group_join_question">question and answer</string>
+    <string name="group_join_question_hint">write a question</string>
+    <string name="group_join_answer">answer</string>
+    <string name="group_join_answer_hint">write answer here</string>
+    <string name="group_setting">setting group</string>
+    <string name="manage_members">manager members</string>
+    <string name="manage_admins">manager admins</string>
 
     <string name="group_create_fail">group create fail</string>
     <string name="group_create_success">group create success</string>
+
+    <string name="menu_item_speaker">use speaker</string>
+    <string name="menu_item_headmic">use head mic</string>
 
 
 </resources>

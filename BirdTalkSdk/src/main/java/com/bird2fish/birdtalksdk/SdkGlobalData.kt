@@ -651,8 +651,10 @@ class SdkGlobalData {
 //           TopicDbHelper.clearPChatData(10006)
 //          TopicDbHelper.clearPChatData()
             try {
-                TopicDbHelper.dropPChatTopic(10003)
-                TopicDbHelper.deleteFromPTopic(10003)
+                GroupDbHelper.resetGroupTable()
+
+                //TopicDbHelper.dropPChatTopic(10003)
+                //TopicDbHelper.deleteFromPTopic(10003)
                 //TopicDbHelper.dropPChatTopic(10001)
                 //TopicDbHelper.dropPChatTable()
 
@@ -674,6 +676,7 @@ class SdkGlobalData {
                             oldG.brief = g.brief
                             oldG.question = g.question
                             oldG.answer = g.answer
+                            oldG.tags = g.tags
                             oldG.visibleType = g.visibleType
                             oldG.chatType = g.chatType
                             oldG.joinType = g.joinType
@@ -684,6 +687,23 @@ class SdkGlobalData {
 
                 }
 
+            }
+        }
+
+        // 更新群组对应的人员列表
+        fun updateGroupMembers(){
+
+        }
+
+        // 对列表中的群组更新相关的人员信息
+        fun loadGroupTopicMembers(){
+            synchronized(chatTopicList){
+                for (tid in chatTopicList.keys){
+                    if (tid < 0){
+                        val gid = -tid
+                        MsgEncocder.sendListGroupMembers(gid)
+                    }
+                }
             }
         }
 

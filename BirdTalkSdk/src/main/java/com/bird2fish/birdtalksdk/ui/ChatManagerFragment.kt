@@ -19,8 +19,10 @@ import androidx.viewpager2.adapter.FragmentStateAdapter
 import androidx.viewpager2.widget.ViewPager2
 import com.bird2fish.birdtalksdk.R
 import com.bird2fish.birdtalksdk.SdkGlobalData
+import com.bird2fish.birdtalksdk.db.GroupDbHelper
 import com.bird2fish.birdtalksdk.db.TopicDbHelper
 import com.bird2fish.birdtalksdk.db.UserDbHelper
+import com.bird2fish.birdtalksdk.model.Group
 import com.bird2fish.birdtalksdk.uihelper.AvatarHelper
 import java.util.LinkedList
 
@@ -71,6 +73,7 @@ class ChatManagerFragment : Fragment() {
             // 2.1 找到对应的菜单项
             val speakerItem = popupMenu.menu.findItem(R.id.menu_speaker_play)
             val headphoneItem = popupMenu.menu.findItem(R.id.menu_headphone_play)
+            val groupSettingItem = popupMenu.menu.findItem(R.id.menu_setting_group)
 
             // 比如：当前是扬声器模式，就隐藏“扬声器播放”项，显示“耳机播放”项
             speakerItem.setVisible(!SdkGlobalData.useLoudSpeaker)
@@ -89,11 +92,24 @@ class ChatManagerFragment : Fragment() {
                         switchToHeadphonePlayback()
                         true
                     }
+                    R.id.menu_setting_group ->{
+                        // 处理群组设置的逻辑
+                        openGroupSetting()
+                        true
+                    }
                     else -> false
                 }
             }
 
-            // 4. 显示弹出菜单
+            // 4. 群设置按钮
+            if (SdkGlobalData.currentChatFid> 0){
+                groupSettingItem.setVisible(false)
+            }else{
+                groupSettingItem.setVisible(true)
+            }
+
+
+            // . 显示弹出菜单
             popupMenu.show()
         }
 
@@ -113,6 +129,16 @@ class ChatManagerFragment : Fragment() {
 //            // 切换到下一个页面
 //            this.viewPager.setCurrentItem(currentItem - 1, true)
 //        }
+    }
+
+    // 打开群组属性设置页面
+    fun openGroupSetting(){
+        val page = GroupSettingFragment()
+        val gid = -SdkGlobalData.currentChatFid
+        val group = GroupDbHelper.getGroupById(gid) ?: return
+        page.setGroup(group)
+
+        page.show(parentFragmentManager, "GroupSettingDialog")
     }
 
     // 切换到扬声器播放模式

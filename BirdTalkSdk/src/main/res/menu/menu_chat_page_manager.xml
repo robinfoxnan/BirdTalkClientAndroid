@@ -4,10 +4,15 @@
     <item
         android:id="@+id/menu_speaker_play"
         android:icon="@drawable/ic_speaker_play"
-        android:title="扬声器播放" />
+        android:title="@string/menu_item_speaker" />
     <!-- 耳机播放选项 -->
     <item
         android:id="@+id/menu_headphone_play"
         android:icon="@drawable/ic_headphone_play"
-        android:title="耳机播放"/>
+        android:title="@string/menu_item_headmic"/>
+
+    <item
+        android:id="@+id/menu_setting_group"
+        android:icon="@drawable/ic_headphone_play"
+        android:title="@string/group_setting"/>
 </menu>

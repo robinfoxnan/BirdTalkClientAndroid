@@ -193,36 +193,6 @@ class MsgEncocder {
 //            groupId: 10002
 //        }
 
-        fun groupInfo2Group(info:GroupInfo):Group{
-            val groupType = info.groupType
-            var groupIcon = ""
-            var groupDes = ""
-            var groupJoinType = ""
-            if (info.paramsMap!= null){
-                if (info.paramsMap["icon"] != null){
-                    groupIcon = info.paramsMap["icon"]!!
-                }
-                if (info.paramsMap["jointype"] != null){
-                    groupJoinType = info.paramsMap["jointype"]!!
-                }
-                if (info.paramsMap["brief"] != null){
-                    groupDes = info.paramsMap["brief"]!!
-                }
-            }
-            val g = Group(info.groupId, 0, 0,  MsgOuterClass.ChatType.ChatTypeGroup.number, TopicFlag.VISIBLE, info.groupName, groupIcon)
-            return g
-        }
-
-        // 网络消息转换为本地的群组列表
-        fun groupInfoList2Groups(infoList : List<GroupInfo>):List<Group>{
-            val gList = LinkedList<Group>()
-            for (info in infoList){
-                val g = groupInfo2Group(info)
-                gList.add(g)
-            }
-            return gList
-        }
-
         // 列出自己所在的群列表返回的信息
         fun onGroupListSelfInGroupRet(reply: User.GroupOpResult){
             Log.d("GroupRetList",  reply.toString())
@@ -231,7 +201,8 @@ class MsgEncocder {
             val sendId = reply.sendId
             val msgId = reply.msgId
 
-            ChatSessionManager.onGroupListSelfInGroupRet(result, detail,sendId, msgId, groupInfoList2Groups(reply.groupsList))
+            val groups = TextHelper.groupInfoList2Groups(reply.groupsList)
+            ChatSessionManager.onGroupListSelfInGroupRet(result, detail,sendId, msgId, groups)
         }
 
         //创建群组结束
@@ -1493,6 +1464,22 @@ class MsgEncocder {
 
             val opReq = User.GroupOpReq.newBuilder()
             opReq.setOperation(GroupListIn);
+            opReq.setGroup(group)
+            val sendId = SdkGlobalData.nextId()
+            opReq.setSendId(sendId).setMsgId(sendId)
+
+            val plainMsg = MsgPlain.newBuilder().setGroupOp(opReq)
+            val msg = wrapMsg(plainMsg, timestamp, MsgTGroupOp)
+            sendMsg(msg)
+        }
+
+        // 加载群组的人员信息
+        fun sendListGroupMembers(gid:Long){
+            val timestamp = System.currentTimeMillis()
+            val group = GroupInfo.newBuilder().setGroupId(gid)
+
+            val opReq = User.GroupOpReq.newBuilder()
+            opReq.setOperation(GroupSearchMember);
             opReq.setGroup(group)
             val sendId = SdkGlobalData.nextId()
             opReq.setSendId(sendId).setMsgId(sendId)

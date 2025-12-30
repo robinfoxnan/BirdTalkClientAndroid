@@ -36,6 +36,7 @@ import com.bird2fish.birdtalksdk.net.FileDownloader
 import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass
 import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass.ChatMsgType
 import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass.ChatType
+import com.bird2fish.birdtalksdk.pbmodel.User.GroupInfo
 import java.io.File
 import java.net.MalformedURLException
 import java.net.URL
@@ -52,6 +53,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.util.Locale
 import java.util.Date
+import java.util.LinkedList
 
 object  TextHelper {
 
@@ -68,6 +70,7 @@ object  TextHelper {
         var groupJoinType = ""
         var question = ""
         var answer = ""
+        var groupVisible = "public"
 
 
         if (info.paramsMap!= null){
@@ -79,6 +82,10 @@ object  TextHelper {
             }
             if (info.paramsMap["brief"] != null){
                 groupDes = info.paramsMap["brief"]!!
+            }
+
+            if (info.paramsMap["visibility"] != null){
+                groupVisible = info.paramsMap["visibility"]!!
             }
 
             if (info.paramsMap["question"] != null){
@@ -95,8 +102,22 @@ object  TextHelper {
         group.chatType = groupType
         group.question = question
         group.answer = answer
+        group.visibleType = groupVisible
+
+        if (info.tagsList != null)
+            group.tags =  info.tagsList.joinToString(separator = "|")
 
         return group
+    }
+
+    // 网络消息转换为本地的群组列表
+    fun groupInfoList2Groups(infoList : List<GroupInfo>):List<Group>{
+        val gList = LinkedList<Group>()
+        for (info in infoList){
+            val g = groupInfo2Group(info)
+            gList.add(g)
+        }
+        return gList
     }
 
     fun splitTags(tagString: String?): List<String> {
