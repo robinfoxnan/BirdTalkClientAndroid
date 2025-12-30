@@ -149,7 +149,7 @@ class ChatSessionFragment : Fragment()  , StatusCallback {
         //friendList?.n
     }
 
-    // 发送信息，这里需要跳转
+    // 点击了条目，这里需要跳转进入 发送信息界面
     fun switchSendMsgPage(t:Topic){
         // 通过消息方式通知上层界面切换到消息发送
         if (t.type == MsgOuterClass.ChatType.ChatTypeP2P.number)

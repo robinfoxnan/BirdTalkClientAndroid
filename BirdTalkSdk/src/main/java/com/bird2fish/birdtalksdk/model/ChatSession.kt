@@ -24,6 +24,7 @@ import com.bird2fish.birdtalksdk.uihelper.CryptHelper
 import com.bird2fish.birdtalksdk.uihelper.ImagesHelper
 import com.bird2fish.birdtalksdk.uihelper.RingPlayer
 import com.bird2fish.birdtalksdk.uihelper.TextHelper
+import com.google.protobuf.Extension.MessageType
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
@@ -58,33 +59,36 @@ class ChatSession (val sessionId:Long)
            this.sessionType = SessionType.PRIVATE_CHAT
 
             // 这里的用户是数据库中搜索出来的，因为建立会话不一定就是好友，比如已经删除了好友，防止出错
-            var friend = UserDbHelper.getUserById(sessionId)
-            if (friend == null){
+            // 如果本地没有，就用号码创建一个，到远端同步
+            var topic = SdkGlobalData.getPTopic(sessionId)
 
-                SdkGlobalData.userCallBackManager.invokeOnErrorCallbacks(com.bird2fish.birdtalksdk.InterErrorType.FRIEND_INFO_ERROR,
-                    "UserDbHelper.getUserById", "friend", "can't find user info in db")
-            }else{
-                // 确保这个Topic 应该有，这里图标与用户保持一致就可以了
-                val topic = SdkGlobalData.getTopic(friend)
-
-                if (topic != null){
-                    this.sessionTitle = topic.title
-                    this.sessionIcon = topic.icon
-                    if (sessionTitle.isEmpty()){
-                        sessionTitle = friend.id.toString()
-                    }
-                }else{
-                    this.sessionTitle = friend.nick?: ""
-                    this.sessionIcon = friend.icon?: ""
-                    if (sessionTitle.isEmpty()){
-                        sessionTitle = friend.id.toString()
-                    }
+            if (topic != null){
+                this.sessionTitle = topic.title
+                this.sessionIcon = topic.icon
+                if (sessionTitle.isEmpty()){
+                    sessionTitle = topic.title
                 }
+            }else{
+                // 这里不太能出现
+                this.sessionTitle = "loading..."
+                this.sessionIcon = ""
             }
 
         }else{
-           this.sessionType = SessionType.GROUP_CHAT
-            TODO()
+            this.sessionType = SessionType.GROUP_CHAT
+            var topic = SdkGlobalData.makeSureGTopic(-sessionId)
+
+            if (topic != null){
+                this.sessionTitle = topic.title
+                this.sessionIcon = topic.icon
+                if (sessionTitle.isEmpty()){
+                    sessionTitle = topic.title
+                }
+            }else{
+                // 这里不太能出现
+                this.sessionTitle = "loading..."
+                this.sessionIcon = ""
+            }
         }
     }
 
@@ -119,12 +123,27 @@ class ChatSession (val sessionId:Long)
                 }
                 i += 1
 
-
-                if (msg.io == MessageInOut.OUT.ordinal && msg.tm1  == 0L && msg.status != MessageStatus.FAIL.name){
+                // 发出的消息，重启后之后只有文本消息重发，其他的不重发
+                if (msg.io == MessageInOut.OUT.ordinal && msg.tm1  == 0L){
                     // 文件类，无法重发，因为保存到消息不一样
-                    if (msg.msgType == ChatMsgType.TEXT.name || msg.msgType == ChatMsgType.VIDEO.name)
+                    if (msg.status == MessageStatus.UPLOADING.name)
                     {
-                        tempSendingList.add(msgContent)
+                        msg.status = MessageStatus.FAIL.name
+                    }
+                    else if (msg.status == MessageStatus.SENDING.name)
+                    {
+                        if (msg.msgType == ChatMsgType.TEXT.name) {
+                            tempSendingList.add(msgContent)
+                        }
+                        else{
+                            // 其他类型涉及到上传，所以在重传时候可能没有数据，这里主要是比较麻烦，先这样写
+                            msg.status = MessageStatus.FAIL.name
+                            if (this.sessionId > 0)
+                                TopicDbHelper.insertPChatMsg(msg)
+                            else
+                                TopicDbHelper.insertGChatMsg(msg)
+                        }
+
                     }
 
                 }
@@ -227,47 +246,57 @@ class ChatSession (val sessionId:Long)
 
     fun checkResendOrFail(): Boolean {
 
-        Log.d("ChatSession", "检查需要重发的条目n=${msgSendingList.size}")
+        Log.d("ChatSession", "session=${sessionId}检查需要重发的条目n=${msgSendingList.size}")
         var list = LinkedList<Long>()
         var bUpdate = false
         synchronized(msgSendingList){
-            for (sid in msgSendingList.keys){
+            for (sendId in msgSendingList.keys){
                 val tmNow = System.currentTimeMillis()
-                val msg = msgSendingList[sid]!!
+                val msg = msgSendingList[sendId]!!
                 if (msg.msgStatus == MessageStatus.UPLOADING){
                     // 如果在上传啥也不需要做
                     continue
                 }
 
-
-                if ( msg.msgStatus != MessageStatus.SENDING
-                    && msg.msgStatus != MessageStatus.UPLOADING){
-                    list.add(sid)
+                if ( msg.msgStatus != MessageStatus.SENDING && msg.msgStatus != MessageStatus.UPLOADING){
+                    msg.msgStatus = MessageStatus.FAIL
+                    list.add(sendId)
                     continue
                 }
 
                 // 如果不相等，说明服务器给了回执
                 if (msg.sendId != msg.msgId){
-                    list.add(sid)
+                    list.add(sendId)
+                    msg.msgStatus = MessageStatus.FAIL
                     continue
                 }
 
                 if (tmNow - msg.tm > timeOutMili){
                     msg.msgStatus = MessageStatus.FAIL
                     bUpdate = true
-                    list.add(sid)
-                    Log.d("ChatSession", "超时了.....${msg.msgId},  ${msg.sendId}")
+                    list.add(sendId)
+                    Log.d("ChatSession", "session=${sessionId},超时了.....  sendId=${msg.sendId}")
                 }else{
                     msg.tmResend = System.currentTimeMillis()
-                    ChatSessionManager.sendMsgContent(sid, msg)
-                    Log.d("ChatSession", "重发送消息.....${msg.msgId},  ${msg.sendId}")
+                    ChatSessionManager.sendMsgContent(this.sessionId, msg, true)
+                    Log.d("ChatSession", "session=${sessionId},重发送消息..... sendId= ${msg.sendId}")
                 }
             }
         }
         // 尝试删除相关的KEY
         synchronized(msgSendingList){
-            for (sid in list){
-                msgSendingList.remove(sid)
+            for (sendId in list){
+                val msg = msgSendingList.remove(sendId)
+                // 保存到数据库，否则下次还加载
+                val data = TextHelper.MsgContentToDbMsg(msg!!)
+                if (msg!!.isP2p){
+
+                    TopicDbHelper.insertPChatMsg(data)
+                }else
+                {
+                    TopicDbHelper.insertGChatMsg(data)
+                }
+
             }
         }
 
@@ -275,6 +304,7 @@ class ChatSession (val sessionId:Long)
     }
 
     // 通过ID来找，这个函数没有加锁是因为仅仅为另一个函数setReply而存在
+    // 这里没有枷锁，因为msgList已经枷锁了，用一个就可以了
     private fun FindMessageAndSetReply(msgid:Long, setToId:Long, tm1:Long,  tm2:Long, tm3:Long, bOk:Boolean) :MessageContent?{
         var msg: MessageContent? = null
 
@@ -292,21 +322,7 @@ class ChatSession (val sessionId:Long)
 
         }
 
-
-//            for (item in msgList) {
-//                if(item.msgId == msgid){
-//                    msg = item
-//                    // 在这里设置，防止接收回执太快
-//                    if (item.msgId != setToId){
-//                        item.msgId = setToId
-//                    }
-//                    break
-//                }
-//            }
-
-
         if (msg != null){
-
             if (msg!!.tm1 == 0L && tm1 >0){
                 msg!!.tm1 = tm1
                 if (msg!!.msgStatus.ordinal < MessageStatus.OK.ordinal)
@@ -401,20 +417,31 @@ class ChatSession (val sessionId:Long)
         }
         // 这里必须使用一个原子操作，防止服务回执与用户回执顺序交错，或者同时到达
         synchronized(msgList) {
-            // 如果是服务器回执，这时候需要用sendID去找
+            // 如果是服务器回执，这时候需要用sendID去找，这个函数仅仅是设置内存没有保存数据库
             var msg = FindMessageAndSetReply(sendId, msgId, tm1, tm2, tm3, bOk)
             if (msg != null) {  // 通过SENDID找到的情况，是服务器应答的时候
                 val msgData = TextHelper.MsgContentToDbMsg(msg)
-                TopicDbHelper.insertPChatMsgAgain(msgData)
+                if (msg.isP2p){
+                    TopicDbHelper.insertPChatMsgAgain(msgData)
+                }else{
+                    TopicDbHelper.insertGChatMsgAgain(msgData)
+                }
+
 
                 return msg
             }
 
 
             // 内存已经同步了服务器分配的MSGID
+            // 不过这里基本都是
             msg = FindMessageAndSetReply(msgId, msgId, tm1, tm2, tm3, bOk)
             if (msg != null) {
-                TopicDbHelper.updatePChatReply(msgId, tm1, tm2, tm3, bOk)
+                if (msg.isP2p){
+                    TopicDbHelper.updatePChatReply(msgId, tm1, tm2, tm3, bOk)
+                }else{
+                    TopicDbHelper.updateGChatReply(msgId, tm1)
+                }
+
             } else {
                 // 这里出现错误了
                 Log.e("Sdk", "can't find msg by msgid=" + msgId.toString())
@@ -619,20 +646,23 @@ object ChatSessionManager {
 
     // 提交消息到网络层，重发也在这里
     // 如果是重启后重发，那么这里可能会没有msg.contentOut, 所以从数据库加载的没有发送晚点消息直接发送失败
-    fun sendMsgContent(sessionId:Long, msg:MessageContent){
+    fun sendMsgContent(sessionId:Long, msg:MessageContent, bResend:Boolean = false){
 
         GlobalScope.launch(Dispatchers.IO) {
 
             // 1) 先写数据库,更新到发送表
             val msgData = TextHelper.MsgContentToDbMsg(msg)
 
-            if (msg.isP2p){
-                TopicDbHelper.insertPChatMsg(msgData)
-            }else{
-                TopicDbHelper.insertGChatMsg(msgData)
+            if (!bResend){
+                if (msg.isP2p){
+                    TopicDbHelper.insertPChatMsg(msgData)
+                }else{
+                    TopicDbHelper.insertGChatMsg(msgData)
+                }
             }
 
-            val chatType = if (sessionId > 0) ChatType.ChatTypeP2P else ChatType.ChatTypeGroup
+
+            val chatType = if (msg.isP2p) ChatType.ChatTypeP2P else ChatType.ChatTypeGroup
 
             // 2) 提交到网络
             if (msg.msgType == ChatMsgType.TEXT) {
@@ -683,7 +713,7 @@ object ChatSessionManager {
 
         // 3）发送到服务器
         // 3.1)写入数据库
-        this.sendMsgContent(sessionId, msg)
+        this.sendMsgContent(sessionId, msg, false)
 
         // 4 设置最新消息
         SdkGlobalData.updateTopic(msg)
@@ -729,6 +759,7 @@ object ChatSessionManager {
                 UserStatus.ONLINE, MessageStatus.UPLOADING, false, false, false,
                 "", draft,  System.currentTimeMillis(), resizeUri, mime)
             msg.msgType = ChatMsgType.IMAGE
+            msg.isP2p = if (sessionId>0) true else false
 
             val sz = TextHelper.getFileSize(context, resizeUri)
             msg.fileSz = sz
@@ -805,6 +836,7 @@ object ChatSessionManager {
         msg.fileSz = sz
         msg.msgType = ChatMsgType.FILE
         msg.fileName = fileName!!
+        msg.isP2p = if (sessionId>0) true else false
 
         //Log.d("SendFile", "文件大小为：${sz1}")
 
@@ -885,6 +917,7 @@ object ChatSessionManager {
                 "", draft,  System.currentTimeMillis(), mAudioFile.toUri(), "audio/mp4")
             msg.fileSz = bits!!.size.toLong()
             msg.msgType = ChatMsgType.VOICE
+            msg.isP2p = if (sessionId>0) true else false
 
             //val (hasAttach, sz1) = hasAttachment(draft)
             //Log.d("SendFile", "文件大小为：${sz1}")
@@ -1210,7 +1243,7 @@ object ChatSessionManager {
     }
 
     // 回执, 先写到数据库，然后同步到内存，区别私聊和群聊，群聊只有一个回执
-    fun onChatMsgReply(msgId:Long, sendId:Long, fid:Long, params:Map<String, String>, tmServer:Long, tmRecv:Long,
+    fun onChatMsgReplyOk(msgId:Long, sendId:Long, fid:Long, params:Map<String, String>, tmServer:Long, tmRecv:Long,
                        tmRead:Long, result:String?){
         // 这里更新回执
         var detail = params?.get("detail")
@@ -1225,12 +1258,13 @@ object ChatSessionManager {
         // 群聊，只有服务器应答，私聊才有用户应答
         if (gidStr != "0"){
             // 群组的服务器应答
+            val chatSession = getSession(-fid)
+            chatSession.setReply(msgId, sendId, tmServer, tmRecv, tmRead, true, "")
         }else{
-            if (result == "ok")
-            {
-                val chatSession = getSession(fid)
-                chatSession.setReply(msgId, sendId, tmServer, tmRecv, tmRead, true, "")
-            }
+
+            val chatSession = getSession(fid)
+            chatSession.setReply(msgId, sendId, tmServer, tmRecv, tmRead, true, "")
+
         }
 
     }

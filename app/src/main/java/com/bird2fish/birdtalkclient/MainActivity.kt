@@ -96,6 +96,7 @@ class MainActivity : AppCompatActivity() , StatusCallback {
 
     fun switchFragment(index: AppPageCode) {
 
+        // 如果设置的页面不对，应该跳回来
         if (index == CHAT_SDK && SdkGlobalData.currentChatFid == 0L){
             switchFragment(CONTACT_SDK)
             return

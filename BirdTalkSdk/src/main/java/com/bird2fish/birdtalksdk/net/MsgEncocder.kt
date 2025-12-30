@@ -297,8 +297,7 @@ class MsgEncocder {
         fun onRecvChatReply(msg: MsgOuterClass.Msg){
             val reply = msg.plainMsg.chatReply
 
-            ChatSessionManager.onChatMsgReply(reply.msgId, reply.sendId, reply.fromId,  reply.paramsMap,
-                reply.sendOk,reply.recvOk, reply.readOk, reply.extraMsg)
+
 
             val result = reply.extraMsg
             var detail = reply.paramsMap["detail"]
@@ -319,6 +318,9 @@ class MsgEncocder {
             )
             if (result == "ok"){
                 // 通知界面更新消息，已经保存处理完了
+                ChatSessionManager.onChatMsgReplyOk(reply.msgId, reply.sendId, reply.fromId,  reply.paramsMap,
+                    reply.sendOk,reply.recvOk, reply.readOk, reply.extraMsg)
+
                 SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(MsgEventType.MSG_SEND_OK, 0,
                     reply.msgId, reply.fromId, resultMap)
             }else{
@@ -330,6 +332,8 @@ class MsgEncocder {
                     {
                         SdkGlobalData.updateDeleteFan(fid)
                     }
+                    ChatSessionManager.onChatMsgReplyError(reply.fromId, reply.msgId, reply.sendId, detail)
+                }else{
                     ChatSessionManager.onChatMsgReplyError(reply.fromId, reply.msgId, reply.sendId, detail)
                 }
                 SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(MsgEventType.MSG_SEND_ERROR, 0,
@@ -1436,12 +1440,13 @@ class MsgEncocder {
         }
 
         // 查找群
-        fun sendFindGroupMessage(keyword:String){
+        fun sendFindGroupMessage(keyword:String, fromId:Long){
             val timestamp = System.currentTimeMillis()
 
             val opReq = User.GroupOpReq.newBuilder()
             opReq.setOperation(GroupSearch)
             opReq.putParams("keyword", keyword)
+            opReq.putParams("fromid", fromId.toString())
             val sendId = SdkGlobalData.nextId()
             opReq.setSendId(sendId).setMsgId(sendId)
 

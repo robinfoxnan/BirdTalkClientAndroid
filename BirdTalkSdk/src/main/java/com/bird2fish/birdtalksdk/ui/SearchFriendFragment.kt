@@ -173,7 +173,7 @@ class SearchFriendFragment : Fragment(), StatusCallback {
         // 示例：显示搜索内容
 
         //Toast.makeText(requireContext(), "正在搜索: $keyword", Toast.LENGTH_SHORT).show()
-        MsgEncocder.sendFindGroupMessage(keyword)
+        MsgEncocder.sendFindGroupMessage(keyword, 0)
 
         // 实际应用中通常会跳转到结果页面
         /*

@@ -50,27 +50,18 @@ class ChatManagerFragment : Fragment() {
         chatPagerAdapter = ChatPagerAdapter(this)
         this.viewPager.adapter = chatPagerAdapter
 
-
-
-//        // 设置按钮点击事件以切换页面
-//        buttonNext = view.findViewById<ImageView>(R.id.btn_next_page)
-//        buttonNext.setOnClickListener {
-//            // 获取当前页面索引
-//            val currentItem = this.viewPager.currentItem
-//            // 切换到下一个页面
-//            this.viewPager.setCurrentItem(currentItem + 1, true)
-//        }
-//
-//        buttonPre = view.findViewById<ImageView>(R.id.btn_pre_page)
-//        buttonPre.setOnClickListener {
-//            // 获取当前页面索引
-//            val currentItem = this.viewPager.currentItem
-//            // 切换到下一个页面
-//            this.viewPager.setCurrentItem(currentItem - 1, true)
-//        }
-
         // 设置按钮
         buttonSetting  = view.findViewById<ImageView>(R.id.btn_setting)
+
+        chatImage = view.findViewById(R.id.header_image)
+        chatTitle = view.findViewById(R.id.header_title)
+
+        initButtons()
+
+        return view
+    }
+
+    fun initButtons(){
         buttonSetting.setOnClickListener {
             // 1. 初始化PopupMenu，传入上下文和触发按钮
             val popupMenu = PopupMenu(requireContext(), it)
@@ -106,10 +97,22 @@ class ChatManagerFragment : Fragment() {
             popupMenu.show()
         }
 
-        chatImage = view.findViewById(R.id.header_image)
-        chatTitle = view.findViewById(R.id.header_title)
-
-        return view
+        //        // 设置按钮点击事件以切换页面
+//        buttonNext = view.findViewById<ImageView>(R.id.btn_next_page)
+//        buttonNext.setOnClickListener {
+//            // 获取当前页面索引
+//            val currentItem = this.viewPager.currentItem
+//            // 切换到下一个页面
+//            this.viewPager.setCurrentItem(currentItem + 1, true)
+//        }
+//
+//        buttonPre = view.findViewById<ImageView>(R.id.btn_pre_page)
+//        buttonPre.setOnClickListener {
+//            // 获取当前页面索引
+//            val currentItem = this.viewPager.currentItem
+//            // 切换到下一个页面
+//            this.viewPager.setCurrentItem(currentItem - 1, true)
+//        }
     }
 
     // 切换到扬声器播放模式
@@ -193,18 +196,24 @@ class ChatManagerFragment : Fragment() {
             }
         }
 
-
         // 显示好友的信息
         if (fid > 0){
             val f = UserDbHelper.getUserById(fid)
             if (f != null){
                 this.chatTitle.text = f.nick
                 AvatarHelper.tryLoadAvatar(requireContext(), f.icon, this.chatImage, f.gender, f.nick)
+            }else{
+
+                val topic = SdkGlobalData.makeSurePTopic(fid)
+                this.chatTitle.text = topic.title
+                AvatarHelper.tryLoadAvatar(requireContext(), topic.icon, this.chatImage, "", topic.title)
             }
         }
         // 显示群组信息，群使用负数表示，这样可以保证一致性
         else{
-
+            val topic = SdkGlobalData.makeSureGTopic(-fid)
+            this.chatTitle.text = topic.title
+            AvatarHelper.tryLoadAvatar(requireContext(), topic.icon, this.chatImage, "", topic.title)
         }
 
         if (index >= 0 && index < chatPagerAdapter.getItemCount()){

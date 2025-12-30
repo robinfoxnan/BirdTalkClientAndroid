@@ -1,5 +1,6 @@
 package com.bird2fish.birdtalksdk.ui
 
+import android.app.Activity
 import android.content.DialogInterface
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
@@ -62,11 +63,18 @@ class CreateGroupFragment : DialogFragment() , StatusCallback {
 
     override fun onEvent(eventType: MsgEventType, msgType:Int, msgId:Long, fid:Long, params:Map<String, String>){
         if (eventType == MsgEventType.GROUP_CREATE_FAIL){
-            TextHelper.showToast(this.requireContext(), getString(R.string.group_create_fail))
-            enableControls()
+            (context as? Activity)?.runOnUiThread {
+                TextHelper.showToast(this.requireContext(), getString(R.string.group_create_fail))
+                enableControls()
+            }
         }else if (eventType == MsgEventType.GROUP_CREATE_OK){
-            TextHelper.showToast(this.requireContext(), getString(R.string.group_create_success))
-            this.dismiss()
+            (context as? Activity)?.runOnUiThread {
+                TextHelper.showToast(
+                    this.requireContext(),
+                    getString(R.string.group_create_success)
+                )
+                this.dismiss()
+            }
         }
     }
 

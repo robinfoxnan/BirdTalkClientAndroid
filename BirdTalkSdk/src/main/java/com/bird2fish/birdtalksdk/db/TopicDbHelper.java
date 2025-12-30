@@ -192,6 +192,69 @@ public class TopicDbHelper {
     }
     /////////////////////////////////////////////////////////////////////////////////
     // 第二次插入的时候，需要删除之前的消息
+    public static boolean insertGChatMsgAgain(MessageData messageData) {
+        SQLiteDatabase db = BaseDb.getInstance().getWritableDatabase();
+        ContentValues values = new ContentValues();
+
+        createGChatTable(messageData.getTid());
+        String tableName = getGChatName(messageData.getTid());
+
+
+        // 基础数据表；
+        values.put("id", messageData.getId());
+        values.put("tid", messageData.getTid());
+        values.put("uid", messageData.getUid());
+        values.put("send_id", messageData.getSendId());
+        values.put("dev_id", messageData.getDevId());
+        values.put("io", messageData.getIo());
+        values.put("msg_type", messageData.getMsgType());
+        values.put("data", messageData.getData());
+        values.put("is_plain", messageData.getIsPlain());
+        values.put("tm", messageData.getTm());
+        values.put("tm1", messageData.getTm1());
+        values.put("tm2", messageData.getTm2());
+        values.put("tm3", messageData.getTm3());
+        values.put("crypt_type", messageData.getCryptType());
+        values.put("print", messageData.getPrint());
+        values.put("status", messageData.getStatus());
+
+        // 会话表
+        ContentValues values2 = new ContentValues();
+        values2.put("id", messageData.getId());
+
+
+        long row1 = 0;
+
+        boolean ret = false;
+        try {
+            db.beginTransaction();
+
+            row1 = db.insertWithOnConflict(tableName, null, values, SQLiteDatabase.CONFLICT_REPLACE);
+
+
+            String selection = "id = ?";
+            String[] selectionArgs = { String.valueOf(messageData.getSendId()) };
+            int deletedRows = db.delete(tableName, selection, selectionArgs);
+
+
+
+            // 所有操作成功
+            db.setTransactionSuccessful();
+
+            if (row1 != -1 && deletedRows > 0) {
+                ret = true;
+            } else {
+                // 发生了至少一个插入失败的情况
+                //Log.e("Transaction", "Failed to insert or replace data");
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }finally {
+            db.endTransaction();
+        }
+
+        return ret;
+    }
     public static boolean  insertPChatMsgAgain(MessageData messageData) {
         SQLiteDatabase db = BaseDb.getInstance().getWritableDatabase();
         ContentValues values = new ContentValues();

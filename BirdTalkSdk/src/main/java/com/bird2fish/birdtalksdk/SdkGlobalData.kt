@@ -215,6 +215,72 @@ class SdkGlobalData {
             ChatSessionManager.getSession(fid)
         }
 
+        // 在chatSession 初始化时候，需要调用这里
+        fun makeSurePTopic(fid:Long):Topic{
+            //内存里不一定有这个用户信息，还需要请求服务端数据然后更新
+            var friend = UserDbHelper.getUserById(fid)
+            var needReq = false
+            if (friend == null) {
+                needReq = true
+                friend = User()
+                friend.id = fid
+                friend.nick = "正在查询.."
+                friend.name = "正在查询.."
+            }
+
+            synchronized(chatTopicList){
+                if (chatTopicList.containsKey(fid))
+                {
+                    if (needReq){
+                        MsgEncocder.sendFriendFindMessage("id", fid.toString())
+                    }
+                    return chatTopicList[fid]!!
+                }
+
+            }
+            val t = Topic(friend.id, 0, 0, MsgOuterClass.ChatType.ChatTypeP2P.number, 1, friend.nick, friend.icon)
+            addNewTopic(t, true)
+
+            // 如果内存中没有这个用户，肯定不是好友，也是不是粉丝了，那么重新请求一下数据
+            if (needReq){
+                MsgEncocder.sendFriendFindMessage("id", fid.toString())
+            }
+
+            return t
+
+        }
+
+        // 在chatSession 初始化时候，需要调用这里
+        fun makeSureGTopic(gid:Long):Topic{
+            //内存里不一定有这个群
+            var group = GroupDbHelper.getGroupById(gid)
+            var needReq = false
+            if (group == null) {
+                needReq = true
+                group = Group(gid, 0, 0, MsgOuterClass.ChatType.ChatTypeGroup.number, 1, "loading...", "")
+            }
+
+            synchronized(chatTopicList){
+                if (chatTopicList.containsKey(-gid))
+                {
+                    if (needReq){
+                        MsgEncocder.sendFindGroupMessage(gid.toString(), 0)
+                    }
+                    return chatTopicList[-gid]!!
+                }
+
+            }
+
+            addNewTopic(group, false)
+
+            // 如果内存中没有这个群
+            if (needReq){
+                MsgEncocder.sendFindGroupMessage(gid.toString(), 0)
+            }
+
+            return group
+        }
+
         // 每次收到消息，都要设置最后的消息
         // 这里如果是允许提醒，发出声音
         // 如果之前是隐藏的，这里如果有新消息，需要改回来
@@ -264,6 +330,7 @@ class SdkGlobalData {
         fun addNewP2pTopic(f: User):Topic{
             val t = Topic(f.id, 0, 0, MsgOuterClass.ChatType.ChatTypeP2P.number, 1, f.nick, f.icon)
             addNewTopic(t, true)
+
             return t
         }
 
@@ -584,8 +651,8 @@ class SdkGlobalData {
 //           TopicDbHelper.clearPChatData(10006)
 //          TopicDbHelper.clearPChatData()
             try {
-                //TopicDbHelper.dropPChatTopic(10006)
-                //TopicDbHelper.deleteFromPTopic(10006)
+                TopicDbHelper.dropPChatTopic(10003)
+                TopicDbHelper.deleteFromPTopic(10003)
                 //TopicDbHelper.dropPChatTopic(10001)
                 //TopicDbHelper.dropPChatTable()
 
