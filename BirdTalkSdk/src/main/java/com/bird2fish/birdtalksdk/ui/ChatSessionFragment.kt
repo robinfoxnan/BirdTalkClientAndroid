@@ -226,7 +226,16 @@ class ChatSessionAdapter(private val dataMap: MutableList<Topic>) : RecyclerView
         //val id = ImagesHelper.getIconResId(item!!.icon)
         //holder.imgIcon.setImageResource(id)
         AvatarHelper.tryLoadAvatar(fragment!!.requireContext(), item.icon, holder.imgIcon, "", item.title)
-        holder.tvNick.setText(item!!.title)
+        if (item!!.type == 0){
+            holder.tvNick.setText("[系统] " + item!!.title)
+        }else if(item!!.type == 1) {
+            holder.tvNick.setText("" + item!!.title)
+        }else if(item!!.type == 2){
+            holder.tvNick.setText("[群] " + item!!.title)
+        }
+       else{
+            holder.tvNick.setText(item!!.title)
+        }
 
         if (item.lastMsg == null){
             holder.tvDes.setText("")
@@ -288,22 +297,6 @@ class ChatSessionAdapter(private val dataMap: MutableList<Topic>) : RecyclerView
 
         }
 
-        // 可以添加其他逻辑...
-//        holder.tvDelete.setOnClickListener{
-//            if (fragment != null){
-//                fragment!!.onClickItemShare(holder.tvDelete.tag as Int)
-//            }
-//        }
-
-        // 根据选中状态更新背景
-//        holder.itemView.isSelected = (position == holder.selectedPosition)
-//
-//        holder.itemView.setOnClickListener {
-//            // 更新选中状态
-//            notifyItemChanged(holder.selectedPosition)
-//            holder.selectedPosition = holder.adapterPosition
-//            notifyItemChanged(holder.selectedPosition)
-//        }
     }
 
     // 返回数据项数量

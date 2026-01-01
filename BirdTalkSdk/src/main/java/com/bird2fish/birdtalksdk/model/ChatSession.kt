@@ -1270,9 +1270,15 @@ object ChatSessionManager {
     }
 
     // 某个消息错误，不能发
-    fun onChatMsgReplyError(fid:Long, msgId:Long, sendId:Long, detail:String){
+    fun onPChatMsgReplyError(fid:Long, msgId:Long, sendId:Long, detail:String, params:Map<String, String>){
 
         val chatSession = getSession(fid)
+        chatSession.setReply(msgId, sendId, System.currentTimeMillis(), 0, 0, false, detail)
+    }
+
+    fun onGChatMsgReplyError(fid:Long, msgId:Long, sendId:Long, detail:String, params:Map<String, String>){
+
+        val chatSession = getSession(-fid)
         chatSession.setReply(msgId, sendId, System.currentTimeMillis(), 0, 0, false, detail)
     }
 

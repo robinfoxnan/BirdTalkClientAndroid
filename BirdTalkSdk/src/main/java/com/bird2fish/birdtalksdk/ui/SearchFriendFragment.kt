@@ -24,6 +24,7 @@ import androidx.appcompat.widget.AppCompatImageButton
 import com.bird2fish.birdtalksdk.InterErrorType
 import com.bird2fish.birdtalksdk.MsgEventType
 import com.bird2fish.birdtalksdk.StatusCallback
+import com.bird2fish.birdtalksdk.model.Group
 import com.bird2fish.birdtalksdk.net.MsgEncocder
 import com.bird2fish.birdtalksdk.uihelper.AvatarHelper
 import com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility
@@ -36,6 +37,8 @@ class SearchFriendFragment : Fragment(), StatusCallback {
     private lateinit var  etSearch: EditText
     private lateinit var  btnSearchUser: AppCompatImageButton
     private lateinit var  btnSearchGroup: AppCompatImageButton
+
+    private var searchFriend = true
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -75,6 +78,7 @@ class SearchFriendFragment : Fragment(), StatusCallback {
             imm.hideSoftInputFromWindow(v.windowToken, 0)
 
             // 执行搜索操作（这里只是示例，实际应替换为你的业务逻辑）
+            searchFriend = true
             performUserSearch(keyword)
         }
 
@@ -97,6 +101,7 @@ class SearchFriendFragment : Fragment(), StatusCallback {
             imm.hideSoftInputFromWindow(v.windowToken, 0)
 
             // 执行搜索操作（这里只是示例，实际应替换为你的业务逻辑）
+            searchFriend = false
             performGroupSearch(keyword)
         }
 
@@ -220,6 +225,19 @@ class SearchFriendFragment : Fragment(), StatusCallback {
             // 请求关注，返回结果
             (context as? Activity)?.runOnUiThread {
                 friendListView?.adapter?.notifyDataSetChanged()
+            }
+        }
+        else if (eventType == MsgEventType.SEARCH_GROUP_RET){
+
+            (context as? Activity)?.runOnUiThread {
+                val groupLst = SdkGlobalData.getSearchGroupRet()
+                val info = "return user count: " + groupLst.size.toString()
+                Toast.makeText(context, info, Toast.LENGTH_SHORT).show()
+
+                val adapter = SearchGroupsItemAdapter(groupLst)
+                adapter.setView(this)
+                friendListView?.layoutManager = LinearLayoutManager(context)
+                friendListView?.setAdapter(adapter);
             }
         }
     }
@@ -356,6 +374,72 @@ class SearchFriendsItemAdapter(private val dataList: List<User>) : RecyclerView.
             holder.selectedPosition = holder.adapterPosition
             notifyItemChanged(holder.selectedPosition)
         }
+    }
+
+    // 返回数据项数量
+    override fun getItemCount(): Int {
+        return dataList.size
+    }
+
+    // 其他方法，例如添加删除项的方法，用于与 ItemTouchHelper 配合实现左滑删除
+    // ...
+
+}
+//////////////////////////////////////////////////////////////////////////////////////
+// 搜索结果，用户或者群聊，适配器
+class SearchGroupsItemAdapter(private val dataList: List<Group>) : RecyclerView.Adapter<SearchGroupsItemAdapter.SearchItemHolder>() {
+
+    private var fragment : SearchFriendFragment? = null
+
+
+    fun setView(view : SearchFriendFragment?){
+        this.fragment = view
+    }
+
+    // 创建 ViewHolder
+    inner class SearchItemHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+        // ViewHolder 中的视图元素，例如 TextView、ImageView 等
+        val imgIcon : ImageView = itemView.findViewById(R.id.iconTv)
+        val tvTitle: TextView = itemView.findViewById(R.id.nameTv)
+        val tvNumber : TextView = itemView.findViewById(R.id.desTv)
+
+        var index: Int = 0
+        var selectedPosition = RecyclerView.NO_POSITION
+        var joinBtn: Button = itemView.findViewById(R.id.btn_join)
+        var imgButton :ImageView = itemView.findViewById(R.id.btn_setting)
+
+        init {
+            // 在构造函数中为整个 ViewHolder 的根视图设置点击事件
+            itemView.setOnClickListener {
+                // 处理点击事件
+//                if (fragment != null){
+//                    fragment!!.onClickItem(index)
+//                }
+            }
+        }
+
+    }
+
+    // 创建 ViewHolder
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): SearchItemHolder {
+        val itemView = LayoutInflater.from(parent.context).inflate(R.layout.layout_search_groups, parent, false)
+        return SearchItemHolder(itemView)
+    }
+
+
+    // 绑定数据到 ViewHolder
+    override fun onBindViewHolder(holder: SearchItemHolder, position: Int) {
+        val item = dataList[position]
+        holder.index = position
+
+        AvatarHelper.tryLoadAvatar(fragment!!.requireContext(), item!!.icon, holder.imgIcon, "", item!!.title)
+
+        val formattedName = "${item!!.title}[${item!!.tid}]"
+        holder.tvTitle.setText(formattedName)
+
+        holder.tvNumber.setText(item.tags)
+        holder.imgButton.visibility = View.GONE   // 图片按钮，预留的
+
     }
 
     // 返回数据项数量

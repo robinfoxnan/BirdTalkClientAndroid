@@ -153,6 +153,8 @@
 
     <string name="menu_item_speaker">扬声器播放</string>
     <string name="menu_item_headmic">耳机播放</string>
+    <string name="join">加入</string>
+    <string name="number">号码：</string>
 
 
 

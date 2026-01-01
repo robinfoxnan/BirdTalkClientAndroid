@@ -97,6 +97,9 @@ class SdkGlobalData {
         // 搜索用户返回的结果
         private var searchFriendList : LinkedList<User> = LinkedList<User>()
 
+        // 搜错群组返回的结果
+        private var searchGroupList:LinkedList<Group> = LinkedList<Group>()
+
         // 自己保存到所属的群组的信息
         var groupList :MutableMap<Long, Group> = LinkedHashMap()
 
@@ -109,6 +112,12 @@ class SdkGlobalData {
 
         fun  invokeOnEventCallbacks(eventType: MsgEventType, msgType: Int, msgId: Long, fid: Long, params:Map<String, String>){
             this.userCallBackManager.invokeOnEventCallbacks(eventType, msgType, msgId, fid, params)
+        }
+
+        fun getInGroupList():List<Group>{
+            synchronized(groupList){
+               return groupList.values.toList()
+            }
         }
 
         fun nextId():Long{
@@ -444,9 +453,26 @@ class SdkGlobalData {
 
         fun getSearchFriendRet(): LinkedList<User> {
             // 使用同步代码块，锁定当前对象
-            synchronized(this) {
+            synchronized(this.searchFriendList) {
                 return this.searchFriendList
             }
+        }
+
+        fun getSearchGroupRet():LinkedList<Group>{
+            synchronized(this.searchGroupList){
+                return this.searchGroupList
+            }
+
+        }
+
+        // 从服务器返回结果s
+        fun setSearchGroupRet(lst: List<Group>) {
+            synchronized(searchGroupList) {
+                searchGroupList.clear()
+                searchGroupList.addAll(lst)
+            }
+            GroupDbHelper.insertOrUpdateGroups(lst)
+            invokeOnEventCallbacks(MsgEventType.SEARCH_GROUP_RET, 0, 0, 0, mapOf(Pair("", "")))
         }
 
 
@@ -651,10 +677,11 @@ class SdkGlobalData {
 //           TopicDbHelper.clearPChatData(10006)
 //          TopicDbHelper.clearPChatData()
             try {
-                GroupDbHelper.resetGroupTable()
+                //GroupDbHelper.resetGroupTable()
 
-                //TopicDbHelper.dropPChatTopic(10003)
-                //TopicDbHelper.deleteFromPTopic(10003)
+                //TopicDbHelper.dropPChatTopic(1000)
+
+                TopicDbHelper.deleteFromPTopic(10001)
                 //TopicDbHelper.dropPChatTopic(10001)
                 //TopicDbHelper.dropPChatTable()
 

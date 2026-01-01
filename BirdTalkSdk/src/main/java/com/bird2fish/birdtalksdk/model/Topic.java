@@ -17,6 +17,15 @@ public class Topic {
     private boolean showHide; // 是否显示
     private boolean pinned;     // 置顶
 
+//    private int topicType;
+//
+//    public void setTopicType(int t){
+//        this.topicType = t;
+//    }
+//
+//    public int getTopicType(){
+//        return this.topicType;
+//    }
     // 默认构造函数
     public Topic() {
         this(0L, 0L, 0L, 0, 1, "", "sys:11");

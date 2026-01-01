@@ -173,7 +173,7 @@ class MsgEncocder {
                 GroupDelAdmin -> doNothing()
                 GroupTransferOwner -> doNothing()
                 GroupSetMemberInfo -> doNothing()
-                GroupSearch -> doNothing()
+                GroupSearch -> onSearchGroupReply(reply)
                 GroupSearchMember -> doNothing()
                 GroupListIn -> onGroupListSelfInGroupRet(reply)
                 User.GroupOperationType.UNRECOGNIZED ->doNothing()
@@ -203,6 +203,17 @@ class MsgEncocder {
 
             val groups = TextHelper.groupInfoList2Groups(reply.groupsList)
             ChatSessionManager.onGroupListSelfInGroupRet(result, detail,sendId, msgId, groups)
+        }
+
+        // 用关键字搜索群组返回的结果
+        fun onSearchGroupReply(reply: User.GroupOpResult){
+            Log.d("GroupRetList",  reply.toString())
+            val result = reply.result
+            val detail = reply.detail
+            val sendId = reply.sendId
+            val msgId = reply.msgId
+            val groups = TextHelper.groupInfoList2Groups(reply.groupsList)
+            SdkGlobalData.setSearchGroupRet(groups)
         }
 
         //创建群组结束
@@ -303,9 +314,9 @@ class MsgEncocder {
                     {
                         SdkGlobalData.updateDeleteFan(fid)
                     }
-                    ChatSessionManager.onChatMsgReplyError(reply.fromId, reply.msgId, reply.sendId, detail)
+                    ChatSessionManager.onPChatMsgReplyError(reply.fromId, reply.msgId, reply.sendId, detail, resultMap)
                 }else{
-                    ChatSessionManager.onChatMsgReplyError(reply.fromId, reply.msgId, reply.sendId, detail)
+                    ChatSessionManager.onGChatMsgReplyError(reply.fromId, reply.msgId, reply.sendId, detail, resultMap)
                 }
                 SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(MsgEventType.MSG_SEND_ERROR, 0,
                     reply.msgId, reply.fromId, resultMap)

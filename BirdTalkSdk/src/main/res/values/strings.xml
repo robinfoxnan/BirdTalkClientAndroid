@@ -159,6 +159,8 @@
 
     <string name="menu_item_speaker">use speaker</string>
     <string name="menu_item_headmic">use head mic</string>
+    <string name="join">join</string>
+    <string name="number">number: </string>
 
 
 </resources>
