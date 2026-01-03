@@ -4,91 +4,120 @@ import java.util.LinkedList
 
 
 /**
- * 群组会话
+ * 群组实体
+ * 核心信息用于本地表存储
+ * 扩展信息按需异步加载
  */
-class Group : Topic {
-    var owner: User? = null
-    private var admins: MutableMap<Long, User> = LinkedHashMap()
-    //群成员 uid 列表
-    private var members: MutableMap<Long, User> = LinkedHashMap()
+class Group(
 
+    /* ================= 基础标识 ================= */
 
-    // 是否全员禁言
-    var isMuteAll: Boolean = false
+    var gid: Long = 0L,                 // 群 ID
+    var ownerId: Long = 0L,             // 群主 UID
 
-    var ownerId:Long = 0
-    var brief:String = ""
-    // 群人数（可冗余，便于快速展示）
-    var membersCount: Int = 0
-    // chat channel map
-    var chatType:String = "chat"
-    // direct auth question invite
-    var joinType:String = "direct"
-    // public private
-    var visibleType :String = "public"
-    var tags :String = ""
+    /* ================= 展示信息 ================= */
 
-    // 进群的问题
-    var question:String = ""
-    var answer:String = ""
+    var name: String = "-",             // 群名称
+    var brief: String = "...",           // 群简介
+    var icon: String = "",               // 群头像 URL
+    var tags: String = "",               // 标签（| 分割）
 
+    /* ================= 群状态 ================= */
 
-    constructor() : super() {
+    var membersCount: Int = 0,           // 群人数（可冗余）
+    var mask: Int = 0,                   // 群位掩码（扩展用）
 
+    /* ================= 群类型 ================= */
+
+    var chatType: String = CHAT_TYPE_CHAT,       // chat / channel
+    var joinType: String = JOIN_TYPE_DIRECT,     // direct / auth / question / invite
+    var visibleType: String = VISIBLE_PUBLIC,    // public / private
+
+    /* ================= 入群验证 ================= */
+
+    var question: String = "",           // 入群问题
+    var answer: String = "",             // 入群答案
+
+    /* ================= 群控制 ================= */
+
+    var isMuteAll: Boolean = false        // 是否全员禁言
+) {
+
+    /* ================= 扩展对象（非表字段） ================= */
+
+    var owner: User? = null              // 群主对象（延迟加载）
+
+    /** 管理员列表 uid -> User */
+    private val admins: MutableMap<Long, User> = LinkedHashMap()
+
+    /** 群成员 uid -> User */
+    private val members: MutableMap<Long, User> = LinkedHashMap()
+
+    /* ================= 业务方法 ================= */
+
+    fun isOwner(uid: Long): Boolean = ownerId == uid
+
+    fun isAdmin(uid: Long): Boolean =
+        uid == ownerId || admins.containsKey(uid)
+
+    fun isMember(uid: Long): Boolean =
+        members.containsKey(uid)
+
+    fun addAdmin(user: User) {
+        admins[user.id] = user
     }
 
-    constructor(
-        tid: Long,
-        syncId: Long,
-        readId: Long,
-        type: Int,
-        data: Int,
-        title: String?,
-        icon: String?
-    ) : super(tid, syncId, readId, type, data, title, icon) {
+    fun removeAdmin(uid: Long) {
+        admins.remove(uid)
     }
 
-    /* ---------------- admins ---------------- */
-    fun getAdminIds(): List<User> {
-        return admins.values.toList()
+    fun addMember(user: User) {
+        members[user.id] = user
     }
 
-    fun setAdminIds(adminIds: List<Long>?) {
-
+    fun removeMember(uid: Long) {
+        members.remove(uid)
     }
 
-    fun isAdmin(uid: Long): Boolean {
-        return true
+    fun getAdmins(): Collection<User> = admins.values
+
+    fun getMembers(): Collection<User> = members.values
+
+    fun clearMembers() {
+        members.clear()
+        admins.clear()
     }
 
-    /* ---------------- members ---------------- */
-    fun getMembers(): List<User> {
-        return members.values.toList()
+    // 这里是网络返回的数据，所有只有基本的属性
+    fun update(other:Group){
+        if (other === this) return
+        this.name = other.name
+        this.brief = other.brief
+        this.icon = other.icon
+        this.tags = other.tags
+        this.membersCount = other.membersCount
+        this.mask = other.mask
+        this.visibleType = other.visibleType
+        this.chatType = other.chatType
+        this.joinType = other.joinType
+        this.question = other.question
+        this.answer = other.answer
     }
 
-    fun setMemberIds(memberIds: List<Long>?) {
+    companion object {
 
-    }
+        /* ========== chatType ========== */
+        const val CHAT_TYPE_CHAT = "chat"
+        const val CHAT_TYPE_CHANNEL = "channel"
 
-    fun isMember(uid: Long): Boolean {
-        return members.containsKey(uid)
-    }
+        /* ========== joinType ========== */
+        const val JOIN_TYPE_DIRECT = "direct"
+        const val JOIN_TYPE_AUTH = "auth"
+        const val JOIN_TYPE_QUESTION = "question"
+        const val JOIN_TYPE_INVITE = "invite"
 
-    /* ---------------- helper ---------------- */
-    /**
-     * 是否有群管理权限
-     */
-    fun canManage(uid: Long): Boolean {
-        return true;
-    }
-
-    override fun toString(): String {
-        return "Group{" +
-                "tid=" + tid +
-                ", title='" + title + '\'' +
-
-                ", members=" + membersCount +
-                ", muteAll=" + isMuteAll +
-                '}'
+        /* ========== visibleType ========== */
+        const val VISIBLE_PUBLIC = "public"
+        const val VISIBLE_PRIVATE = "private"
     }
 }

@@ -1,17 +1,13 @@
 package com.bird2fish.birdtalksdk.net
 import android.content.Context
-import android.provider.Settings.Global
-import android.telephony.mbms.FileInfo
 import android.text.TextUtils
 import android.util.Log
 import com.bird2fish.birdtalksdk.InterErrorType
 import com.bird2fish.birdtalksdk.MsgEventType
 import com.bird2fish.birdtalksdk.SdkGlobalData
-import com.bird2fish.birdtalksdk.db.TopicDbHelper
-import com.bird2fish.birdtalksdk.db.TopicFlag
 import com.bird2fish.birdtalksdk.model.ChatSessionManager
-import com.bird2fish.birdtalksdk.model.Drafty
-import com.bird2fish.birdtalksdk.model.Group
+import com.bird2fish.birdtalksdk.model.GroupCache
+import com.bird2fish.birdtalksdk.model.UserCache
 import com.bird2fish.birdtalksdk.pbmodel.*
 import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass.*
 import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass.ComMsgType.*
@@ -20,15 +16,14 @@ import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass.ErrorMsgType.UNRECOGNIZED
 import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass.QueryDataType.*
 import com.bird2fish.birdtalksdk.pbmodel.User.FriendOpReq
 import com.bird2fish.birdtalksdk.pbmodel.User.GroupInfo
+import com.bird2fish.birdtalksdk.pbmodel.User.GroupOpReq
 import com.bird2fish.birdtalksdk.pbmodel.User.GroupOperationType.*
 import com.bird2fish.birdtalksdk.pbmodel.User.UserInfo
 import com.bird2fish.birdtalksdk.pbmodel.User.UserOpReq
-import com.bird2fish.birdtalksdk.pbmodel.User.UserOpResult
 import com.bird2fish.birdtalksdk.pbmodel.User.UserOperationType.*
 import com.bird2fish.birdtalksdk.uihelper.TextHelper
 import com.bird2fish.birdtalksdk.uihelper.UserHelper
 import com.google.protobuf.ByteString
-import java.util.LinkedHashMap
 import java.util.LinkedList
 
 // 按照格式编码，用于产生各种消息
@@ -150,8 +145,24 @@ class MsgEncocder {
 
         }
 
-        // 收到组操作的请求
+        // 收到组操作的请求，比如邀请，比如加入请求，
         fun onGroupOp(msg: MsgOuterClass.Msg){
+            var groupOp = msg.plainMsg.groupOp
+            when (groupOp.operation) {
+                GroupInviteRequest -> onRecvGroupInvitation(groupOp)
+                GroupJoinRequest-> onRecvGroupJoinReq(groupOp)
+                else -> null
+            }
+
+        }
+
+        // 收到一条入群邀请
+        fun onRecvGroupInvitation(groupOp:GroupOpReq){
+
+        }
+
+        // 管理员收到一条请求入群的信息
+        fun onRecvGroupJoinReq(groupOp:GroupOpReq){
 
         }
 
@@ -202,7 +213,7 @@ class MsgEncocder {
             val msgId = reply.msgId
 
             val groups = TextHelper.groupInfoList2Groups(reply.groupsList)
-            ChatSessionManager.onGroupListSelfInGroupRet(result, detail,sendId, msgId, groups)
+            GroupCache.onGroupListSelfInGroupRet(result, detail,sendId, msgId, groups)
         }
 
         // 用关键字搜索群组返回的结果
@@ -213,7 +224,7 @@ class MsgEncocder {
             val sendId = reply.sendId
             val msgId = reply.msgId
             val groups = TextHelper.groupInfoList2Groups(reply.groupsList)
-            SdkGlobalData.setSearchGroupRet(groups)
+            GroupCache.setSearchGroupRet(groups)
         }
 
         //创建群组结束
@@ -278,9 +289,6 @@ class MsgEncocder {
         // 聊天的回执，
         fun onRecvChatReply(msg: MsgOuterClass.Msg){
             val reply = msg.plainMsg.chatReply
-
-
-
             val result = reply.extraMsg
             var detail = reply.paramsMap["detail"]
             var gid = reply.paramsMap["gid"]   // 私聊这里是“0”
@@ -307,15 +315,18 @@ class MsgEncocder {
                     reply.msgId, reply.fromId, resultMap)
             }else{
                 // "fail"
-                // 如果发送消息失败，说明对方已经删除了自己
+
                 if (gid == "0")
                 {
+                    // 如果发送消息失败，说明对方已经删除了自己
                     if (detail == "not friend")
                     {
-                        SdkGlobalData.updateDeleteFan(fid)
+                        UserCache.onSetDeleteFan(fid)
                     }
                     ChatSessionManager.onPChatMsgReplyError(reply.fromId, reply.msgId, reply.sendId, detail, resultMap)
-                }else{
+                }
+                else{
+                    // 这里有可能是群主把你从群里踢掉了，这里会报错
                     ChatSessionManager.onGChatMsgReplyError(reply.fromId, reply.msgId, reply.sendId, detail, resultMap)
                 }
                 SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(MsgEventType.MSG_SEND_ERROR, 0,
@@ -430,7 +441,7 @@ class MsgEncocder {
             if (uploadResult == "fileok" || uploadResult == "sameok"){
 
                 // 通知消息管理器，文件传完了，需要发送消息了
-                ChatSessionManager.onUploadFileFinish(ret.sendId, uploadResult.toString(), detail, fileName, uuidName)
+                ChatSessionManager.onUploadFileFinish(ret.sendId, fileName, uuidName)
 
                 val msgType = ChatMsgType.IMAGE_VALUE
                 SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(MsgEventType.MSG_UPLOAD_OK, msgType, ret.sendId, 0L, resultMap)
@@ -443,7 +454,7 @@ class MsgEncocder {
             }
             else{
                 // 遇到错误
-                ChatSessionManager.onUploadFileFinish(ret.sendId, uploadResult.toString(), detail, fileName, uuidName)
+                ChatSessionManager.onUploadFileError(ret.sendId, detail, fileName, uuidName)
                 SdkGlobalData.userCallBackManager.invokeOnErrorCallbacks(InterErrorType.UPLOAD_FAIL,fileName,uploadResult, detail)
             }
         }
@@ -656,12 +667,9 @@ class MsgEncocder {
         fun onFriendListFans(retMsg: User.FriendOpResult, result:String, status:String){
 
             if (retMsg.usersList != null && retMsg.usersList.size > 0){
-                //val lst = LinkedList<com.bird2fish.birdtalksdk.model.User>()
-                // TODO: 以后再修复这里
-                SdkGlobalData.clearFans()
-                for (f in retMsg.usersList){
-                    SdkGlobalData.updateAddNewFan(f)
-                }
+
+                //
+                UserCache.onReplyListFans(retMsg.usersList)
 
                 // 还有需要加载的
                 if (retMsg.usersList.size >= 100){
@@ -678,10 +686,7 @@ class MsgEncocder {
         fun onFriendListFollows(retMsg: User.FriendOpResult, result:String, status:String){
             if (retMsg.usersList != null && retMsg.usersList.size > 0){
 
-                for (f in retMsg.usersList){
-                    SdkGlobalData.updateAddNewFollow(f)
-                }
-
+                UserCache.onReplyListFollows(retMsg.usersList)
 
                 // 还有需要加载的
                 if (retMsg.usersList.size >= 100){
@@ -700,7 +705,7 @@ class MsgEncocder {
 
             if (retMsg.usersList != null && retMsg.usersList.size > 0){
 
-                SdkGlobalData.updateAddMutual(retMsg.usersList)
+                UserCache.onReplyMutual(retMsg.usersList)
 
                 // 还有需要加载的
                 if (retMsg.usersList.size >= 100){
@@ -710,10 +715,17 @@ class MsgEncocder {
                 }
             }
 
+            // 还需要继续加载
+            if (retMsg.usersList.size >=100){
+                val fromId = retMsg.usersList.last().userId
+                sendListFriend("friends", fromId)
+            }
+
             SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(MsgEventType.FRIEND_REQ_REPLY,
                 0, 0, 0, mapOf("result"  to result, "status" to status ) )
         }
 
+        // 多终端登录时候，一个终端点击关注，所有终端都会收到回执，被通知设置关注结果
         // 添加好友返回结果，结果中user是申请者，列表中的第一个元素是被申请的对象
         fun onFriendAddRet(retMsg: User.FriendOpResult, result:String, status:String){
             var fid = 0L
@@ -730,7 +742,7 @@ class MsgEncocder {
                     if (fid > 0){
                         // 更新好友列表
                         if (result == "ok" || result == "notice"){
-                            SdkGlobalData.updateAddNewFollow(retMsg.usersList[0])
+                            UserCache.onAddNewFollow(retMsg.usersList[0])
                         }else{
                             // 添加好友失败了
                         }
@@ -755,7 +767,7 @@ class MsgEncocder {
                     if (uid == SdkGlobalData.selfUserinfo.id){
                         // 更新好友列表
                         if (result == "ok" || result == "notice"){
-                            SdkGlobalData.updateAddNewFan(uinfo)
+                            UserCache.onAddNewFan(uinfo)
                         }else{
                             // 别的应该不会有
                         }
@@ -776,6 +788,7 @@ class MsgEncocder {
         }
 
         // 删除好友的结果；如果是自己的其他终端删除了关注，这里接收到ok，当对方删除好友，这里也知道notice
+        // retMsg.user 请求删除关注，这里的结果，如果不是自己，自己应该移除粉丝
         fun onFriendRemoveRet(retMsg: User.FriendOpResult, result:String, status:String){
             var fid = 0L
 
@@ -793,7 +806,7 @@ class MsgEncocder {
                     if (retMsg.usersList != null && retMsg.usersList.size > 0) {
                         val uid = retMsg.usersList[0].userId
                         if (uid == SdkGlobalData.selfUserinfo.id){
-                            SdkGlobalData.updateDeleteFan(retMsg.user.userId)
+                            UserCache.onNoticeDeleteFan(retMsg.user.userId)
                         }
                     }else{
                         Log.e("onFriendAddRet", "user info in friend reply is null")
@@ -808,13 +821,13 @@ class MsgEncocder {
                 return
 
             }else{
-                // 自己获取其他的终端删除了关注
+                // 自己其他的终端删除了关注
                 if (result == "ok" || result == "notice") {
                     if (retMsg.usersList != null && retMsg.usersList.size > 0) {
                         val fid = retMsg.usersList[0].userId
                         if (fid > 0L){
                             val friend = UserHelper.pbUserInfo2LocalUser(retMsg.usersList[0])
-                            SdkGlobalData.updateDeleteFollow(friend)
+                            UserCache.onNoticeDeleteFollow(friend.id)
                         }
                     }else{
                         Log.e("onFriendAddRet", "user list in friend reply is null")
@@ -844,8 +857,7 @@ class MsgEncocder {
                     lst.add(friend)
                 }
             }
-
-            SdkGlobalData.setSearchFriendRet(lst, result, status)
+            UserCache.onReplySearchFriendRet(lst, result, status)
         }
 
         /*

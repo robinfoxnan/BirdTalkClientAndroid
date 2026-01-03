@@ -21,20 +21,19 @@ import android.widget.Toast
 import androidx.core.net.toFile
 import androidx.core.net.toUri
 import com.bird2fish.birdtalksdk.SdkGlobalData
+import com.bird2fish.birdtalksdk.model.ChatSession
 import com.bird2fish.birdtalksdk.model.ChatSessionManager
-import com.bird2fish.birdtalksdk.model.ChatSessionManager.getSession
 import com.bird2fish.birdtalksdk.model.Drafty
 import com.bird2fish.birdtalksdk.model.Group
 import com.bird2fish.birdtalksdk.model.MessageContent
 import com.bird2fish.birdtalksdk.model.MessageData
 import com.bird2fish.birdtalksdk.model.MessageInOut
 import com.bird2fish.birdtalksdk.model.MessageStatus
-import com.bird2fish.birdtalksdk.model.SessionType
 import com.bird2fish.birdtalksdk.model.Topic
 import com.bird2fish.birdtalksdk.model.UserStatus
-import com.bird2fish.birdtalksdk.net.FileDownloader
 import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass
 import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass.ChatMsgType
+import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass.ChatMsgType.*
 import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass.ChatType
 import com.bird2fish.birdtalksdk.pbmodel.User.GroupInfo
 import java.io.File
@@ -61,7 +60,7 @@ object  TextHelper {
     private val mOsVersion:String? = "6.0"
 
     // 从服务器返回的类型转换为本地类型
-    fun groupInfo2Group(info:com.bird2fish.birdtalksdk.pbmodel.User.GroupInfo): Group {
+    fun groupInfo2Group(info:GroupInfo): Group {
         val groupId = info.groupId
         val groupName = info.groupName
         val groupType = info.groupType
@@ -71,6 +70,8 @@ object  TextHelper {
         var question = ""
         var answer = ""
         var groupVisible = "public"
+        var tags = ""
+        var membersCount = 0
 
 
         if (info.paramsMap!= null){
@@ -89,23 +90,25 @@ object  TextHelper {
             }
 
             if (info.paramsMap["question"] != null){
-                question = info.paramsMap["brief"]!!
+                question = info.paramsMap["question"]!!
             }
 
             if (info.paramsMap["answer"] != null){
-                answer = info.paramsMap["brief"]!!
+                answer = info.paramsMap["answer"]!!
+            }
+
+            if (info.paramsMap["memberscount"] != null){
+                membersCount = info.paramsMap["memberscount"]!!.toInt()
             }
         }
-        val group = Group(groupId, 0, 0,  MsgOuterClass.ChatType.ChatTypeGroup.number, 1, groupName, groupIcon)
-        group.joinType = groupJoinType
-        group.brief = groupDes
-        group.chatType = groupType
-        group.question = question
-        group.answer = answer
-        group.visibleType = groupVisible
+        if (info.tagsList != null && info.tagsList.size > 0)
+        {
+            tags = info.tagsList.joinToString(separator = "|")
+        }
 
-        if (info.tagsList != null)
-            group.tags =  info.tagsList.joinToString(separator = "|")
+        val group = Group(groupId, 0, groupName,  groupDes, groupIcon,  tags, membersCount, 0,
+            groupType,groupJoinType,  groupVisible, question, answer)
+
 
         return group
     }
@@ -157,23 +160,23 @@ object  TextHelper {
     }
 
     // 收到的消息也有可能是远端的多端登录发来的啊，
-    fun pbMsg2MessageContent(chatMsg :MsgOuterClass.MsgChat):MessageContent {
+    fun pbMsg2MessageContent(chatMsg :MsgOuterClass.MsgChat):MessageContent? {
         var msg : MessageContent? = null
         var inOut  = true
         var tid = 0L
         var sid = 0L
-        var uid = chatMsg.fromId
-        var isP2p = true
-        if (chatMsg.chatType == MsgOuterClass.ChatType.ChatTypeGroup){
+
+        // 如果是群聊数据，这里要考虑是多端登录的情况
+        if (chatMsg.chatType == ChatType.ChatTypeGroup){
             tid = chatMsg.toId
             sid = -tid
-            isP2p = false
             if (chatMsg.fromId == SdkGlobalData.selfUserinfo.id) {
                 inOut = false
             }else{
                 inOut = true
             }
         }else{
+            // 这里是私聊的情况
             if (chatMsg.fromId == SdkGlobalData.selfUserinfo.id){
                 inOut = false
                 tid = chatMsg.toId
@@ -185,77 +188,56 @@ object  TextHelper {
         }
 
 
+        // 这里一定保证返回一个合法的数据
         val chatSession = ChatSessionManager.getSession(sid)
-        if (chatMsg.msgType == ChatMsgType.TEXT){
-            val utf8String = chatMsg.data.toString(Charsets.UTF_8)
+        msg = when (chatMsg.msgType) {
+            TEXT -> {
+                val utf8String = chatMsg.data.toString(Charsets.UTF_8)
 
-            msg = MessageContent(chatMsg.msgId, chatMsg.sendId, tid, uid,
-                chatSession.sessionTitle, chatSession.sessionIcon,
-                UserStatus.ONLINE, MessageStatus.OK, inOut, false, false, utf8String, null, chatMsg.tm)
+                MessageContent(chatSession, chatMsg.msgId, chatMsg.sendId, MessageStatus.OK, inOut,
+                    chatMsg.sendReply, chatMsg.recvReply, chatMsg.readReply, utf8String, null, chatMsg.msgType)
+            }
 
-        }else if (chatMsg.msgType == ChatMsgType.IMAGE){
-            val txt = chatMsg.data.toString(Charsets.UTF_8)
+            IMAGE -> {
+                val txt = chatMsg.data.toString(Charsets.UTF_8)
+                val draft = deserializeDrafty(txt)
+                Log.d("Image Drafty", txt)
 
+                MessageContent(chatSession, chatMsg.msgId, chatMsg.sendId, MessageStatus.OK, inOut,
+                    chatMsg.sendReply, chatMsg.recvReply, chatMsg.readReply, "", draft, chatMsg.msgType)
+            }
 
-            val draft = TextHelper.deserializeDrafty(txt)
-            Log.d("Image Draty", txt)
+            VOICE -> {
+                val txt = chatMsg.data.toString(Charsets.UTF_8)
+                val draft = deserializeDrafty(txt)
+                Log.d("Audio Drafty", txt)
 
-            msg = MessageContent(chatMsg.msgId,  chatMsg.sendId, tid, uid,
-                chatSession.sessionTitle, chatSession.sessionIcon,
-                UserStatus.ONLINE, MessageStatus.OK, inOut, false, false, "", draft, chatMsg.tm)
-        }
-        else if (chatMsg.msgType == MsgOuterClass.ChatMsgType.VOICE){
+                MessageContent(chatSession, chatMsg.msgId, chatMsg.sendId, MessageStatus.OK, inOut,
+                    chatMsg.sendReply, chatMsg.recvReply, chatMsg.readReply, "", draft, chatMsg.msgType)
+            }
 
-            val txt = chatMsg.data.toString(Charsets.UTF_8)
+            FILE -> {
+                val txt = chatMsg.data.toString(Charsets.UTF_8)
+                val draft = deserializeDrafty(txt)
+                Log.d("File Drafty", txt)
 
-            val draft = TextHelper.deserializeDrafty(txt)
-            Log.d("Audio Draty", txt)
+                MessageContent(chatSession, chatMsg.msgId, chatMsg.sendId, MessageStatus.OK, inOut,
+                    chatMsg.sendReply, chatMsg.recvReply, chatMsg.readReply, "", draft, chatMsg.msgType)
+            }
 
-            msg = MessageContent(chatMsg.msgId, chatMsg.sendId, tid, uid,
-                chatSession.sessionTitle, chatSession.sessionIcon,
-                UserStatus.ONLINE, MessageStatus.OK, inOut, false, false, "", draft, chatMsg.tm)
-        }
-        else if (chatMsg.msgType == MsgOuterClass.ChatMsgType.FILE){
-            val txt = chatMsg.data.toString(Charsets.UTF_8)
-
-            val draft = TextHelper.deserializeDrafty(txt)
-            Log.d("File Draty", txt)
-
-            msg = MessageContent(chatMsg.msgId,  chatMsg.sendId, tid, uid,
-                chatSession.sessionTitle, chatSession.sessionIcon,
-                UserStatus.ONLINE, MessageStatus.OK, inOut, false, false, "", draft, chatMsg.tm)
-        }
-        msg!!.msgType = chatMsg.msgType
-        msg!!.isP2p = isP2p
-
-        // 如果是收消息，并且没有填写过回执
-        msg!!.tm1 = chatMsg.sendReply
-
-        if (chatMsg.recvReply == 0L)
-        {
-            // 添加到界面的队列中
-            msg!!.bRecv = false
-        }else{
-            msg!!.bRecv = true
-            msg!!.tm2 = chatMsg.recvReply
+            else-> null
         }
 
-        if (chatMsg.readReply == 0L){
-            msg.bRead = false
-        }else
-        {
-            msg.bRead = true
-            msg.tm3 = chatMsg.readReply
-        }
 
-        return msg!!
+        return msg
     }
 
     // 网络数据包转数据库类型
     fun pbMsgToDbMsg(chatMsg: MsgOuterClass.MsgChat):MessageData{
-        var inOut  = MessageInOut.IN.ordinal
-        var tid = 0L
-        if (chatMsg.chatType == MsgOuterClass.ChatType.ChatTypeGroup){
+        var inOut :Int
+        var tid:Long
+        if (chatMsg.chatType == ChatType.ChatTypeGroup){
+            // toId是接受者，这里是群ID
             tid = chatMsg.toId
             if (chatMsg.fromId == SdkGlobalData.selfUserinfo.id){
                 inOut = MessageInOut.OUT.ordinal
@@ -264,6 +246,7 @@ object  TextHelper {
             }
 
         }else{
+            // 私聊可能收到的就是互相发的数据，这里要考虑多终端的情况
             if (chatMsg.fromId == SdkGlobalData.selfUserinfo.id){
                 inOut = MessageInOut.OUT.ordinal
                 tid = chatMsg.toId
@@ -274,7 +257,7 @@ object  TextHelper {
         }
 
         val data = chatMsg.data.toByteArray()
-        val isPlain = if (chatMsg.msgType == ChatMsgType.TEXT) 1 else 0
+        val isPlain = if (chatMsg.msgType == TEXT) 1 else 0
 
         var status = MessageStatus.OK.name
         if (chatMsg.readReply > 0){
@@ -299,8 +282,8 @@ object  TextHelper {
     //从给控件用的，转换到数据库用的类，
     // 由于这里并没有全局的msgid, 这里仅仅使用sendId 代替，
     fun MsgContentToDbMsg(msg:MessageContent):MessageData{
-        val isPlain = if (msg.msgType == ChatMsgType.TEXT) 1 else 0
-        val data =  if (msg.msgType == ChatMsgType.TEXT) msg.text.toByteArray(Charsets.UTF_8) else serializeDrafty(msg.content!!).toByteArray(Charsets.UTF_8)
+        val isPlain = if (msg.msgType == TEXT) 1 else 0
+        val data =  if (msg.msgType == TEXT) msg.text.toByteArray(Charsets.UTF_8) else serializeDrafty(msg.content!!).toByteArray(Charsets.UTF_8)
         val inout:Int = if (msg.inOut) MessageInOut.IN.ordinal  else MessageInOut.OUT.ordinal
 
 
@@ -310,20 +293,17 @@ object  TextHelper {
             inout, msg.msgType.name, data, isPlain,
             msg.tm, msg.tm1, msg.tm2, msg.tm3,
             "", 0, msg.msgStatus.name)
-
-
-
         return msg
     }
 
     // 数据库加载数据后
-    fun MsgContentFromDbMessage(msg: MessageData, topic: Topic): MessageContent{
+    fun MsgContentFromDbMessage(msg: MessageData, session: ChatSession): MessageContent{
 
         var txt = ""
         var content:Drafty? = null
 
         val plain = String(msg.data, Charsets.UTF_8)
-        if (msg.msgType  == ChatMsgType.TEXT.name){
+        if (msg.msgType  == TEXT.name){
             txt =  plain
         }else{
             try {
@@ -348,21 +328,20 @@ object  TextHelper {
             Log.e("Sdk", e.toString())
         }
 
-        val msgContent = MessageContent(msg.id, msg.sendId, topic.tid, msg.uid,
-            topic.title, topic.icon,
-            UserStatus.ONLINE,
+        val msgContent = MessageContent(
+            session,
+            msg.id,
+            msg.sendId,
             msgStatus,
             inOut,
-            msg.tm3 > 0,
-            msg.tm2 > 0,
+            msg.tm1,
+            msg.tm2,
+            msg.tm3,
             txt,
-            content, msg.tm)
-        msgContent.tm1 = msg.tm1
-        msgContent.tm2 = msg.tm2
-        msgContent.tm3 = msg.tm3
-
-        msgContent.isP2p = (topic.type == MsgOuterClass.ChatType.ChatTypeP2P.number)
-        msgContent.msgType = ChatMsgType.valueOf(msg.msgType)
+            content,
+            ChatMsgType.valueOf(msg.msgType)
+        )
+        msgContent.tm = msg.tm
 
         return msgContent
     }

@@ -39,6 +39,7 @@ import com.bird2fish.birdtalksdk.R
 import com.bird2fish.birdtalksdk.SdkGlobalData
 import com.bird2fish.birdtalksdk.format.FullFormatter
 import com.bird2fish.birdtalksdk.format.QuoteFormatter
+import com.bird2fish.birdtalksdk.model.ChatSession
 import com.bird2fish.birdtalksdk.model.ChatSessionManager
 import com.bird2fish.birdtalksdk.model.Drafty
 import com.bird2fish.birdtalksdk.model.Drafty.Entity
@@ -71,10 +72,10 @@ class ChatPageViewHolder  constructor(itemView: View, val mViewType: Int) : Recy
     val mProgressResult: View? = itemView.findViewById(R.id.progressResult)                    // 右侧才有的进度结果
     var seqId: Int = 0
 
-    var chatSessionId:Long = 0L   // 聊天的ID，是对方的ID或者群组的ID取负数
+    var chatSession:ChatSession? = null   // 聊天的ID，是对方的ID或者群组的ID取负数
 
-    fun setSessionId(id:Long){
-        this.chatSessionId = id
+    fun setSession(s: ChatSession){
+        this.chatSession  = s
     }
 
 
@@ -141,7 +142,7 @@ class ChatPageAdapter(private val dataList: List<MessageContent>) : RecyclerView
         const val VIEW_TYPE_INVALID     = 0b000000
     }
     private var fragment : ChatPageFragment? = null
-    private var sessionId: Long = 0
+    private var chatSession: ChatSession?= null
     private val mMediaControl: MediaControl = MediaControl()
 
     private var mSelectedItems: SparseBooleanArray? = null
@@ -220,8 +221,8 @@ class ChatPageAdapter(private val dataList: List<MessageContent>) : RecyclerView
         this.mMediaControl.setActivity(this.fragment!!.requireActivity())
     }
 
-    fun setSessionId(id: Long){
-        this.sessionId = id
+    fun setSession(s:ChatSession){
+        this.chatSession = s
     }
 
     /**
@@ -298,7 +299,7 @@ class ChatPageAdapter(private val dataList: List<MessageContent>) : RecyclerView
             }
         }
         val holder = ChatPageViewHolder(v, viewType)
-        holder.setSessionId(this.sessionId)
+        holder.setSession(chatSession!!)
         return holder
     }
 
@@ -364,9 +365,8 @@ class ChatPageAdapter(private val dataList: List<MessageContent>) : RecyclerView
         if (holder.mAvatar != null){
 //            val index = ImagesHelper.getIconResId(item.iconUrl!!)
 //            holder.mAvatar.setImageResource(index)
-            val chatSession = ChatSessionManager.getSession(this.sessionId)
             if (chatSession != null){
-                AvatarHelper.tryLoadAvatar(this.fragment!!.requireContext(), chatSession.sessionIcon, holder.mAvatar, "", chatSession.sessionTitle)
+                AvatarHelper.tryLoadAvatar(this.fragment!!.requireContext(), chatSession!!.icon, holder.mAvatar, "", chatSession!!.title)
             }
         }
         // 私聊不显示用户名，群聊才显示
@@ -493,7 +493,7 @@ class ChatPageAdapter(private val dataList: List<MessageContent>) : RecyclerView
         // 发送成功图标
         if (holder.mDeliveredIcon != null) {
             if ((holder.mViewType and VIEW_TYPE_SIDE_RIGHT) != 0) {
-                ImagesHelper.setMessageStatusIcon(holder.mDeliveredIcon, item.msgStatus, item.bRead, item.bRecv)
+                ImagesHelper.setMessageStatusIcon(holder.mDeliveredIcon, item.msgStatus, item.isRead, item.isRecv)
             }
         }
 
@@ -703,19 +703,19 @@ class ChatPageAdapter(private val dataList: List<MessageContent>) : RecyclerView
                     Log.d("Download", "进度: $percent%")
                     (data as MutableMap<String, Any>)["cur"] = percent.toInt()
                     //ChatSessionManager.notifyDownloadProcess(sessionId, msgId, percent.toInt(), fname, url)
-                    SdkGlobalData.invokeOnEventCallbacks(MsgEventType. MSG_DOWNLOAD_PROCESS, percent.toInt(), msgId, sessionId, mapOf("url" to url, "name"  to fname))
+                    SdkGlobalData.invokeOnEventCallbacks(MsgEventType. MSG_DOWNLOAD_PROCESS, percent.toInt(), msgId, chatSession!!.getSessionId(), mapOf("url" to url, "name"  to fname))
                 },
                 onFinished = { file ->
                     Log.d("Download", "下载完成: ${file.absolutePath}")
                     (data as MutableMap<String, Any>)["cur"] = 100
                     //ChatSessionManager.notifyDownloadProcess(sessionId, msgId, 100, fname, url)
-                    SdkGlobalData.invokeOnEventCallbacks(MsgEventType. MSG_DOWNLOAD_PROCESS, 100, msgId, sessionId, mapOf("url" to url, "name"  to fname))
+                    SdkGlobalData.invokeOnEventCallbacks(MsgEventType. MSG_DOWNLOAD_PROCESS, 100, msgId, chatSession!!.getSessionId(), mapOf("url" to url, "name"  to fname))
                 },
                 onError = { e ->
                     Log.e("Download", "出错: ${e.message}")
                     //ChatSessionManager.notifyDownloadProcess(sessionId, msgId, -1, fname, url)
                     (data as MutableMap<String, Any>)["cur"] = -1
-                    SdkGlobalData.invokeOnEventCallbacks(MsgEventType. MSG_DOWNLOAD_PROCESS, -1, msgId, sessionId, mapOf("url" to url, "name"  to fname))
+                    SdkGlobalData.invokeOnEventCallbacks(MsgEventType. MSG_DOWNLOAD_PROCESS, -1, msgId, chatSession!!.getSessionId(), mapOf("url" to url, "name"  to fname))
                 }
             )
 

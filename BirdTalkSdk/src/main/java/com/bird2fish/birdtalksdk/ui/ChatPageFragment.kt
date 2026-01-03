@@ -124,10 +124,9 @@ class ChatPageFragment : Fragment() , StatusCallback {
 
     private var mGoToLatest: FloatingActionButton? = null
 
-    private lateinit var chatId: String
-    private var mChatIdLong :Long = 0L
-    private var mPeerFriend :User? = null
-    private var mPeerGroup : User? = null  //TODO:
+    // 引用的会话
+    private var chatsession : ChatSession? = null
+
 
     private val mTopicName: String? = null
     private val mMessageToSend: String? = null
@@ -224,7 +223,7 @@ class ChatPageFragment : Fragment() , StatusCallback {
 
         else if (eventType == MsgEventType.MSG_SEND_ERROR){
             val detail = params["detail"]
-            if (fid == this.mChatIdLong){
+            if (fid == chatsession!!.getSessionId()){
                 if (detail == "not friend")
                 {
                     val info = getString(R.string.not_friend)
@@ -396,7 +395,7 @@ class ChatPageFragment : Fragment() , StatusCallback {
 
         //val txt = "滚动的位置：" + firstVisible.toString() + " to " + lastVisible.toString()
         //TextHelper.showToast(requireContext(), txt)
-        ChatSessionManager.markSessionReadItems(this.mChatIdLong, firstVisible, lastVisible)
+        chatSession?.checkUnRead(firstVisible, lastVisible)
 
 //        if (lastVisible == mMessagesAdapter!!.itemCount - 1){
 //            mGoToLatest?.hide()
@@ -448,16 +447,12 @@ class ChatPageFragment : Fragment() , StatusCallback {
         this.parentView = p
     }
 
-    fun setChatId(id:Long){
-        this.mChatIdLong = id
+    fun setChatSession(s:ChatSession){
+        this.chatSession = s
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        // 获取 arguments，注意这一步
-        chatId = arguments?.getString(ARG_CHAT_ID) ?: ""  // 安全获取
-
     }
 
 
@@ -487,35 +482,6 @@ class ChatPageFragment : Fragment() , StatusCallback {
             }
         }
 
-    }
-
-
-    // 初始化
-    fun testInitData(){
-
-//        val msg = MessageContent(1, 1001, 1001,"飞鸟", "sys:3", UserStatus.ONLINE, MessageStatus.OK, true,
-//            true, true, "昨天你去哪里了呢？", null)
-//        chatSession?.addMessageToTail(msg)
-//
-//        val msg1 = MessageContent(2, 1002, 1002,"我", "sys:4", UserStatus.ONLINE, MessageStatus.SENDING, false,
-//            false, false, "发送中，服务器还没有回执", null)
-//        chatSession?.addMessageToTail(msg1)
-//
-//        val msg2 = MessageContent(3, 1002, "我", "sys:4", UserStatus.ONLINE, MessageStatus.OK, false,
-//            false, false, "服务器给回执了", null)
-//        chatSession?.addMessageToTail(msg2)
-//
-//        val msg3 = MessageContent(4, 1002, "我", "sys:4", UserStatus.OFFLINE, MessageStatus.OK, false,
-//            false, true, "用户接收回执", null)
-//        chatSession?.addMessageToTail(msg3)
-//
-//        val msg4 = MessageContent(5, 1002, "我", "sys:4", UserStatus.OFFLINE, MessageStatus.OK, false,
-//            true, true, "用户阅读回执", null)
-//        chatSession?.addMessageToTail(msg4)
-//
-//        val msg5 = MessageContent(6, 1002, "我", "sys:4", UserStatus.OFFLINE, MessageStatus.FAIL, false,
-//            false, false, "发送失败的", null)
-//        chatSession?.addMessageToTail(msg5)
     }
 
     // 手动刷新的时候
@@ -549,7 +515,7 @@ class ChatPageFragment : Fragment() , StatusCallback {
         if (mMessagesAdapter!!.itemCount > 0){
             lastMsg = mMessagesAdapter!!.getFirst()
         }
-        ChatSessionManager.onLoadHistoryMessageOnDrag(this.mChatIdLong, lastMsg)
+        ChatSessionManager.onLoadHistoryMessageOnDrag(chatSession!!, lastMsg)
         // 模拟网络加载
         Handler(Looper.getMainLooper()).postDelayed({
             // 设置一个定时器，如果5秒都无法加载完成，也不能一直加载
@@ -615,18 +581,13 @@ class ChatPageFragment : Fragment() , StatusCallback {
         }
         mMessageViewLayoutManager?.setReverseLayout(true)
         ////
-        if (mChatIdLong == 0L){
-            mChatIdLong = SdkGlobalData.currentChatFid
-        }
-        chatSession = ChatSessionManager.getSession(mChatIdLong)
-        //testInitData()
 
         // 建立数据列表控件
         mRecyclerView = view.findViewById(R.id.messages_container)
 
         mMessagesAdapter = ChatPageAdapter(chatSession!!.msgList)
         mMessagesAdapter!!.setView(this)
-        mMessagesAdapter!!.setSessionId(this.mChatIdLong)
+        mMessagesAdapter!!.setSession(chatSession)
         // 第三步：给listview设置适配器（view）
 
         mRecyclerView?.layoutManager = LinearLayoutManager(context)

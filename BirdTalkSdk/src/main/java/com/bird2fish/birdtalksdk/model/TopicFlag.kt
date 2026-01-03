@@ -1,4 +1,4 @@
-package com.bird2fish.birdtalksdk.db
+package com.bird2fish.birdtalksdk.model
 
 object TopicFlag {
     /** 可见  */

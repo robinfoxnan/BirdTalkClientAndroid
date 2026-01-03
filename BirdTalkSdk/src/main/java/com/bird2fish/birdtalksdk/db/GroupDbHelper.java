@@ -72,14 +72,14 @@ public class GroupDbHelper {
     // 插入或更新群信息
     public static long insertOrUpdateGroup(Group group) {
         ContentValues values = new ContentValues();
-        values.put(COLUMN_GROUP_ID, group.getTid());
+        values.put(COLUMN_GROUP_ID, group.getGid());
         values.put(COLUMN_OWNER_ID, group.getOwnerId());
-        values.put(COLUMN_NAME, group.getTitle());
+        values.put(COLUMN_NAME, group.getName());
         values.put(COLUMN_BRIEF, group.getBrief());
         values.put(COLUMN_ICON, group.getIcon());
         values.put(COLUMN_TAGS, group.getTags());
         values.put(COLUMN_MEMBERS_COUNT, group.getMembersCount());
-        values.put(COLUMN_MASK, group.getData());
+        values.put(COLUMN_MASK, group.getMask());
         values.put(COLUMN_CHAT_TYPE, group.getChatType());
         values.put(COLUMN_VISIBLE_TYPE, group.getVisibleType());
         values.put(COLUMN_JOIN_TYPE, group.getJoinType());
@@ -108,14 +108,14 @@ public class GroupDbHelper {
         try {
             for (Group group : groups) {
                 ContentValues values = new ContentValues();
-                values.put(COLUMN_GROUP_ID, group.getTid());
+                values.put(COLUMN_GROUP_ID, group.getGid());
                 values.put(COLUMN_OWNER_ID, group.getOwnerId());
-                values.put(COLUMN_NAME, group.getTitle());
+                values.put(COLUMN_NAME, group.getName());
                 values.put(COLUMN_BRIEF, group.getBrief());
                 values.put(COLUMN_ICON, group.getIcon());
                 values.put(COLUMN_TAGS, group.getTags());
                 values.put(COLUMN_MEMBERS_COUNT, group.getMembersCount());
-                values.put(COLUMN_MASK, group.getData());
+                values.put(COLUMN_MASK, group.getMask());
                 values.put(COLUMN_CHAT_TYPE, group.getChatType());
                 values.put(COLUMN_VISIBLE_TYPE, group.getVisibleType());
                 values.put(COLUMN_JOIN_TYPE, group.getJoinType());
@@ -241,14 +241,14 @@ public class GroupDbHelper {
     // Cursor -> Group
     private static Group parseGroup(Cursor cursor) {
         Group group = new Group();
-        group.setTid(cursor.getLong(cursor.getColumnIndexOrThrow(COLUMN_GROUP_ID)));
+        group.setGid(cursor.getLong(cursor.getColumnIndexOrThrow(COLUMN_GROUP_ID)));
         group.setOwnerId(cursor.getLong(cursor.getColumnIndexOrThrow(COLUMN_OWNER_ID)));
-        group.setTitle(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_NAME)));
+        group.setName(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_NAME)));
         group.setBrief(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_BRIEF)));
         group.setIcon(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ICON)));
         group.setTags(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_TAGS)));
         group.setMembersCount(cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_MEMBERS_COUNT)));
-        group.setData(cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_MASK)));
+        group.setMask(cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_MASK)));
         group.setChatType(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CHAT_TYPE)));
         group.setVisibleType(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_VISIBLE_TYPE)));
         group.setJoinType(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_JOIN_TYPE)));

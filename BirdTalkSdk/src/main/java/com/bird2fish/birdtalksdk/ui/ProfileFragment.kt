@@ -132,7 +132,7 @@ class ProfileFragment : Fragment(), StatusCallback {
             //"Params.title" to "setting"
         )
         System.out.println("change avatar "+ newIcon)
-        MsgEncocder.setUserInfo(SdkGlobalData.selfUserinfo.getId(), data)
+        MsgEncocder.setUserInfo(SdkGlobalData.selfUserinfo.id, data)
     }
 
     private fun getFilePathFromUri(uri: Uri): String? {
