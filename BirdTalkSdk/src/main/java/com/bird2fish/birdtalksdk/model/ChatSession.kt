@@ -113,7 +113,7 @@ class ChatSession(
                 val txt = SdkGlobalData.context!!.getString(R.string.sys_notice)
                 this.sysFriend!!.name = txt
                 this.sysFriend!!.nick = txt
-                this.sysFriend!!.icon = "system.png"
+                this.sysFriend!!.icon = "birdtalk128.png"
                 this.sysFriend!!.id =100L
             }
             else -> {
@@ -304,6 +304,11 @@ class ChatSession(
         }
         // 设置最新的消息
         this.lastMsg = message
+        // 通知会话列表更新最新消息
+        SdkGlobalData.invokeOnEventCallbacks(
+            MsgEventType.MSG_COMING, message.msgType.number,
+            message.msgId, message.userId, mapOf("msg" to "send") )
+
     }
 
     // 发送列表中的消息检查是否需要重发，预计不会很长，所以这里不再做拷贝

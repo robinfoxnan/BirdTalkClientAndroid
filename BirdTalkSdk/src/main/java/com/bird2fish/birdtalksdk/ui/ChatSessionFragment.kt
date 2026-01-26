@@ -119,12 +119,15 @@ class ChatSessionFragment : Fragment()  , StatusCallback {
     // 这里是回调函数，无法操作界面
     override fun onEvent(eventType: MsgEventType, msgType:Int, msgId:Long, fid:Long, params:Map<String, String>){
         if (eventType == MsgEventType.FRIEND_CHAT_SESSION){
-
             (context as? Activity)?.runOnUiThread {
-
                 this.adapter?.notifyDataSetChanged()
             }
-
+        }
+        // 设置了最新一条消息
+        else if (eventType == MsgEventType.MSG_COMING){
+            (context as? Activity)?.runOnUiThread {
+                this.adapter?.notifyDataSetChanged()
+            }
         }
     }
 
@@ -152,18 +155,10 @@ class ChatSessionFragment : Fragment()  , StatusCallback {
     }
 
     // 点击了条目，这里需要跳转进入 发送信息界面
-    fun switchSendMsgPage(t:Topic){
+    fun switchSendMsgPage(t:ChatSession){
         // 通过消息方式通知上层界面切换到消息发送
-        if (t.type == MsgOuterClass.ChatType.ChatTypeP2P.number)
-        {
-
-            SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(MsgEventType.APP_NOTIFY_SEND_MSG,
-                0, 0, t.tid, mapOf("page" to "followedFragment" ) )
-        }else{
-            //SdkGlobalData.currentChatFid = -t.tid
-            SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(MsgEventType.APP_NOTIFY_SEND_MSG,
-                0, 0, -t.tid, mapOf("page" to "followedFragment" ) )
-        }
+        SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(MsgEventType.APP_NOTIFY_SEND_MSG,
+                0, 0, t.getSessionId(), mapOf("page" to "followedFragment" ) )
 
     }
 

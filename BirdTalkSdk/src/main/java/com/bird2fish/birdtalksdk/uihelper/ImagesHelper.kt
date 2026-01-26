@@ -13,6 +13,7 @@ import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.PorterDuff
 import android.graphics.PorterDuffXfermode
+import android.graphics.Rect
 import android.graphics.Shader
 import android.graphics.Typeface
 import android.graphics.drawable.BitmapDrawable
@@ -872,7 +873,7 @@ public object ImagesHelper {
 //    }
 
 
-    // 重新计算圆形的蒙版
+//    // 重新计算圆形的蒙版
     fun getCircularBitmapWithTransparentEdge(bitmap: Bitmap, edgeWidth: Int): Bitmap {
         val size = Math.min(bitmap.width, bitmap.height)
 
@@ -905,6 +906,8 @@ public object ImagesHelper {
 
         return output
     }
+
+
 
     fun scaleBitmap(bmp: Bitmap, maxWidth: Int, maxHeight: Int): Bitmap {
         var width = bmp.width
