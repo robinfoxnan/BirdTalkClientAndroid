@@ -80,7 +80,7 @@ object GroupCache {
         }
 
         // 同步缓存与保存数据库
-        updateGroups(lst)
+        updateGroups(lst, false)
 
         // 通知界面
         invokeOnEventCallbacks(MsgEventType.SEARCH_GROUP_RET, 0, 0, 0, mapOf(Pair("", "")))
@@ -91,10 +91,11 @@ object GroupCache {
         if (result != "ok"){
             return
         }
-        updateGroups(groups)
-        // 更新数据库
-        GroupDbHelper.insertOrUpdateGroups(groups)
 
+        // 保存到内存
+        // 更新数据库
+        updateGroups(groups, true)
+        
         // 这里需要后期群的人员信息
         DataLoadHelper.findGroupMembers(groups)
     }
@@ -112,13 +113,15 @@ object GroupCache {
     /**
      * 更新缓存和数据库
      */
-    fun updateGroup(group: Group) {
+    fun updateGroup(group: Group):Group {
+        var g :Group? = null
         synchronized(groupMap) {
-            val g = groupMap[group.gid]
+            g = groupMap[group.gid]
             if (g != null) {
-                g.update(group) // 需要你在 Group 类里实现 update 方法，更新除 gid 外的属性
+                g!!.update(group) // 需要你在 Group 类里实现 update 方法，更新除 gid 外的属性
             } else {
                 groupMap[group.gid] = group
+                g = group
             }
 
         }
@@ -126,11 +129,23 @@ object GroupCache {
         GlobalScope.launch(Dispatchers.IO) {
             GroupDbHelper.insertOrUpdateGroup(group)
         }
+
+        return g!!
     }
 
-    fun updateGroups(lst: List<Group>) {
+    fun updateGroups(lst: List<Group>, isSelfIn:Boolean) {
+
+        val retLst = LinkedList<Group>()
         for (g in lst) {
-            updateGroup(g)
+            val ret = updateGroup(g)
+            retLst.add(ret)
+        }
+        // 同步到全局的组管理器中，后将同样的引用保存到这里，保证是同一个对象
+        synchronized(userInGroupList){
+            userInGroupList.clear()
+            for (g in retLst ){
+                userInGroupList[g.gid] = g
+            }
         }
     }
 
