@@ -12,6 +12,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.bird2fish.birdtalksdk.SdkGlobalData
 import com.bird2fish.birdtalksdk.R
 import com.bird2fish.birdtalksdk.model.User
+import com.bird2fish.birdtalksdk.model.UserCache
 import com.bird2fish.birdtalksdk.uihelper.ImagesHelper
 
 class RecommendedFragment : Fragment() {
@@ -36,7 +37,7 @@ class RecommendedFragment : Fragment() {
         friendList = view.findViewById<RecyclerView>(R.id.friend_list)
 
 
-        val adapter = RecommendedItemAdapter(SdkGlobalData.recommendedList)
+        val adapter = RecommendedItemAdapter(UserCache.recommendedList)
         adapter.setView(this)
         // 第三步：给listview设置适配器（view）
 

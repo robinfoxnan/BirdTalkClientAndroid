@@ -52,7 +52,7 @@ open class Topic(
     var lastMsg: MessageContent? = null
 
     var mute: Boolean = false
-    private set
+        private set
 
     var showHide: Boolean = true
     private set

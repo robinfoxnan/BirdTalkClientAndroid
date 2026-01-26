@@ -22,9 +22,11 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.bird2fish.birdtalksdk.R
 import com.bird2fish.birdtalksdk.SdkGlobalData
+import com.bird2fish.birdtalksdk.model.ChatSessionManager
 import com.bird2fish.birdtalksdk.model.Group
 import com.bird2fish.birdtalksdk.model.Topic
 import com.bird2fish.birdtalksdk.model.User
+import com.bird2fish.birdtalksdk.model.UserCache
 import com.bird2fish.birdtalksdk.uihelper.AvatarHelper
 import java.util.LinkedList
 
@@ -121,14 +123,14 @@ class FriendSelectDialog :  DialogFragment() {
         if (mode== "mix")
         {
             items.add(ListItem.RecentContacts(
-                topics = SdkGlobalData.rebuildDisplayList()
+                topics = ChatSessionManager.rebuildDisplayList()
             ))
         }
 
 
         items.add( ListItem.Separator(title = "好友列表"))
 
-        val mutuals = SdkGlobalData.getMutualFollowList()
+        val mutuals = UserCache.getMutualFollowList()
         for (u in mutuals){
             items.add(ListItem.FriendItem(u))
         }
@@ -139,7 +141,7 @@ class FriendSelectDialog :  DialogFragment() {
     // 设置过滤器
     private fun setFilter(key:String){
         btnCancel.visibility = View.VISIBLE
-        val mutuals = SdkGlobalData.getMutualFollowList()
+        val mutuals = UserCache.getMutualFollowList()
         items.clear()
         for (u in mutuals){
             if (u.nick.startsWith(key))

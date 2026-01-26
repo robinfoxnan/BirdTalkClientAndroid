@@ -25,6 +25,8 @@ import com.bird2fish.birdtalksdk.InterErrorType
 import com.bird2fish.birdtalksdk.MsgEventType
 import com.bird2fish.birdtalksdk.StatusCallback
 import com.bird2fish.birdtalksdk.model.Group
+import com.bird2fish.birdtalksdk.model.GroupCache
+import com.bird2fish.birdtalksdk.model.UserCache
 import com.bird2fish.birdtalksdk.net.MsgEncocder
 import com.bird2fish.birdtalksdk.uihelper.AvatarHelper
 import com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility
@@ -110,7 +112,7 @@ class SearchFriendFragment : Fragment(), StatusCallback {
         friendListView = view.findViewById<RecyclerView>(R.id.recycler_view_friends)
 
 
-        val lst = SdkGlobalData.getSearchFriendRet()
+        val lst = UserCache.getSearchFriendRet()
         val adapter = SearchFriendsItemAdapter(lst)
         adapter.setView(this)
         // 第三步：给listview设置适配器（view）
@@ -209,12 +211,12 @@ class SearchFriendFragment : Fragment(), StatusCallback {
     // 这里是回调函数，无法操作界面
     override fun onEvent(eventType: MsgEventType, msgType:Int, msgId:Long, fid:Long, params:Map<String, String>){
         if (eventType == MsgEventType.SEARCH_FRIEND_RET){
-            val lst = SdkGlobalData.getSearchFriendRet()
+            val lst = UserCache.getSearchFriendRet()
             val info = "return user count: " + lst.size.toString()
             (context as? Activity)?.runOnUiThread {
                 Toast.makeText(context, info, Toast.LENGTH_SHORT).show()
 
-                val lst = SdkGlobalData.getSearchFriendRet()
+                val lst = UserCache.getSearchFriendRet()
                 val adapter = SearchFriendsItemAdapter(lst)
                 adapter.setView(this)
                 friendListView?.layoutManager = LinearLayoutManager(context)
@@ -230,7 +232,7 @@ class SearchFriendFragment : Fragment(), StatusCallback {
         else if (eventType == MsgEventType.SEARCH_GROUP_RET){
 
             (context as? Activity)?.runOnUiThread {
-                val groupLst = SdkGlobalData.getSearchGroupRet()
+                val groupLst = GroupCache.getSearchGroupRet()
                 val info = "return user count: " + groupLst.size.toString()
                 Toast.makeText(context, info, Toast.LENGTH_SHORT).show()
 
@@ -331,17 +333,17 @@ class SearchFriendsItemAdapter(private val dataList: List<User>) : RecyclerView.
 
 
         // 双向关注
-        else if (SdkGlobalData.isMutualfollowing(item!!.id)){
+        else if (UserCache.isMutualfollowing(item!!.id)){
             holder.followBtn.isEnabled = false
 
             val stringFromRes = fragment!!.getString(R.string.mutual_following)
             holder.followBtn.text = stringFromRes
-        } else if (SdkGlobalData.isFollowing(item!!.id)){
+        } else if (UserCache.isFollowing(item!!.id)){
             holder.followBtn.isEnabled = false
 
             val stringFromRes = fragment!!.getString(R.string.followed)     // 已经关注
             holder.followBtn.text = stringFromRes
-        } else if (SdkGlobalData.isMutualfollowing(item!!.id)){
+        } else if (UserCache.isMutualfollowing(item!!.id)){
             holder.followBtn.isEnabled = true
 
             val stringFromRes = fragment!!.getString(R.string.follow_back)    // 粉丝
@@ -432,9 +434,9 @@ class SearchGroupsItemAdapter(private val dataList: List<Group>) : RecyclerView.
         val item = dataList[position]
         holder.index = position
 
-        AvatarHelper.tryLoadAvatar(fragment!!.requireContext(), item!!.icon, holder.imgIcon, "", item!!.title)
+        AvatarHelper.tryLoadAvatar(fragment!!.requireContext(), item!!.icon, holder.imgIcon, "", item!!.name)
 
-        val formattedName = "${item!!.title}[${item!!.tid}]"
+        val formattedName = "${item!!.name}[${item!!.gid}]"
         holder.tvTitle.setText(formattedName)
 
         holder.tvNumber.setText(item.tags)

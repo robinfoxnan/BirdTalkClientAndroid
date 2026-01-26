@@ -10,6 +10,7 @@ import com.bird2fish.birdtalksdk.db.SeqDbHelper
 import com.bird2fish.birdtalksdk.db.TopicDbHelper
 import com.bird2fish.birdtalksdk.model.TopicFlag
 import com.bird2fish.birdtalksdk.db.UserDbHelper
+import com.bird2fish.birdtalksdk.model.ChatSession
 import com.bird2fish.birdtalksdk.model.ChatSessionManager
 import com.bird2fish.birdtalksdk.model.Group
 import com.bird2fish.birdtalksdk.model.GroupCache
@@ -57,6 +58,8 @@ class SdkGlobalData {
         val selfUserinfo :com.bird2fish.birdtalksdk.model.User = User()
         private val msgId  = AtomicLong(1)
 
+        var currentChatSession :ChatSession? = null
+
         // 这里是一个回调的列表
         var userCallBackManager = CallbackManager()
 
@@ -73,6 +76,14 @@ class SdkGlobalData {
             else{
                 return SeqDbHelper.getNextSeq()
             }
+        }
+
+        fun switchToChatSession(sid:Long):Boolean{
+            if (sid == 0L){
+                return false
+            }
+            currentChatSession = ChatSessionManager.getSession(sid)
+            return true
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////

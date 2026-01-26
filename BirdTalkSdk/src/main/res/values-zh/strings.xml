@@ -155,7 +155,10 @@
     <string name="menu_item_headmic">耳机播放</string>
     <string name="join">加入</string>
     <string name="number">号码：</string>
-
+    <string name="sys">系统</string>
+    <string name="sys_notice">【系统通知】</string>
+    <string name="group_prefix">【群】</string>
+    <string name="me">【我】</string>
 
 
 </resources>

@@ -19,6 +19,7 @@ import com.bird2fish.birdtalksdk.SdkGlobalData
 import com.bird2fish.birdtalksdk.model.User
 import com.bird2fish.birdtalksdk.R
 import com.bird2fish.birdtalksdk.StatusCallback
+import com.bird2fish.birdtalksdk.model.UserCache
 import com.bird2fish.birdtalksdk.uihelper.AvatarHelper
 import com.bird2fish.birdtalksdk.uihelper.ImagesHelper
 
@@ -45,7 +46,7 @@ class FollowingFragment : Fragment(), StatusCallback {
         friendList = view.findViewById<RecyclerView>(R.id.friend_list)
 
 
-        val adapter = FollowingItemAdapter(SdkGlobalData.getFollowList())
+        val adapter = FollowingItemAdapter(UserCache.getFollowList())
         adapter.setView(this)
         // 第三步：给listview设置适配器（view）
 
@@ -85,7 +86,7 @@ class FollowingFragment : Fragment(), StatusCallback {
             .setTitle(title)
             .setMessage(message)
             .setPositiveButton(ok) { _, _ ->
-                SdkGlobalData.updateDeleteFollow(friend)
+                UserCache.updateDeleteFollow(friend)
             }
             .setNegativeButton(cancel, null)
             .show()
@@ -100,7 +101,7 @@ class FollowingFragment : Fragment(), StatusCallback {
     fun refreshData(){
         (context as? Activity)?.runOnUiThread {
 
-            val adapter =  FollowingItemAdapter(SdkGlobalData.getFollowList())
+            val adapter =  FollowingItemAdapter(UserCache.getFollowList())
             adapter.setView(this)
             friendList?.layoutManager = LinearLayoutManager(context)
             friendList?.setAdapter(adapter);
@@ -191,7 +192,7 @@ class FollowingItemAdapter(private val dataList: List<User>) : RecyclerView.Adap
         }
 
         // 双向，单向
-        if (SdkGlobalData.isMutualfollowing(item!!.id)){
+        if (UserCache.isMutualfollowing(item!!.id)){
             val stringFromRes = fragment!!.getString(R.string.mutual_following)
             holder.btnUnfollow.text = stringFromRes
         }else{

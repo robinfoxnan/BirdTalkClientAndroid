@@ -194,10 +194,10 @@ class GroupSettingFragment :  DialogFragment(), StatusCallback {
 
         // 根据群组的信息设置
         if (curGroup != null){
-            nameView.setText(curGroup!!.title)
+            nameView.setText(curGroup!!.name)
             tagView.setText(curGroup!!.brief)
             desView.setText(curGroup!!.tags)
-            val bitmap = ImagesHelper.generateDefaultAvatar(curGroup!!.title, 2)
+            val bitmap = ImagesHelper.generateDefaultAvatar(curGroup!!.name, 2)
             avatarView.setImageBitmap(bitmap)
 
             if (curGroup!!.visibleType == "public"){

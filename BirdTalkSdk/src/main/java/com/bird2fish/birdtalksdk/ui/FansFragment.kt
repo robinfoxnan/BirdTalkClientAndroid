@@ -21,6 +21,8 @@ import com.bird2fish.birdtalksdk.model.User
 import com.bird2fish.birdtalksdk.uihelper.AvatarHelper
 import com.bird2fish.birdtalksdk.uihelper.ImagesHelper
 import com.bird2fish.birdtalksdk.R
+import com.bird2fish.birdtalksdk.model.ChatSessionManager
+import com.bird2fish.birdtalksdk.model.UserCache
 import com.bird2fish.birdtalksdk.net.MsgEncocder
 
 class FansFragment : Fragment() , StatusCallback {
@@ -58,7 +60,7 @@ class FansFragment : Fragment() , StatusCallback {
 
 
 
-        val adapter = FansItemAdapter(SdkGlobalData.getFanList())
+        val adapter = FansItemAdapter(UserCache.getFanList())
         adapter.setView(this)
         // 第三步：给listview设置适配器（view）
 
@@ -106,7 +108,7 @@ class FansFragment : Fragment() , StatusCallback {
             (context as? Activity)?.runOnUiThread {
 
 
-                val lst = SdkGlobalData.getFanList()
+                val lst = UserCache.getFanList()
                 val adapter = FansItemAdapter(lst)
                 adapter.setView(this)
                 friendList?.layoutManager = LinearLayoutManager(context)
@@ -193,7 +195,7 @@ class FansItemAdapter(private val dataList: List<User>) : RecyclerView.Adapter<F
 //            }
 //        }
 
-        if (SdkGlobalData.isMutualfollowing(item!!.id)){
+        if (UserCache.isMutualfollowing(item!!.id)){
             val stringFromRes = fragment!!.getString(R.string.mutual_following)
             holder.btnFollow.text = stringFromRes
             holder.btnFollow.isEnabled = false

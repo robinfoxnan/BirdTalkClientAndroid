@@ -102,11 +102,16 @@ class ChatManagerFragment : Fragment() {
             }
 
             // 4. 群设置按钮
-            if (SdkGlobalData.currentChatFid> 0){
-                groupSettingItem.setVisible(false)
+            if ( SdkGlobalData.currentChatSession != null){
+                if (SdkGlobalData.currentChatSession!!. isGroupChat()){
+                    groupSettingItem.setVisible(true)
+                }else{
+                    groupSettingItem.setVisible(false)
+                }
             }else{
-                groupSettingItem.setVisible(true)
+                groupSettingItem.setVisible(false)
             }
+
 
 
             // . 显示弹出菜单
@@ -134,7 +139,7 @@ class ChatManagerFragment : Fragment() {
     // 打开群组属性设置页面
     fun openGroupSetting(){
         val page = GroupSettingFragment()
-        val gid = -SdkGlobalData.currentChatFid
+        val gid = SdkGlobalData.currentChatSession!!.tid
         val group = GroupDbHelper.getGroupById(gid) ?: return
         page.setGroup(group)
 
@@ -209,42 +214,22 @@ class ChatManagerFragment : Fragment() {
     // 初始化后才能切换
     private fun switchToPage(){
 
-        val fid = SdkGlobalData.currentChatFid
-        if (fid == 0L){
-            return
-        }
+        val curSession = SdkGlobalData.currentChatSession ?: return
 
         var index = 0
         if (this.chatPagerAdapter != null){
-            index = chatPagerAdapter.findIndex(fid)
+            index = chatPagerAdapter.findIndex(curSession.getSessionId())
             if (index < 0){
-                index = chatPagerAdapter.addChatPage(fid)
+                index = chatPagerAdapter.addChatPage(curSession.getSessionId())
             }
         }
 
         // 显示好友的信息
-        if (fid > 0){
-            val f = UserDbHelper.getUserById(fid)
-            if (f != null){
-                this.chatTitle.text = f.nick
-                AvatarHelper.tryLoadAvatar(requireContext(), f.icon, this.chatImage, f.gender, f.nick)
-            }else{
-
-                val topic = SdkGlobalData.makeSurePTopic(fid)
-                this.chatTitle.text = topic.title
-                AvatarHelper.tryLoadAvatar(requireContext(), topic.icon, this.chatImage, "", topic.title)
-            }
-        }
-        // 显示群组信息，群使用负数表示，这样可以保证一致性
-        else{
-            val topic = SdkGlobalData.makeSureGTopic(-fid)
-            this.chatTitle.text = topic.title
-            AvatarHelper.tryLoadAvatar(requireContext(), topic.icon, this.chatImage, "", topic.title)
-        }
+        this.chatTitle.text = curSession.title
+        AvatarHelper.tryLoadAvatar(requireContext(), curSession.icon, this.chatImage, curSession.getGender(), curSession.getNick())
 
         if (index >= 0 && index < chatPagerAdapter.getItemCount()){
             this.viewPager.setCurrentItem(index, true)
-
         }
 
         //checkShowButtons()

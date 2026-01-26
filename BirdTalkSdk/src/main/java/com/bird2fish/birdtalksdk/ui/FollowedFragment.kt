@@ -20,6 +20,8 @@ import com.bird2fish.birdtalksdk.model.User
 import com.bird2fish.birdtalksdk.uihelper.ImagesHelper
 import com.bird2fish.birdtalksdk.R
 import com.bird2fish.birdtalksdk.StatusCallback
+import com.bird2fish.birdtalksdk.model.ChatSessionManager
+import com.bird2fish.birdtalksdk.model.UserCache
 import com.bird2fish.birdtalksdk.uihelper.AvatarHelper
 
 class FollowedFragment : Fragment() , StatusCallback {
@@ -44,7 +46,7 @@ class FollowedFragment : Fragment() , StatusCallback {
 
         // 获取列表控件
         friendList = view.findViewById<RecyclerView>(R.id.friend_list)
-        val adapter = FollowedItemAdapter(SdkGlobalData.getMutualFollowList())
+        val adapter = FollowedItemAdapter(UserCache.getMutualFollowList())
         adapter.setView(this)
         // 第三步：给listview设置适配器（view）
 
@@ -62,7 +64,7 @@ class FollowedFragment : Fragment() , StatusCallback {
     // 发送信息，这里需要跳转
     fun switchSendMsgPage(f: User){
         // 通过消息方式通知上层界面切换到消息发送
-        SdkGlobalData.getTopic(f)
+        ChatSessionManager.getSession(f)
         //SdkGlobalData.currentChatFid = f.id
         SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(MsgEventType.APP_NOTIFY_SEND_MSG,
             0, 0, f.id, mapOf("page" to "followedFragment" ) )
@@ -80,7 +82,7 @@ class FollowedFragment : Fragment() , StatusCallback {
     fun refreshAllData(){
         (context as? Activity)?.runOnUiThread {
 
-            val adapter = FollowedItemAdapter(SdkGlobalData.getMutualFollowList())
+            val adapter = FollowedItemAdapter(UserCache.getMutualFollowList())
             adapter.setView(this)
             friendList?.layoutManager = LinearLayoutManager(context)
             friendList?.setAdapter(adapter);

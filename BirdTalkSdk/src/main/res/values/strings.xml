@@ -161,6 +161,10 @@
     <string name="menu_item_headmic">use head mic</string>
     <string name="join">join</string>
     <string name="number">number: </string>
+    <string name="sys">System</string>
+    <string name="sys_notice">[System]</string>
+    <string name="group_prefix">[G]</string>
+    <string name="me">[Me]</string>
 
 
 </resources>

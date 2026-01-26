@@ -13,8 +13,11 @@ import androidx.recyclerview.widget.RecyclerView
 import com.bird2fish.birdtalksdk.MsgEventType
 import com.bird2fish.birdtalksdk.R
 import com.bird2fish.birdtalksdk.SdkGlobalData
+import com.bird2fish.birdtalksdk.model.ChatSessionManager
 import com.bird2fish.birdtalksdk.model.Group
+import com.bird2fish.birdtalksdk.model.GroupCache
 import com.bird2fish.birdtalksdk.model.User
+import com.bird2fish.birdtalksdk.model.UserCache
 import com.bird2fish.birdtalksdk.uihelper.AvatarHelper
 
 
@@ -34,7 +37,7 @@ class GroupFragment : Fragment() {
         // 获取列表控件
         groupListView = root.findViewById<RecyclerView>(R.id.rvMain)
 
-        val lst = SdkGlobalData.getInGroupList()
+        val lst = GroupCache.getInGroupList()
         val adapter = GroupsItemAdapter(lst)
         adapter.setView(this)
         // 第三步：给listview设置适配器（view）
@@ -46,11 +49,11 @@ class GroupFragment : Fragment() {
     // 发送信息，这里需要跳转
     fun switchSendMsgPage(g:Group){
         // 通过消息方式通知上层界面切换到消息发送
-        SdkGlobalData.makeSureGTopic(g.tid)
+        val chatSession = ChatSessionManager.getSession(g)
         //SdkGlobalData.currentChatFid = f.id
         SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(
             MsgEventType.APP_NOTIFY_SEND_MSG,
-            0, 0, -g.tid, mapOf("page" to "followedFragment" ) )
+            0, 0, chatSession.getSessionId(), mapOf("page" to "followedFragment" ) )
     }
 
 
@@ -103,9 +106,9 @@ class GroupsItemAdapter(private val dataList: List<Group>) : RecyclerView.Adapte
         val item = dataList[position]
         holder.index = position
 
-        AvatarHelper.tryLoadAvatar(fragment!!.requireContext(), item!!.icon, holder.imgIcon, "", item!!.title)
+        AvatarHelper.tryLoadAvatar(fragment!!.requireContext(), item!!.icon, holder.imgIcon, "", item!!.name)
 
-        val formattedName = "${item!!.title}[${item!!.tid}]"
+        val formattedName = "${item!!.name}[${item!!.gid}]"
         holder.tvTitle.setText(formattedName)
 
         holder.tvNumber.setText(item.tags)

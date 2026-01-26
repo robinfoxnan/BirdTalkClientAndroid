@@ -9,6 +9,7 @@ import android.util.Log
 import androidx.core.net.toUri
 import androidx.drawerlayout.widget.DrawerLayout.SimpleDrawerListener
 import com.bird2fish.birdtalksdk.MsgEventType
+import com.bird2fish.birdtalksdk.R
 import com.bird2fish.birdtalksdk.SdkGlobalData
 import com.bird2fish.birdtalksdk.db.TopicDbHelper
 import com.bird2fish.birdtalksdk.net.MsgEncocder
@@ -43,9 +44,22 @@ class ChatSession(
     override var title: String
         get(){
             if (type == Topic.CHAT_P2P){
-                return friend?.nick ?: super.title
+                if (tid == SdkGlobalData.selfUserinfo.id){
+                    val txt = SdkGlobalData.context!!.getString(R.string.me)
+                    return txt
+                }
+                return if (friend != null && !TextUtils.isEmpty(friend!!.nick) ){
+                    "${friend!!.nick} (${friend!!.id})"
+                }else{
+                    super.title
+                }
             }else if (type == Topic.CHAT_GROUP){
-                return group?.name ?: "【群】${super.title}"
+                val txt = SdkGlobalData.context!!.getString(R.string.group_prefix)
+                return if (group != null && !TextUtils.isEmpty(group!!.name)){
+                    "$txt${group!!.name} (${group!!.gid})"
+                }else{
+                    txt + super.title
+                }
             }else{
                 return this.sysFriend?.nick ?: super.title
             }
@@ -53,6 +67,8 @@ class ChatSession(
         set(value) {
             super.title = value
         }
+
+
 
     // 尽可能与user/group的信息同步
     override var icon :String
@@ -94,10 +110,11 @@ class ChatSession(
             // 0
             Topic.CHAT_SYSTEM->{
                 this.sysFriend = User()
-                this.sysFriend!!.name = "系统消息"
-                this.sysFriend!!.nick = this.sysFriend!!.name
-                this.sysFriend!!.icon = ""
-                this.sysFriend!!.id = 0L
+                val txt = SdkGlobalData.context!!.getString(R.string.sys_notice)
+                this.sysFriend!!.name = txt
+                this.sysFriend!!.nick = txt
+                this.sysFriend!!.icon = "system.png"
+                this.sysFriend!!.id =100L
             }
             else -> {
                 Log.e("ChatSession", "初始化发现了type = $type")
@@ -107,6 +124,23 @@ class ChatSession(
     }
 
 
+    fun getNick():String{
+        if (type == Topic.CHAT_P2P){
+            return friend?.nick ?: super.title
+        }else if (type == Topic.CHAT_GROUP){
+            return group?.name ?: "${super.title}"
+        }else{
+            return this.sysFriend?.nick ?: super.title
+        }
+    }
+
+    fun getGender():String{
+        if (type == Topic.CHAT_P2P){
+            return friend?.gender ?: ""
+        }else{
+            return ""
+        }
+    }
 
     // 会话的ID管理
     fun getSessionId():Long{
@@ -602,6 +636,10 @@ class ChatSession(
 
     fun isP2pChat():Boolean{
         return (type == Topic.CHAT_P2P)
+    }
+
+    fun isGroupChat():Boolean{
+        return (type == Topic.CHAT_GROUP)
     }
 
 //    fun notice(){

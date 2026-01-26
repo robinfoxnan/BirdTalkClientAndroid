@@ -19,6 +19,7 @@ import com.bird2fish.birdtalksdk.InterErrorType
 import com.bird2fish.birdtalksdk.MsgEventType
 import com.bird2fish.birdtalksdk.SdkGlobalData
 import com.bird2fish.birdtalksdk.StatusCallback
+import com.bird2fish.birdtalksdk.model.ChatSessionManager
 import com.bird2fish.birdtalksdk.ui.ChatManagerFragment
 import com.bird2fish.birdtalksdk.ui.ChatSessionFragment
 import com.bird2fish.birdtalksdk.ui.ContactFragment
@@ -97,7 +98,7 @@ class MainActivity : AppCompatActivity() , StatusCallback {
     fun switchFragment(index: AppPageCode) {
 
         // 如果设置的页面不对，应该跳回来
-        if (index == CHAT_SDK && SdkGlobalData.currentChatFid == 0L){
+        if (index == CHAT_SDK && SdkGlobalData.currentChatSession == null){
             switchFragment(CONTACT_SDK)
             return
         }
@@ -206,16 +207,11 @@ class MainActivity : AppCompatActivity() , StatusCallback {
         // 通知切换到消息
         if (eventType == MsgEventType.APP_NOTIFY_SEND_MSG){
 
-            if (fid != 0L){
-                SdkGlobalData.currentChatFid = fid
-            }
-            if (SdkGlobalData.currentChatFid == 0L){
+            if (SdkGlobalData.switchToChatSession(fid) ){
+                switchFragment(CHAT_SDK)
+            }else{
                 TextHelper.showToast(this, "会话列表为空，请先创建一个聊天会话")
             }
-
-            switchFragment(CHAT_SDK)
-
-
 
         }else if (eventType == MsgEventType.RECONNECTING){
             if (msgType == 0){

@@ -3,10 +3,12 @@ package com.bird2fish.birdtalksdk.model
 import android.content.ContentResolver
 import android.content.Context
 import android.net.Uri
+import android.provider.Settings.Global.getString
 import android.text.TextUtils
 import android.util.Log
 import androidx.core.net.toUri
 import com.bird2fish.birdtalksdk.MsgEventType
+import com.bird2fish.birdtalksdk.R
 import com.bird2fish.birdtalksdk.SdkGlobalData
 import com.bird2fish.birdtalksdk.db.GroupDbHelper
 import com.bird2fish.birdtalksdk.db.TopicDbHelper
@@ -36,7 +38,7 @@ object ChatSessionManager {
     private val sessions = ConcurrentHashMap<Long, ChatSession>() // 会话ID到会话的映射
 
     // 给那个对话的界面使用的
-    private var displayChatList: MutableList<Topic> = ArrayList()
+    private var displayChatList: MutableList<ChatSession> = ArrayList()
 
     // 如果正在上传，应该保存临时信息
     var uploadingMap: MutableMap<Long, MessageContent> = LinkedHashMap()
@@ -89,7 +91,7 @@ object ChatSessionManager {
 
 
     // 重建会话列表显示的部分，因为隐藏了，或者显示了一部分
-    fun rebuildDisplayList(): MutableList<Topic>{
+    fun rebuildDisplayList(): MutableList<ChatSession>{
         synchronized(sessions){
             displayChatList.clear()
             for (t in sessions.values) {
@@ -138,7 +140,7 @@ object ChatSessionManager {
                 val p2pTopics = TopicDbHelper.getAllPTopics()
                 for (t in p2pTopics){
                     if (t.type != Topic.CHAT_P2P){
-                        Log.e("load p2p topics", t.toString())
+                        Log.e("tryLoadTopicsFromDb()", "load p2p topics "+ t.toString())
                         continue
                     }
                     sessions[t.tid] = t.asChatSession()
@@ -162,7 +164,8 @@ object ChatSessionManager {
 
     // 系统通知
     private fun  createSystemSession():ChatSession{
-        val temp = Topic(0, 0, 0, 0, 1, "[通知]", "")
+        val txt = SdkGlobalData.context!!.getString(R.string.sys)
+        val temp = Topic(0, 0, 0, 0, 1, txt, "")
         val sysTopic = temp.asChatSession()
         return sysTopic
     }
@@ -174,15 +177,7 @@ object ChatSessionManager {
         }
     }
 
-    // 自己取消关注
-    fun updateDeleteFollow(friend:User){
 
-    }
-
-    // 对方取消关注了自己
-    fun setNotFan(fid:Long){
-
-    }
 
     // 获取未读消息总数
     fun getTotalUnreadCount(): Int {
@@ -913,7 +908,7 @@ object ChatSessionManager {
             val fid = data.key
             val userMsgList = data.value
             val chatSession = getSession(fid)
-            chatSession.onPRecvBatchMsg(fid, userMsgList, false)
+            chatSession.onPRecvBatchMsg(userMsgList, false)
         }
 
         // 通知界面更新消息，已经保存处理完了
@@ -945,7 +940,7 @@ object ChatSessionManager {
             val fid = data.key
             val userMsgList = data.value
             val chatSession = getSession(fid)
-            chatSession.onPRecvBatchMsg(fid, userMsgList, false)
+            chatSession.onPRecvBatchMsg(userMsgList, false)
         }
 
         // 通知界面更新消息，已经保存处理完了
@@ -998,7 +993,7 @@ object ChatSessionManager {
             val fid = data.key
             val userMsgList = data.value
             val chatSession = getSession(fid)
-            chatSession.onPRecvBatchMsg(fid, userMsgList, true)
+            chatSession.onPRecvBatchMsg(userMsgList, true)
         }
 
 
@@ -1049,7 +1044,12 @@ object ChatSessionManager {
         val ret = LinkedList<MessageContent>()
         for (item in lst){
             val msg = TextHelper.pbMsg2MessageContent(item)
-            ret.add(msg)
+            if (msg != null){
+                ret.add(msg)
+            }else{
+                Log.e("chatSessionManager", "pbChatDataList2MessageContentList find null msg")
+            }
+
         }
         return ret
     }

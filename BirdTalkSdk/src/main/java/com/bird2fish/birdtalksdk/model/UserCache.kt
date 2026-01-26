@@ -243,7 +243,7 @@ object UserCache {
         // 从粉丝表中删除对方
         UserDbHelper.deleteFromFans(fid)
         setNotFan(fid)
-        ChatSessionManager.setNotFan(fid)
+        //ChatSessionManager.setNotFan(fid)
     }
 
     // 服务器通知对方不再关注自己了
@@ -266,12 +266,18 @@ object UserCache {
         // 从粉丝表中删除对方
         UserDbHelper.deleteFromFans(fid)
         setNotFan(fid)
-        ChatSessionManager.setNotFan(fid)
+        //ChatSessionManager.setNotFan(fid)
 
         // 通知界面更新
         SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(MsgEventType.FRIEND_LIST_FAN,
             0, 0, 0L, mapOf("type" to "follow" ) )
     }
+
+    // 自己取消关注
+    fun updateDeleteFollow(friend:User){
+
+    }
+
 
     // 服务器返回的双向关注
     fun onReplyMutual( lst: List<com.bird2fish.birdtalksdk.pbmodel.User.UserInfo>){

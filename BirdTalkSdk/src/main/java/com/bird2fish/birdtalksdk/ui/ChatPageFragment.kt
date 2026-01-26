@@ -338,7 +338,8 @@ class ChatPageFragment : Fragment() , StatusCallback {
         fun newInstance(chatId: String, p: ChatManagerFragment): ChatPageFragment {
             val fragment = ChatPageFragment()
             fragment.setParent(p)
-            fragment.setChatId(chatId.toLong())
+            var chatSession = ChatSessionManager.getSession(chatId.toLong())
+            fragment.setChatSession(chatSession)
             val args = Bundle()
             args.putString(ARG_CHAT_ID, chatId)
             fragment.arguments = args
@@ -587,7 +588,7 @@ class ChatPageFragment : Fragment() , StatusCallback {
 
         mMessagesAdapter = ChatPageAdapter(chatSession!!.msgList)
         mMessagesAdapter!!.setView(this)
-        mMessagesAdapter!!.setSession(chatSession)
+        mMessagesAdapter!!.setSession(chatSession!!)
         // 第三步：给listview设置适配器（view）
 
         mRecyclerView?.layoutManager = LinearLayoutManager(context)
@@ -1430,18 +1431,18 @@ class ChatPageFragment : Fragment() , StatusCallback {
 //                return;
 //            }
 
-        Log.d("文件内容", "draft: ${draft.toPlainText()}")
-        val msg2 = MessageContent(2, 1002, 10006, 10001,"我", "sys:4",
-            UserStatus.ONLINE, MessageStatus.UPLOADING, false, false, false, "", draft)
-        chatSession!!.addMessageToTail(msg2)
-
-        mMessagesAdapter?.notifyDataSetChanged()
+//        Log.d("文件内容", "draft: ${draft.toPlainText()}")
+//        val msg2 = MessageContent(2, 1002, 10006, 10001,"我", "sys:4",
+//            UserStatus.ONLINE, MessageStatus.UPLOADING, false, false, false, "", draft)
+//        chatSession!!.addMessageToTail(msg2)
+//
+//        mMessagesAdapter?.notifyDataSetChanged()
     }
 
     // 发送浏览选择的图片
     private fun sendLoadImage(context: Context, uri: Uri){
 
-        val msgId = ChatSessionManager.sendImageMessageUploading(this.mChatIdLong, context, uri)
+        val msgId = ChatSessionManager.sendImageMessageUploading(this.chatSession!!, context, uri)
         if (msgId ==0L){
             Toast.makeText(requireContext(), "send image fail", Toast.LENGTH_LONG)
         }
@@ -1484,7 +1485,7 @@ class ChatPageFragment : Fragment() , StatusCallback {
         if (message != "") {
             // 提交消息，然后刷新显示
             hideSoftKeyboard()
-            ChatSessionManager.sendTextMessageOut(this.mChatIdLong, message)
+            ChatSessionManager.sendTextMessageOut(chatSession!!, message)
             inputField.text.clear()
             this.mMessagesAdapter!!.notifyDataSetChanged()
         }
@@ -1563,7 +1564,7 @@ class ChatPageFragment : Fragment() , StatusCallback {
             "",
             null, // URI("https://lx-sycdn.kuwo.cn/c7aff93e02882b90b34e8f45387b4436/6755728e/resource/n2/3/57/2049851017.mp3?")
             sz.toLong())
-        ChatSessionManager.sendAudioOut(this.mChatIdLong, requireContext(), draft, bits, mAudioRecord!!)
+        ChatSessionManager.sendAudioOut(chatSession!!, requireContext(), draft, bits, mAudioRecord!!, 0L)
         markVisibleItemsAsRead(this.mRecyclerView!!)
     }
 
@@ -1571,7 +1572,7 @@ class ChatPageFragment : Fragment() , StatusCallback {
     private fun sendFile(uri:Uri){
         TextHelper.showToast(requireContext(), uri.toString())
 
-        ChatSessionManager.sendFileMessageUploading(this.mChatIdLong, requireContext(), uri)
+        ChatSessionManager.sendFileMessageUploading(chatSession!!, requireContext(), uri)
         this.mMessagesAdapter?.notifyDataSetChanged()
         markVisibleItemsAsRead(this.mRecyclerView!!)
     }

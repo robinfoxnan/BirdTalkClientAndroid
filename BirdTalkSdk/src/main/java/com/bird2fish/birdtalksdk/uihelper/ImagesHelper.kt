@@ -134,7 +134,7 @@ public object ImagesHelper {
 
         // 提取显示文字：前2汉字或前5英文
         val displayText = name?.let {
-            val trimmed = it.trim()
+            val trimmed = it.trim().trim(*charArrayOf('[', ']', '【', '】'))
             if (trimmed.isEmpty()) "?" else {
                 val first = if (trimmed[0].toInt() in 0x4e00..0x9fff) { // 汉字范围
                     trimmed.take(2)
