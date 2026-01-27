@@ -249,7 +249,7 @@ class ChatSessionAdapter(private val dataMap: MutableList<ChatSession>) : Recycl
 
         }
 
-        if (item.tid == 0L){
+        if (item.type == 0){
             holder.tvState.visibility = View.GONE
         }
 

@@ -319,7 +319,7 @@
                     android:id="@+id/rbJoinQuestion"
                     android:layout_height="wrap_content"
                     android:layout_width="wrap_content"
-                    android:text="@string/group_join_invite"/>
+                    android:text="@string/group_join_question"/>
             </RadioGroup>
 
             <!-- 入群验证问题 -->
@@ -369,7 +369,7 @@
             android:id="@+id/btnCreateGroup"
             android:layout_width="0dp"
             android:layout_height="48dp"
-            android:text="@string/group_setting"
+            android:text="@string/btn_save"
             android:textSize="16sp"
             android:textColor="#333333"
             android:background="@drawable/rounded_background_gray_input"

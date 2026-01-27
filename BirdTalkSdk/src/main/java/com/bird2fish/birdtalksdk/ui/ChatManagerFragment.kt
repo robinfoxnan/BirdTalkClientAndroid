@@ -138,10 +138,12 @@ class ChatManagerFragment : Fragment() {
 
     // 打开群组属性设置页面
     fun openGroupSetting(){
-        val page = GroupSettingFragment()
+
         val gid = SdkGlobalData.currentChatSession!!.tid
-        val group = GroupDbHelper.getGroupById(gid) ?: return
-        page.setGroup(group)
+
+
+        val page = GroupSettingFragment.newInstance(gid)
+
 
         page.show(parentFragmentManager, "GroupSettingDialog")
     }

@@ -3,11 +3,13 @@ package com.bird2fish.birdtalksdk.ui
 import android.app.Activity
 import android.content.DialogInterface
 import android.graphics.Color
+import android.graphics.Rect
 import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
 import android.util.Log
+import android.util.TypedValue
 import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
@@ -20,6 +22,9 @@ import android.widget.RadioButton
 import android.widget.RadioGroup
 import android.widget.TextView
 import androidx.fragment.app.DialogFragment
+import androidx.recyclerview.widget.GridLayoutManager
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.airbnb.lottie.LottieAnimationView
 import com.bird2fish.birdtalksdk.InterErrorType
 import com.bird2fish.birdtalksdk.MsgEventType
@@ -27,9 +32,54 @@ import com.bird2fish.birdtalksdk.R
 import com.bird2fish.birdtalksdk.SdkGlobalData
 import com.bird2fish.birdtalksdk.StatusCallback
 import com.bird2fish.birdtalksdk.model.Group
+import com.bird2fish.birdtalksdk.model.GroupCache
+import com.bird2fish.birdtalksdk.model.User
 import com.bird2fish.birdtalksdk.net.MsgEncocder
+import com.bird2fish.birdtalksdk.uihelper.AvatarHelper
 import com.bird2fish.birdtalksdk.uihelper.ImagesHelper
 import com.bird2fish.birdtalksdk.uihelper.TextHelper
+
+/**
+ * 网格布局间距装饰器
+ * @param spanCount 列数
+ * @param spacing 间距（px）
+ * @param includeEdge 是否包含边缘
+ */
+class GridSpacingItemDecoration(
+    private val spanCount: Int,
+    private val spacing: Int,
+    private val includeEdge: Boolean
+) : RecyclerView.ItemDecoration() {
+
+    override fun getItemOffsets(
+        outRect: Rect,
+        view: View,
+        parent: RecyclerView,
+        state: RecyclerView.State
+    ) {
+        val position = parent.getChildAdapterPosition(view) // item position
+        val column = position % spanCount // item column
+
+        if (includeEdge) {
+            // 包含边缘：左右间距均分
+            outRect.left = spacing - column * spacing / spanCount
+            outRect.right = (column + 1) * spacing / spanCount
+
+            // 第一行添加顶部间距
+            if (position < spanCount) {
+                outRect.top = spacing
+            }
+            outRect.bottom = spacing // 所有Item添加底部间距
+        } else {
+            // 不包含边缘：左右间距仅中间有
+            outRect.left = column * spacing / spanCount
+            outRect.right = spacing - (column + 1) * spacing / spanCount
+            if (position >= spanCount) {
+                outRect.top = spacing // 非第一行添加顶部间距
+            }
+        }
+    }
+}
 
 class GroupSettingFragment :  DialogFragment(), StatusCallback {
 
@@ -50,16 +100,27 @@ class GroupSettingFragment :  DialogFragment(), StatusCallback {
 
     private lateinit var cancelButton : TextView
 
+    private lateinit var membersView:RecyclerView
+    private lateinit var adminsView:RecyclerView
+
 
     private var avatarUuid:String = ""
     private var curGroup : Group? = null
 
-    // 设置当前的组信息
-    fun setGroup(g:Group){
-        this.curGroup = g
-        if (g == null)
-            return
-        this.avatarUuid = curGroup!!.icon
+
+    // 🔥 核心：静态工厂方法（替代自定义构造函数）
+    companion object {
+        // 定义参数Key（建议用类名+字段名，避免冲突）
+        private const val ARG_GROUP = "arg_group"
+
+        // 静态方法：创建Fragment实例并传入group
+        fun newInstance(gid: Long): GroupSettingFragment {
+            val fragment = GroupSettingFragment()
+            val args = Bundle()
+            args.putLong("gid", gid) // 🔥 关键：Long类型用putLong
+            fragment.arguments = args
+            return fragment
+        }
     }
 
     override fun onError(code : InterErrorType, lastAction:String, errType:String, detail:String){
@@ -84,7 +145,17 @@ class GroupSettingFragment :  DialogFragment(), StatusCallback {
     }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
+        // 解析Long类型的gid参数（非空/合法性校验）
+        arguments?.let {
+            val gid = it.getLong("gid", 0L) // 第二个参数是默认值
+            if (gid == 0L)
+            {
+                dismiss() // 关闭弹窗
+                throw IllegalArgumentException("必须通过newInstance传入有效的gid")
+            }
+            this.curGroup = GroupCache.findGroupSync(gid)
+            this.avatarUuid = curGroup!!.icon
+        }
     }
 
     override fun onCreateView(
@@ -109,9 +180,10 @@ class GroupSettingFragment :  DialogFragment(), StatusCallback {
         joinAnswerLabel = root.findViewById(R.id.etJoinAnswerLabel)
         joinQuestion = root.findViewById(R.id.etJoinQuestion)
         joinQuestionLabel = root.findViewById(R.id.etJoinQuestionLabel)
-
-
         radioQuestion = root.findViewById(R.id.rbJoinQuestion)
+
+        membersView = root.findViewById(R.id.rvMembers)
+        adminsView = root.findViewById(R.id.rvAdmins)
 
 
         val bitmap2 = ImagesHelper.generateDefaultAvatar(getString(R.string.create_group), 2)
@@ -123,8 +195,76 @@ class GroupSettingFragment :  DialogFragment(), StatusCallback {
         }
 
         initDefaultValue()
+        loadMembers()
+        loadAdmins()
 
         return root
+    }
+
+    fun loadAdmins(){
+        if (this.curGroup == null){
+            return
+        }
+        val lst = this.curGroup!!.getAdmins()
+        val adapter = UserAdapter(lst)
+        // 4. 设置点击事件
+        adapter.onItemClick = { position, user ->
+            // 处理Item点击（如跳转详情页）
+            println("点击了第$position 项，用户名：${user.nick}")
+        }
+
+        adapter.onRemoveClick = { position, user ->
+            // 处理移除按钮点击（如删除Item）
+            println("移除第$position 项，用户ID：${user.id}")
+            adapter.removeItem(position)
+        }
+        // 第三步：给listview设置适配器（view）
+        // 替换原来的 LinearLayoutManager 为 GridLayoutManager
+        adminsView?.layoutManager = GridLayoutManager(context, 5) // 第二个参数5表示每行显示5列
+
+       // 可选：如果需要Item宽高一致（正方形格子），可添加ItemDecoration调整间距
+        val spacingInDp = 4 // 格子间距（单位：dp）
+        val spacingInPx = TypedValue.applyDimension(
+            TypedValue.COMPLEX_UNIT_DIP,
+            spacingInDp.toFloat(),
+            resources.displayMetrics
+        ).toInt()
+        //adminsView?.addItemDecoration(GridSpacingItemDecoration(5, spacingInPx, true))
+        adminsView?.setAdapter(adapter);
+
+    }
+
+    fun loadMembers(){
+        if (this.curGroup == null){
+            return
+        }
+        val lst = this.curGroup!!.getMembers()
+        val adapter = UserAdapter(lst)
+        // 4. 设置点击事件
+        adapter.onItemClick = { position, user ->
+            // 处理Item点击（如跳转详情页）
+            println("点击了第$position 项，用户名：${user.nick}")
+        }
+
+        adapter.onRemoveClick = { position, user ->
+            // 处理移除按钮点击（如删除Item）
+            println("移除第$position 项，用户ID：${user.id}")
+            adapter.removeItem(position)
+        }
+        // 第三步：给listview设置适配器（view）
+//        membersView?.layoutManager = LinearLayoutManager(context)
+        // 替换原来的 LinearLayoutManager 为 GridLayoutManager
+        membersView?.layoutManager = GridLayoutManager(context, 5) // 第二个参数5表示每行显示5列
+
+// 可选：如果需要Item宽高一致（正方形格子），可添加ItemDecoration调整间距
+        val spacingInDp = 4 // 格子间距（单位：dp）
+        val spacingInPx = TypedValue.applyDimension(
+            TypedValue.COMPLEX_UNIT_DIP,
+            spacingInDp.toFloat(),
+            resources.displayMetrics
+        ).toInt()
+       // membersView?.addItemDecoration(GridSpacingItemDecoration(5, spacingInPx, true))
+        membersView?.setAdapter(adapter);
     }
 
     // 这一段主要是为了自动填入一些信息
@@ -299,4 +439,78 @@ class GroupSettingFragment :  DialogFragment(), StatusCallback {
        // MsgEncocder.sendCrateGroupMessage(name, tags, des, avatarUuid, groupVisibility, joinType)
     }
 
+}
+
+/**
+ * RecyclerView Adapter 适配 Map<Long, User> 数据源
+ * 绑定你提供的布局（包含ivAvatar/ivAdd/ivRemove/tvName）
+ */
+class UserAdapter(private var userList: MutableList<User>) : RecyclerView.Adapter<UserAdapter.UserViewHolder>() {
+
+    // 点击事件回调（Kotlin用lambda更简洁）
+    var onItemClick: ((position: Int, user: User) -> Unit)? = null
+    var onRemoveClick: ((position: Int, user: User) -> Unit)? = null
+
+    // 自定义ViewHolder（绑定布局控件）
+    inner class UserViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+        val ivAvatar: ImageView = itemView.findViewById(R.id.ivAvatar)
+        val ivAdd: ImageView = itemView.findViewById(R.id.ivAdd)
+        val ivRemove: ImageView = itemView.findViewById(R.id.ivRemove)
+        val tvName: TextView = itemView.findViewById(R.id.tvName)
+    }
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): UserViewHolder {
+        // 加载你的布局文件（替换为实际布局名，如R.layout.item_user）
+        val view = LayoutInflater.from(parent.context).inflate(R.layout.item_group_setting_member, parent, false)
+        return UserViewHolder(view)
+    }
+
+    override fun onBindViewHolder(holder: UserViewHolder, position: Int) {
+        val user = userList[position] ?: return
+
+        // 1. 绑定用户名
+        holder.tvName.text = user.nick
+
+        // 2. 绑定头像（两种方式可选）
+        AvatarHelper.tryLoadAvatar(SdkGlobalData.context!!, user.icon, holder.ivAvatar,  user.gender, user.nick)
+
+        // 3. 控制ivAdd显示/隐藏（默认隐藏，可根据业务调整）
+        holder.ivAdd.visibility = View.GONE
+        holder.ivRemove.visibility = View.GONE
+
+        // 4. 绑定ivRemove点击事件
+        holder.ivRemove.setOnClickListener {
+            onRemoveClick?.invoke(position, user)
+        }
+
+        // 5. 绑定整个Item的点击事件
+        holder.itemView.setOnClickListener {
+            onItemClick?.invoke(position, user)
+        }
+    }
+
+    override fun getItemCount(): Int = userList.size
+
+    /**
+     * 更新数据源（Map变化时调用）
+     */
+    fun updateData(newUserList: List<User>) {
+
+        this.userList.clear()
+        this.userList.addAll(newUserList)
+        notifyDataSetChanged()
+    }
+
+    /**
+     * 移除指定位置的Item（可选）
+     */
+    fun removeItem(position: Int) {
+        if (position in 0 until userList.size) {
+            val removedUser = userList.removeAt(position)
+            // 同步更新原Map（若需要）
+//            userMap = userMap.filterKeys { it != removedUser.userId }
+//            notifyItemRemoved(position)
+//            notifyItemRangeChanged(position, userList.size)
+        }
+    }
 }

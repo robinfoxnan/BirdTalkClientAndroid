@@ -133,6 +133,12 @@ public class TopicDbHelper {
         db.execSQL("drop table " + name );
     }
 
+    public static  void dropGChatTopic(Long fid){
+        SQLiteDatabase db = BaseDb.getInstance().getWritableDatabase();
+        String name = getGChatName(fid);
+        db.execSQL("drop table " + name );
+    }
+
     public static String getPChatName(long fid){
         String tableName = "pchat_" + fid;
         return tableName;
@@ -1316,7 +1322,7 @@ public class TopicDbHelper {
     }
 
     public  static boolean deleteFromGTopic(long tid){
-        return deleteTopic(tid, TABLE_PTOPIC);
+        return deleteTopic(tid, TABLE_GTOPIC);
     }
 
     private  static List<Topic> getAllTopics(String tableName) {

@@ -79,9 +79,13 @@ class Group(
         members.remove(uid)
     }
 
-    fun getAdmins(): Collection<User> = admins.values
+    fun getAdmins(): MutableList<User>{
+        return this.admins.values.toMutableList()
+    }
 
-    fun getMembers(): Collection<User> = members.values
+    fun getMembers(): MutableList<User> {
+        return this.members.values.toMutableList()
+    }
 
     fun clearMembers() {
         members.clear()
