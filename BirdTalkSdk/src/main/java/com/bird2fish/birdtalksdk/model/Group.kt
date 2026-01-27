@@ -88,6 +88,16 @@ class Group(
         admins.clear()
     }
 
+    fun findUser(uid:Long):User?{
+        if (members.containsKey(uid)){
+            return members[uid]
+        }
+        if (admins.containsKey(uid)){
+            return admins[uid]
+        }
+        return UserCache.findUserSync(uid)
+    }
+
     // 这里是网络返回的数据，所有只有基本的属性
     fun update(other:Group){
         if (other === this) return

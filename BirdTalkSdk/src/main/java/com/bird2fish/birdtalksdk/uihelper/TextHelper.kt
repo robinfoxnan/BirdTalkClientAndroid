@@ -25,11 +25,13 @@ import com.bird2fish.birdtalksdk.model.ChatSession
 import com.bird2fish.birdtalksdk.model.ChatSessionManager
 import com.bird2fish.birdtalksdk.model.Drafty
 import com.bird2fish.birdtalksdk.model.Group
+import com.bird2fish.birdtalksdk.model.GroupCache
 import com.bird2fish.birdtalksdk.model.MessageContent
 import com.bird2fish.birdtalksdk.model.MessageData
 import com.bird2fish.birdtalksdk.model.MessageInOut
 import com.bird2fish.birdtalksdk.model.MessageStatus
 import com.bird2fish.birdtalksdk.model.Topic
+import com.bird2fish.birdtalksdk.model.User
 import com.bird2fish.birdtalksdk.model.UserStatus
 import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass
 import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass.ChatMsgType
@@ -58,6 +60,26 @@ object  TextHelper {
 
     private val mAppName: String? = "BirdTalk"
     private val mOsVersion:String? = "6.0"
+
+    // 群组成员的角色转为用户类型
+    fun groupMember2User(mem: com.bird2fish.birdtalksdk.pbmodel.User.GroupMember): User {
+        val u = User()
+        u.id = mem.userId
+        u.nick = mem.nick
+        u.gid = mem.groupId
+        u.icon = mem.icon
+        u.role = mem.role
+
+        return u
+    }
+
+    fun groupMembers2Users(mems: List<com.bird2fish.birdtalksdk.pbmodel.User.GroupMember>):List<User>{
+        val userList = LinkedList<User>()
+        for (m in mems){
+            userList.add(groupMember2User(m))
+        }
+        return userList
+    }
 
     // 从服务器返回的类型转换为本地类型
     fun groupInfo2Group(info:GroupInfo): Group {
@@ -228,6 +250,17 @@ object  TextHelper {
             else-> null
         }
 
+        // 群组显示的图标不一样呢
+        if (chatMsg.chatType == ChatType.ChatTypeGroup){
+            val fid = chatMsg.fromId
+            val f = GroupCache.findGroupUser(tid, fid)
+            if (f != null){
+                msg?.iconUrl = f.icon
+                msg?.nick = f.nick
+            }
+            msg?.userId = fid
+        }
+
 
         return msg
     }
@@ -297,7 +330,7 @@ object  TextHelper {
     }
 
     // 数据库加载数据后
-    fun MsgContentFromDbMessage(msg: MessageData, session: ChatSession): MessageContent{
+    fun MsgContentFromDbMessageP2p(msg: MessageData, session: ChatSession): MessageContent{
 
         var txt = ""
         var content:Drafty? = null
@@ -342,6 +375,63 @@ object  TextHelper {
             ChatMsgType.valueOf(msg.msgType)
         )
         msgContent.tm = msg.tm
+
+        return msgContent
+    }
+
+    fun MsgContentFromDbMessageGroup(msg: MessageData, session: ChatSession): MessageContent{
+
+        var txt = ""
+        var content:Drafty? = null
+
+        val plain = String(msg.data, Charsets.UTF_8)
+        if (msg.msgType  == TEXT.name){
+            txt =  plain
+        }else{
+            try {
+                content = deserializeDrafty(plain)
+            }
+            catch (e:Exception){
+                Log.e("Sdk", e.toString())
+                txt = "解析错误"
+                Log.e("Sdk 解析消息错误", plain)
+            }finally {
+
+            }
+
+        }
+
+        var inOut = (msg.io == MessageInOut.IN.ordinal)
+
+        var msgStatus = MessageStatus.SENDING
+        try {
+            msgStatus = MessageStatus.valueOf(msg.status)
+        }catch (e:Exception){
+            Log.e("Sdk", e.toString())
+        }
+
+        val msgContent = MessageContent(
+            session,
+            msg.id,
+            msg.sendId,
+            msgStatus,
+            inOut,
+            msg.tm1,
+            msg.tm2,
+            msg.tm3,
+            txt,
+            content,
+            ChatMsgType.valueOf(msg.msgType)
+        )
+        msgContent.tm = msg.tm
+
+        val fid = msg.uid
+        val f = GroupCache.findGroupUser(msg.tid, fid)
+        if (f != null){
+            msgContent.iconUrl = f.icon
+            msgContent.nick = f.nick
+        }
+        msgContent.userId = fid
 
         return msgContent
     }

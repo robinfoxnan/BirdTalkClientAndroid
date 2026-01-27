@@ -24,11 +24,13 @@ import androidx.appcompat.widget.AppCompatImageButton
 import com.bird2fish.birdtalksdk.InterErrorType
 import com.bird2fish.birdtalksdk.MsgEventType
 import com.bird2fish.birdtalksdk.StatusCallback
+import com.bird2fish.birdtalksdk.model.ChatSessionManager
 import com.bird2fish.birdtalksdk.model.Group
 import com.bird2fish.birdtalksdk.model.GroupCache
 import com.bird2fish.birdtalksdk.model.UserCache
 import com.bird2fish.birdtalksdk.net.MsgEncocder
 import com.bird2fish.birdtalksdk.uihelper.AvatarHelper
+import com.bird2fish.birdtalksdk.uihelper.TextHelper
 import com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility
 
 
@@ -243,6 +245,33 @@ class SearchFriendFragment : Fragment(), StatusCallback {
             }
         }
     }
+
+    // 点击了加入群，
+    // "direct" | "invite" | "auth" | "question"
+    fun onClickJoin(group:Group){
+        if (group.visibleType == "private"){
+            TextHelper.showToast(requireContext(), "需要邀请")
+            return
+        }
+
+
+        if (group.joinType == "direct"){
+            MsgEncocder.sendJoinGroupReq(group, "")
+            TextHelper.showToast(requireContext(), "已经发送加入请求")
+        }else if (group.joinType == "auth"){
+            MsgEncocder.sendJoinGroupReq(group, "")
+            TextHelper.showToast(requireContext(), "已经发送加入请求，等待管理员确认")
+        }else if (group.joinType == "invite"){
+
+            TextHelper.showToast(requireContext(), "需要邀请")
+        }else if (group.joinType == "question"){
+
+        }else{
+            MsgEncocder.sendJoinGroupReq(group, "")
+            TextHelper.showToast(requireContext(), "未知加入类型")
+        }
+    }
+
     // 刷新的时候需要更新个人信息
     override fun onResume() {
         super.onResume()
@@ -408,6 +437,7 @@ class SearchGroupsItemAdapter(private val dataList: List<Group>) : RecyclerView.
         var index: Int = 0
         var selectedPosition = RecyclerView.NO_POSITION
         var joinBtn: Button = itemView.findViewById(R.id.btn_join)
+        var chatBtn: Button = itemView.findViewById(R.id.btn_chat)
         var imgButton :ImageView = itemView.findViewById(R.id.btn_setting)
 
         init {
@@ -418,6 +448,10 @@ class SearchGroupsItemAdapter(private val dataList: List<Group>) : RecyclerView.
 //                    fragment!!.onClickItem(index)
 //                }
             }
+
+
+
+
         }
 
     }
@@ -441,6 +475,30 @@ class SearchGroupsItemAdapter(private val dataList: List<Group>) : RecyclerView.
 
         holder.tvNumber.setText(item.tags)
         holder.imgButton.visibility = View.GONE   // 图片按钮，预留的
+
+        val isIn = GroupCache.isInGroup(item.gid)
+        // 如果已经在群内，则可以聊天了，
+        if (isIn){
+            holder.joinBtn.visibility = View.GONE
+            holder.chatBtn.visibility = View.VISIBLE
+            holder.chatBtn.setOnClickListener{
+                // 已经关注的群直接可以聊天
+                val chatSession = ChatSessionManager.getSession(item)
+                //SdkGlobalData.currentChatFid = f.id
+                SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(MsgEventType.APP_NOTIFY_SEND_MSG,
+                    0, 0, chatSession.getSessionId(), mapOf("page" to "searchFriendFragment" ) )
+            }
+        }else{
+            // 如果还不在群内，可以尝试申请加入
+            holder.chatBtn.visibility = View.GONE
+            holder.joinBtn.visibility = View.VISIBLE
+            holder.joinBtn.setOnClickListener{
+                fragment?.onClickJoin(item)
+            }
+        }
+
+
+
 
     }
 

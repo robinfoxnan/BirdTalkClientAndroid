@@ -122,6 +122,8 @@ class ActionListener :StatusCallback{
             GROUP_OWNER_CHANGE -> doNothing()
             GROUP_UPDATE_INFO -> doNothing()
             GROUP_MANAGER_CHANGE -> doNothing()
+            GROUP_JOIN_FAIL -> doNothing()
+            GROUP_JOIN_OK -> doNothing()
         }
     }
 }

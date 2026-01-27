@@ -250,6 +250,12 @@ class ChatSessionAdapter(private val dataMap: MutableList<ChatSession>) : Recycl
                     UNRECOGNIZED ->  holder.tvDes.setText("未知")
                 }
             }
+
+
+        }
+
+        if (item.tid == 0L){
+            holder.tvState.visibility = View.GONE
         }
 
         // 根据静音状态设置图标
@@ -268,12 +274,15 @@ class ChatSessionAdapter(private val dataMap: MutableList<ChatSession>) : Recycl
                 item.setMute(false)
                 holder.tvState.setImageResource(android.R.drawable.ic_lock_silent_mode_off)
                 holder.tvState.setColorFilter(Color.GRAY, PorterDuff.Mode.SRC_IN)
-                TopicDbHelper.insertOrReplacePTopic(item);
             }else{
                 item.setMute(true)
                 holder.tvState.setImageResource(android.R.drawable.ic_lock_silent_mode)
-                TopicDbHelper.insertOrReplacePTopic(item);
             }
+
+            if(item.isP2pChat())
+                TopicDbHelper.insertOrReplacePTopic(item);
+            else
+                TopicDbHelper.insertOrReplaceGTopic(item)
         }
 
         // 点击隐藏，不显示这个对话

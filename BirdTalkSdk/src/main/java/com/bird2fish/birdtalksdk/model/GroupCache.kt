@@ -21,6 +21,13 @@ object GroupCache {
     // 这里的GROUP其实也来源于GroupCache的引用，
     private var userInGroupList = ConcurrentHashMap<Long, Group>()
 
+    // 查找群组内的用户
+    fun findGroupUser(gid:Long, uid:Long):User?{
+        val g = groupMap[gid] ?: return null
+
+        return  g.findUser(uid)
+    }
+
     /**
      * 根据 gid 获取 Group（同步加载）
      * 优先缓存 -> 数据库 -> 网络
@@ -60,6 +67,12 @@ object GroupCache {
     fun getInGroupList(): List<Group> {
         synchronized(userInGroupList) {
             return userInGroupList.values.toList()
+        }
+    }
+
+    fun isInGroup(gid:Long):Boolean{
+        synchronized(userInGroupList){
+            return userInGroupList.containsKey(gid)
         }
     }
 
@@ -141,12 +154,15 @@ object GroupCache {
             retLst.add(ret)
         }
         // 同步到全局的组管理器中，后将同样的引用保存到这里，保证是同一个对象
-        synchronized(userInGroupList){
-            userInGroupList.clear()
-            for (g in retLst ){
-                userInGroupList[g.gid] = g
+        if (isSelfIn){
+            synchronized(userInGroupList){
+                userInGroupList.clear()
+                for (g in retLst ){
+                    userInGroupList[g.gid] = g
+                }
             }
         }
+
     }
 
     /*
@@ -168,6 +184,30 @@ object GroupCache {
      */
     fun clearCache() {
         groupMap.clear()
+    }
+
+    // 查询群组的用户返回的信息
+    fun onRetGroupMembers(group:Group, users:List<User>){
+        var g = groupMap[group.gid]
+        if (g == null){
+            synchronized(groupMap){
+                g = group
+                groupMap[group.gid] = group
+                GroupDbHelper.insertOrUpdateGroup(group)
+            }
+        }
+        for (u in users){
+            if (u.role.contains('o')){
+                g!!.addAdmin(u)
+                g!!.ownerId = u.id
+                g!!.owner = u
+            }else if (u.role.contains('a')){
+                g!!.addAdmin(u)
+            }else{
+                g!!.addMember(u)
+            }
+        }
+
     }
 
 }

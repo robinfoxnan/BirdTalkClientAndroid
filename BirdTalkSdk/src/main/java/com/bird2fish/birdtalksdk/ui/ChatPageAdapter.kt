@@ -366,12 +366,17 @@ class ChatPageAdapter(private val dataList: List<MessageContent>) : RecyclerView
 //            val index = ImagesHelper.getIconResId(item.iconUrl!!)
 //            holder.mAvatar.setImageResource(index)
             if (chatSession != null){
-                AvatarHelper.tryLoadAvatar(this.fragment!!.requireContext(), chatSession!!.icon, holder.mAvatar, "", chatSession!!.title)
+                if (chatSession!!.isP2pChat()){
+                    AvatarHelper.tryLoadAvatar(this.fragment!!.requireContext(), chatSession!!.icon, holder.mAvatar, "", chatSession!!.title)
+                }else{
+                    AvatarHelper.tryLoadAvatar(this.fragment!!.requireContext(), item.iconUrl, holder.mAvatar, "", item.nick)
+                }
+
             }
         }
         // 私聊不显示用户名，群聊才显示
         if ( holder.mUserName != null){
-            if (item.isP2p){
+            if (item.isP2p()){
                 holder.mUserName.visibility = View.GONE
             }else
             {

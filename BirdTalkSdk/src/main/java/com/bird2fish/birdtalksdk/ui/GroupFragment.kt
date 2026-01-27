@@ -53,7 +53,7 @@ class GroupFragment : Fragment() {
         //SdkGlobalData.currentChatFid = f.id
         SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(
             MsgEventType.APP_NOTIFY_SEND_MSG,
-            0, 0, chatSession.getSessionId(), mapOf("page" to "followedFragment" ) )
+            0, 0, chatSession.getSessionId(), mapOf("page" to "GroupInFragment" ) )
     }
 
 
@@ -78,6 +78,7 @@ class GroupsItemAdapter(private val dataList: List<Group>) : RecyclerView.Adapte
         var index: Int = 0
         var selectedPosition = RecyclerView.NO_POSITION
         var joinBtn: Button = itemView.findViewById(R.id.btn_join)
+        var chatBtn: Button = itemView.findViewById(R.id.btn_chat)
         var imgButton : ImageView = itemView.findViewById(R.id.btn_setting)
 
         init {
@@ -88,7 +89,8 @@ class GroupsItemAdapter(private val dataList: List<Group>) : RecyclerView.Adapte
 //                    fragment!!.onClickItem(index)
 //                }
             }
-            joinBtn.setText(R.string.send_msg)
+            joinBtn.visibility = View.GONE
+            chatBtn.visibility = View.VISIBLE
 
         }
 
@@ -113,7 +115,7 @@ class GroupsItemAdapter(private val dataList: List<Group>) : RecyclerView.Adapte
 
         holder.tvNumber.setText(item.tags)
         holder.imgButton.visibility = View.GONE   // 图片按钮，预留的
-        holder.joinBtn.setOnClickListener{
+        holder.chatBtn.setOnClickListener{
             fragment?.switchSendMsgPage(item)
         }
 

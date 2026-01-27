@@ -771,9 +771,18 @@ class ChatPageFragment : Fragment() , StatusCallback {
 
         setShowHide(true)
 
+        // 系统会话，隐藏面板
+        if (chatSession != null){
+            if (chatSession!!.tid == 100L || chatSession!!.tid == 0L)
+            {
+                hideInputPanels(view)
+            }
+
+        }
+
         scrollToBottom(false)
         return view
-    }
+    }// end of onCreateView
 
     override fun onDestroy() {
         super.onDestroy()
@@ -787,6 +796,16 @@ class ChatPageFragment : Fragment() , StatusCallback {
 //        }
     }
 
+    // 系统消息不需要提交
+    private fun hideInputPanels(root:View){
+
+        val ids = intArrayOf(R.id.recordAudioPanel, R.id.sendMessagePanel, R.id.recordAudioShortPanel)
+        for (id in ids){
+            val view = root.findViewById<View>(id)
+            view?.visibility = View.GONE
+        }
+
+    }
     // 最下面的输入面板是根据状态来切换的
     // 切换发送面板为可见状态，需要根据当前是发送图片，文字，音频
     private fun setSendPanelVisible(activity: Activity, id: Int) {

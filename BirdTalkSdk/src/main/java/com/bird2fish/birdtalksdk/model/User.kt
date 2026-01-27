@@ -28,6 +28,7 @@ class User() {
     var sharedKey: ByteArray? = null
     var phone: String = ""
     var email: String = ""
+    var role:String = ""
     /**
      * 更新除 id 外的字段
      */

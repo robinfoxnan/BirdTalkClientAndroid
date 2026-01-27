@@ -31,7 +31,6 @@ class MessageContent(
 
 
     var fileHashCode:String = ""
-    var isP2p :Boolean = true
     var tm:Long = System.currentTimeMillis()
     var tmResend :Long = 0L
 
@@ -56,16 +55,24 @@ class MessageContent(
         this.tId = session.tid
         // in: true, out: false
         if (inOut){
-            this.iconUrl = session.icon
-            this.nick = session.title
-            this.userId = session.tid
+            if (isP2p()){
+                this.iconUrl = session.icon
+                this.nick = session.title
+                this.userId = session.tid
+            }else{
+                // 在外部设置
+            }
+
         }else{
             this.iconUrl = SdkGlobalData.selfUserinfo.icon
             this.nick = SdkGlobalData.selfUserinfo.nick
             this.userId = SdkGlobalData.selfUserinfo.id
         }
-        this.isP2p = session.isP2pChat()
 
+    }
+
+    fun isP2p():Boolean{
+       return session.isP2pChat()
     }
     // 是否在处理
     fun isPending(): Boolean {

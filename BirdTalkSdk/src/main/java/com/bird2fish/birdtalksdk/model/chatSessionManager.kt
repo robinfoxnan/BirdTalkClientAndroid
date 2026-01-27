@@ -47,6 +47,17 @@ object ChatSessionManager {
     // 这里不要加锁了
     // 这个函数是收到新的消息，或者打开界面的的时候需要创建一个新的会话
     private fun createSession(sessionId: Long):ChatSession{
+        // 单独处理那个系统消息的会话
+        if (sessionId == 100L || sessionId == 0L){
+            return if (sessions.containsKey(0L)){
+                sessions[0]!!
+            }else{
+                createSystemSession()
+            }
+        }
+
+
+        // 一对一私聊
         if (sessionId > 0){
             val friend = UserCache.findUserSync(sessionId)
             val t = Topic(sessionId, 0, 0, Topic.CHAT_P2P, 1, friend.nick, friend.icon)
@@ -54,20 +65,14 @@ object ChatSessionManager {
             sessions[sessionId] = s
             TopicDbHelper.insertOrReplacePTopic(t)
             return s
-        }else if (sessionId < 0)
-        {
-            val group = GroupCache.findGroupSync(-sessionId)
-            val t = Topic(sessionId, 0, 0, Topic.CHAT_GROUP, 1, group.name, group.icon)
-            val s = t.asChatSession()
-            sessions[sessionId] = s
-            TopicDbHelper.insertOrReplaceGTopic(t)
-            return s
         }
-
-        if (sessions.containsKey(100)){
-            return sessions[100]!!
-        }
-        return createSystemSession()
+        // 群聊
+        val group = GroupCache.findGroupSync(-sessionId)
+        val t = Topic(-sessionId, 0, 0, Topic.CHAT_GROUP, 1, group.name, group.icon)
+        val s = t.asChatSession()
+        sessions[sessionId] = s
+        TopicDbHelper.insertOrReplaceGTopic(t)
+        return s
     }
 
     // 获取会话，有可能是空的
@@ -154,9 +159,9 @@ object ChatSessionManager {
                     }
                     sessions[-t.tid] = t.asChatSession()
                 }
-                // 系统会话
 
-                sessions[100] = createSystemSession()
+                // 系统会话
+                sessions[0L] = createSystemSession()
             }
         }
 
@@ -223,7 +228,7 @@ object ChatSessionManager {
             // 1) 先写数据库,更新到发送表
             if (!bResend){
                 val msgData = TextHelper.MsgContentToDbMsg(msg)
-                if (msg.isP2p){
+                if (msg.isP2p()){
                     TopicDbHelper.insertPChatMsg(msgData)
                 }else{
                     TopicDbHelper.insertGChatMsg(msgData)
@@ -231,7 +236,7 @@ object ChatSessionManager {
             }
 
 
-            val chatType = if (msg.isP2p) ChatType.ChatTypeP2P else ChatType.ChatTypeGroup
+            val chatType = if (msg.isP2p()) ChatType.ChatTypeP2P else ChatType.ChatTypeGroup
 
             // 2) 提交到网络
             if (msg.msgType == ChatMsgType.TEXT) {
@@ -685,7 +690,7 @@ object ChatSessionManager {
         }
 
         //
-        val sessionId = if (msg!!.isP2p) msg!!.tId else -msg!!.tId
+        val sessionId = if (msg!!.isP2p()) msg!!.tId else -msg!!.tId
         val chatSession = getSession(sessionId)
 
         msg!!.msgStatus = MessageStatus.FAIL
@@ -696,7 +701,7 @@ object ChatSessionManager {
         // 先写数据库,更新到发送表
         val msgData = TextHelper.MsgContentToDbMsg(msg!!)
 
-        if (msg!!.isP2p){
+        if (msg!!.isP2p()){
             TopicDbHelper.insertPChatMsg(msgData)
         }else{
             TopicDbHelper.insertGChatMsg(msgData)
@@ -709,11 +714,12 @@ object ChatSessionManager {
     // 1）保存数据库，2）回执，回执后更新数据库，3）添加到会话的消息列表中
     fun onRecvChatMsg(chatMsg: MsgOuterClass.MsgChat):MessageContent{
         // 1) 写数据库
-        val tid = chatMsg.fromId
+        var tid = chatMsg.fromId
 
         // 当前消息状态为RECV
         val msgData = TextHelper.pbMsgToDbMsg(chatMsg)
         if (chatMsg.chatType == ChatType.ChatTypeP2P){
+            tid = chatMsg.fromId
             // 1.1 写库
             TopicDbHelper.insertPChatMsg(msgData)
             // 1.2 发送接收回执
@@ -724,6 +730,7 @@ object ChatSessionManager {
             TopicDbHelper.updatePChatReply(chatMsg.msgId, 0L, tm2, 0L, true)
 
         }else{
+            tid = chatMsg.toId
             TopicDbHelper.insertGChatMsg(msgData)
             // 群组消息不用给回执，因为不在意
         }
@@ -732,11 +739,11 @@ object ChatSessionManager {
         //2）添加到界面的列表里
         val msg = TextHelper.pbMsg2MessageContent(chatMsg)
 
-        var sId = chatMsg.fromId
+        var sId = tid
         if (chatMsg.chatType == MsgOuterClass.ChatType.ChatTypeP2P){
             sId = chatMsg.fromId
         }else{
-            sId = -chatMsg.fromId
+            sId = -chatMsg.toId
         }
         val chatSession = getSession(sId)
         chatSession.addMessageToTail(msg!!)
@@ -827,6 +834,7 @@ object ChatSessionManager {
                     continue
                 }
                 val chatSession = t
+                Log.d("loadPMessageFormDbOnLogin()", t.toString())
 
                 if (t.type == Topic.CHAT_P2P){
                     lst = TopicDbHelper.getPChatMessagesById(t.tid, max, SdkGlobalData.LOAD_MSG_BATCH, false)
@@ -834,6 +842,7 @@ object ChatSessionManager {
                     lst = TopicDbHelper.getGChatMessagesById(t.tid, max, SdkGlobalData.LOAD_MSG_BATCH, false)
                 }else{
                     // 加载系统的通知事件
+                    continue
                 }
                 if (lst != null){
                     // 将数据库里的数据插入到列表中, 这是反向加载，所以是倒序的
@@ -1125,8 +1134,37 @@ object ChatSessionManager {
                 MsgEventType.GROUP_CREATE_FAIL,0, msgId, group.gid,
                 mapOf("error" to detail))
         }
+    }
 
+    // 收到有人加入的应答
+    fun onJoinAnswer(result:String, detail:String, sendId: Long, msgId: Long, group:Group, members:List<User>){
+        for (m in members){
+            if (m.id == SdkGlobalData.selfUserinfo.id){
+                if (result == "ok"){
+                    // 写库，群组
+                    GroupCache.updateGroup(group)
 
+                    // 刷新会话界面
+                    rebuildDisplayList()
+                    SdkGlobalData.invokeOnEventCallbacks(
+                        MsgEventType.APP_NOTIFY_CHANGE_SESSION, 0, msgId, group.gid,
+                        mapOf("group" to group.name))
+
+                    // 通知创建成功
+                    SdkGlobalData.invokeOnEventCallbacks(
+                        MsgEventType.GROUP_JOIN_OK, 0, msgId, group.gid,
+                        mapOf("group" to group.name))
+                }else{
+                    //通知创建失败
+                    SdkGlobalData.invokeOnEventCallbacks(
+                        MsgEventType.GROUP_JOIN_FAIL,0, msgId, group.gid,
+                        mapOf("error" to detail))
+                }
+                continue
+            }
+
+            // 其他人加入了群，这里了需要转换为系统通知
+        }
 
     }
 

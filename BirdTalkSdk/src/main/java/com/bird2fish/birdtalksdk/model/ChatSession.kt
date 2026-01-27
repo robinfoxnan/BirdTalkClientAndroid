@@ -175,7 +175,7 @@ class ChatSession(
         synchronized(msgList){
             var i = 0;
             for (msg in lst){
-                val msgContent = TextHelper.MsgContentFromDbMessage(msg, t)
+                val msgContent = if (t.isP2pChat()) TextHelper.MsgContentFromDbMessageP2p(msg, t) else TextHelper.MsgContentFromDbMessageGroup(msg, t)
                 msgList.addFirst(msgContent)
                 msgListMask[msgContent.msgId] = msgContent
 
@@ -258,7 +258,7 @@ class ChatSession(
             // 遍历历史消息
             lst.forEach { msg ->
                 // 如果 msgId 已存在，跳过，避免重复
-                val message = TextHelper.MsgContentFromDbMessage(msg,topic)
+                val message = if (topic.isP2pChat()) TextHelper.MsgContentFromDbMessageP2p(msg,topic) else TextHelper.MsgContentFromDbMessageGroup(msg,topic)
                 if (!msgListMask.containsKey(message.msgId)) {
                     // 收到的消息提交回执
                     if (message.inOut && message.tm2 <= 0) {
@@ -359,7 +359,7 @@ class ChatSession(
                 val msg = msgSendingList.remove(sendId)
                 // 保存到数据库，否则下次还加载
                 val data = TextHelper.MsgContentToDbMsg(msg!!)
-                if (msg!!.isP2p){
+                if (msg!!.isP2p()){
 
                     TopicDbHelper.insertPChatMsg(data)
                 }else
@@ -483,7 +483,7 @@ class ChatSession(
             var msg = FindMessageAndSetReply(sendId, msgId, tm1, tm2, tm3, bOk)
             if (msg != null) {  // 通过SENDID找到的情况，是服务器应答的时候
                 val msgData = TextHelper.MsgContentToDbMsg(msg)
-                if (msg.isP2p){
+                if (msg.isP2p()){
                     TopicDbHelper.insertPChatMsgAgain(msgData)
                 }else{
                     TopicDbHelper.insertGChatMsgAgain(msgData)
@@ -498,7 +498,7 @@ class ChatSession(
             // 不过这里基本都是
             msg = FindMessageAndSetReply(msgId, msgId, tm1, tm2, tm3, bOk)
             if (msg != null) {
-                if (msg.isP2p){
+                if (msg.isP2p()){
                     TopicDbHelper.updatePChatReply(msgId, tm1, tm2, tm3, bOk)
                 }else{
                     TopicDbHelper.updateGChatReply(msgId, tm1)

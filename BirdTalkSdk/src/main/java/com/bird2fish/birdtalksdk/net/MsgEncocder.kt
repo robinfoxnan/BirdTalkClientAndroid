@@ -6,6 +6,7 @@ import com.bird2fish.birdtalksdk.InterErrorType
 import com.bird2fish.birdtalksdk.MsgEventType
 import com.bird2fish.birdtalksdk.SdkGlobalData
 import com.bird2fish.birdtalksdk.model.ChatSessionManager
+import com.bird2fish.birdtalksdk.model.Group
 import com.bird2fish.birdtalksdk.model.GroupCache
 import com.bird2fish.birdtalksdk.model.UserCache
 import com.bird2fish.birdtalksdk.pbmodel.*
@@ -178,14 +179,14 @@ class MsgEncocder {
                 GroupInviteRequest -> doNothing()
                 GroupInviteAnswer -> doNothing()
                 GroupJoinRequest -> doNothing()
-                GroupJoinAnswer -> doNothing()
+                GroupJoinAnswer -> onJoinAnswer(reply)
                 GroupQuit -> doNothing()
                 GroupAddAdmin -> doNothing()
                 GroupDelAdmin -> doNothing()
                 GroupTransferOwner -> doNothing()
                 GroupSetMemberInfo -> doNothing()
                 GroupSearch -> onSearchGroupReply(reply)
-                GroupSearchMember -> doNothing()
+                GroupSearchMember -> onGroupSearchMemberRet(reply)
                 GroupListIn -> onGroupListSelfInGroupRet(reply)
                 User.GroupOperationType.UNRECOGNIZED ->doNothing()
             }
@@ -216,6 +217,20 @@ class MsgEncocder {
             GroupCache.onGroupListSelfInGroupRet(result, detail,sendId, msgId, groups)
         }
 
+        // 列举群的用户信息
+        fun onGroupSearchMemberRet(reply: User.GroupOpResult){
+            Log.d("GroupRetMembers",  reply.toString())
+            val result = reply.result
+            val detail = reply.detail
+            val sendId = reply.sendId
+            val msgId = reply.msgId
+
+            var group = TextHelper.groupInfo2Group(reply.group)
+            var members = TextHelper.groupMembers2Users(reply.membersList)
+
+            GroupCache.onRetGroupMembers(group, members)
+        }
+
         // 用关键字搜索群组返回的结果
         fun onSearchGroupReply(reply: User.GroupOpResult){
             Log.d("GroupRetList",  reply.toString())
@@ -238,6 +253,18 @@ class MsgEncocder {
             val group = TextHelper.groupInfo2Group(reply.group)
             ChatSessionManager.onCreateGroupRet(result, detail, sendId, msgId, group)
 
+        }
+
+        // 自己加入应答，以及所有的群成员加入都会收到这个通知
+        private fun onJoinAnswer(reply: User.GroupOpResult){
+            val result = reply.result
+            val detail = reply.detail
+            val sendId = reply.sendId
+            val msgId = reply.msgId
+            val group = TextHelper.groupInfo2Group(reply.group)
+            val userList = TextHelper.groupMembers2Users(reply.membersList)
+
+            ChatSessionManager.onJoinAnswer(result, detail, sendId, msgId, group, userList)
         }
 
         // 查询消息等返回的结果
@@ -308,8 +335,8 @@ class MsgEncocder {
             )
             if (result == "ok"){
                 // 通知界面更新消息，已经保存处理完了
-                ChatSessionManager.onChatMsgReplyOk(reply.msgId, reply.sendId, reply.fromId,  reply.paramsMap,
-                    reply.sendOk,reply.recvOk, reply.readOk, reply.extraMsg)
+                ChatSessionManager.onChatMsgReplyOk(reply.msgId, reply.sendId, reply.fromId,   resultMap,
+                    reply.sendOk,reply.recvOk, reply.readOk, result)
 
                 SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(MsgEventType.MSG_SEND_OK, 0,
                     reply.msgId, reply.fromId, resultMap)
@@ -1470,6 +1497,29 @@ class MsgEncocder {
             val opReq = User.GroupOpReq.newBuilder()
             opReq.setOperation(GroupSetInfo);
             opReq.setGroup(group)
+            val sendId = SdkGlobalData.nextId()
+            opReq.setSendId(sendId).setMsgId(sendId)
+
+            val plainMsg = MsgPlain.newBuilder().setGroupOp(opReq)
+            val msg = wrapMsg(plainMsg, timestamp, MsgTGroupOp)
+            sendMsg(msg)
+        }
+
+        // 送申请加入群的消息
+        fun sendJoinGroupReq(group: Group, answer:String){
+
+            val timestamp = System.currentTimeMillis()
+
+            val gInfo = GroupInfo.newBuilder()
+                .setGroupId(group.gid)
+
+            if (!TextUtils.isEmpty(answer)){
+                gInfo.putParams("joinanswer", answer)
+            }
+
+            val opReq = User.GroupOpReq.newBuilder()
+            opReq.setOperation(GroupJoinRequest);
+            opReq.setGroup(gInfo)
             val sendId = SdkGlobalData.nextId()
             opReq.setSendId(sendId).setMsgId(sendId)
 
