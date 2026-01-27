@@ -126,7 +126,7 @@ object GroupCache {
     /**
      * 更新缓存和数据库
      */
-    fun updateGroup(group: Group):Group {
+    fun updateGroup(group: Group, isSelfIn: Boolean = false):Group {
         var g :Group? = null
         synchronized(groupMap) {
             g = groupMap[group.gid]
@@ -137,11 +137,19 @@ object GroupCache {
                 g = group
             }
 
+            // 如果是新建立的，或者新加入到
+            if (isSelfIn){
+                synchronized(userInGroupList){
+                    userInGroupList[g!!.gid] = g!!
+                }
+            }
         }
 
         GlobalScope.launch(Dispatchers.IO) {
             GroupDbHelper.insertOrUpdateGroup(group)
         }
+
+
 
         return g!!
     }

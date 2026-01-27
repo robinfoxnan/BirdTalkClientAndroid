@@ -244,6 +244,14 @@ class SearchFriendFragment : Fragment(), StatusCallback {
                 friendListView?.setAdapter(adapter);
             }
         }
+        else if (eventType == MsgEventType.GROUP_JOIN_FAIL){
+            val name = params["group"]
+            val detail = params["error"]
+            TextHelper.showToast(this.requireContext(), "加入群失败:" + name + detail)
+        }else if (eventType == MsgEventType.GROUP_JOIN_OK){
+            val name = params["group"]
+            TextHelper.showToast(this.requireContext(), "成功加入群:" + name)
+        }
     }
 
     // 点击了加入群，

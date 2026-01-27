@@ -118,13 +118,8 @@ class ChatSessionFragment : Fragment()  , StatusCallback {
     // 上传或下载事件
     // 这里是回调函数，无法操作界面
     override fun onEvent(eventType: MsgEventType, msgType:Int, msgId:Long, fid:Long, params:Map<String, String>){
-        if (eventType == MsgEventType.FRIEND_CHAT_SESSION){
-            (context as? Activity)?.runOnUiThread {
-                this.adapter?.notifyDataSetChanged()
-            }
-        }
-        // 设置了最新一条消息
-        else if (eventType == MsgEventType.MSG_COMING){
+        if (eventType == MsgEventType.FRIEND_CHAT_SESSION || eventType == MsgEventType.MSG_COMING
+            || eventType == MsgEventType.GROUP_JOIN_OK || eventType == MsgEventType.GROUP_CREATE_OK){
             (context as? Activity)?.runOnUiThread {
                 this.adapter?.notifyDataSetChanged()
             }

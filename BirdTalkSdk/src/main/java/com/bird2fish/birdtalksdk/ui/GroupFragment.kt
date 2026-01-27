@@ -1,5 +1,6 @@
 package com.bird2fish.birdtalksdk.ui
 
+import android.app.Activity
 import android.os.Bundle
 import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
@@ -10,9 +11,11 @@ import android.widget.ImageView
 import android.widget.TextView
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.bird2fish.birdtalksdk.InterErrorType
 import com.bird2fish.birdtalksdk.MsgEventType
 import com.bird2fish.birdtalksdk.R
 import com.bird2fish.birdtalksdk.SdkGlobalData
+import com.bird2fish.birdtalksdk.StatusCallback
 import com.bird2fish.birdtalksdk.model.ChatSessionManager
 import com.bird2fish.birdtalksdk.model.Group
 import com.bird2fish.birdtalksdk.model.GroupCache
@@ -21,7 +24,7 @@ import com.bird2fish.birdtalksdk.model.UserCache
 import com.bird2fish.birdtalksdk.uihelper.AvatarHelper
 
 
-class GroupFragment : Fragment() {
+class GroupFragment : Fragment(), StatusCallback {
     private  lateinit var groupListView:RecyclerView
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -43,7 +46,37 @@ class GroupFragment : Fragment() {
         // 第三步：给listview设置适配器（view）
         groupListView?.layoutManager = LinearLayoutManager(context)
         groupListView?.setAdapter(adapter);
+
+        SdkGlobalData.userCallBackManager.addCallback(this)
         return root
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        // 取消关注消息
+        SdkGlobalData.userCallBackManager.removeCallback(this)
+    }
+
+    override fun onError(code : InterErrorType, lastAction:String, errType:String, detail:String){
+
+    }
+
+    private  fun updateData(){
+        val lst = GroupCache.getInGroupList()
+        val adapter = GroupsItemAdapter(lst)
+        adapter.setView(this)
+        // 第三步：给listview设置适配器（view）
+        groupListView?.layoutManager = LinearLayoutManager(context)
+        groupListView?.setAdapter(adapter);
+    }
+    // 上传或下载事件
+    // 这里是回调函数，无法操作界面
+    override fun onEvent(eventType: MsgEventType, msgType:Int, msgId:Long, fid:Long, params:Map<String, String>){
+        if (eventType == MsgEventType.GROUP_JOIN_OK || eventType == MsgEventType.GROUP_CREATE_OK){
+            (context as? Activity)?.runOnUiThread {
+                updateData()
+            }
+        }
     }
 
     // 发送信息，这里需要跳转

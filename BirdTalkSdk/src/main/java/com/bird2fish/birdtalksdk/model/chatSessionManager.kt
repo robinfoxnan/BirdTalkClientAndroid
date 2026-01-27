@@ -1116,8 +1116,10 @@ object ChatSessionManager {
     fun onCreateGroupRet(result:String, detail:String, sendId: Long, msgId: Long, group:Group){
         if (result == "ok"){
             // 写库，群组
-            GroupCache.updateGroup(group)
+            GroupCache.updateGroup(group, true)
 
+            // 确保会话中有
+            this.getSession(group)
             // 刷新会话界面
             rebuildDisplayList()
             SdkGlobalData.invokeOnEventCallbacks(
@@ -1142,8 +1144,10 @@ object ChatSessionManager {
             if (m.id == SdkGlobalData.selfUserinfo.id){
                 if (result == "ok"){
                     // 写库，群组
-                    GroupCache.updateGroup(group)
+                    GroupCache.updateGroup(group, true)
 
+                    // 确保会话中有
+                    this.getSession(group)
                     // 刷新会话界面
                     rebuildDisplayList()
                     SdkGlobalData.invokeOnEventCallbacks(
@@ -1158,7 +1162,7 @@ object ChatSessionManager {
                     //通知创建失败
                     SdkGlobalData.invokeOnEventCallbacks(
                         MsgEventType.GROUP_JOIN_FAIL,0, msgId, group.gid,
-                        mapOf("error" to detail))
+                        mapOf("error" to detail, "group" to group.name))
                 }
                 continue
             }
