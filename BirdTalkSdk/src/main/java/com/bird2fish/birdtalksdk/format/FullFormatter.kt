@@ -688,7 +688,8 @@ class FullFormatter(private val mContainer: TextView, private val mClicker: Clic
         }, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         // URLSpan into ButtonSpan.
         node.setSpan(
-            ButtonSpan(ctx, mFontSize, dipSize), 0, node.length,
+            // 修改与2026-01-28
+            ButtonSpan(ctx, mFontSize, ctx), 0, node.length,
             Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
         )
         // Append a thin space after a button, otherwise the whole line after the button

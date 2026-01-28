@@ -566,8 +566,8 @@ public class Drafty implements Serializable {
             if (data != null) {
                 // Adding an entity
                 prepareForEntity(at, addedLength);
-
                 ent[ent.length - 1] = new Entity(style, data);
+
             } else {
                 // Adding formatting style only.
                 prepareForStyle(1);
@@ -908,7 +908,7 @@ public class Drafty implements Serializable {
      * @param preview Amplitude bars to show as preview.
      * @param duration Record duration in milliseconds.
      * @param fname Optional file name to suggest to the receiver.
-     * @param refurl Reference to audio content sent out of band.
+     * @param "refurl" Reference to audio content sent out of band.
      * @param size File size hint as reported by the client.
      *
      * @return <code>this</code> Drafty document.
@@ -1016,6 +1016,41 @@ public class Drafty implements Serializable {
         return this;
     }
 
+    public Drafty insertLineBreak(int pos) {
+        if (txt == null) {
+            txt = "";
+        }
+
+        // 1. 校验位置合法性（不能小于0，不能大于文本长度）
+        if (pos < 0) {
+            pos = 0;
+        }
+        if (pos > txt.length()) {
+            pos = txt.length();
+        }
+
+        // 2. 在指定位置插入空格（和append逻辑一致，用空格占位换行）
+        txt = txt.substring(0, pos) + " " + txt.substring(pos);
+
+        // 3. 调整原有样式的起始位置（关键！插入字符后，pos之后的样式位置都要+1）
+        if (fmt != null && fmt.length > 0) {
+            for (int i = 0; i < fmt.length; i++) {
+                Style style = fmt[i];
+                if (style.getStart() >= pos) {
+                    // 原有样式的起始位置在插入点之后，位置+1
+                    style.setStart(style.getStart() + 1);
+                }
+            }
+        }
+
+        // 4. 准备样式数组，插入BR样式（和append逻辑一致）
+        prepareForStyle(1);
+        // BR样式的起始位置是pos，长度1
+        fmt[fmt.length - 1] = new Style("BR", pos, 1);
+
+        return this;
+    }
+
     /**
      * Create a Drafty document consisting of a single mention.
      * @param name is location where the button is inserted.
@@ -1094,7 +1129,7 @@ public class Drafty implements Serializable {
      *
      * @return 'this' Drafty object.
      */
-    protected Drafty insertButton(int at, @Nullable String title, @Nullable String id,
+    public Drafty insertButton(int at, @Nullable String title, @Nullable String id,
                                   @NotNull String actionType,
                                   @Nullable String actionValue,
                                   @Nullable String refUrl) {
@@ -1110,6 +1145,21 @@ public class Drafty implements Serializable {
         addOrSkip(data, "name", id);
         addOrSkip(data, "val", actionValue);
         addOrSkip(data, "ref", refUrl);
+        insert(at, title, "BN", data);
+        return this;
+    }
+
+    public Drafty insertButtonForGroup(int at, String title, String msgType, String actionValue,
+                                       Long sid,  Long msgId, Long gid, Long fromUid) {
+        final Map<String,Object> data = new HashMap<>();
+        data.put("act", msgType);
+        addOrSkip(data, "val", actionValue);
+
+        addOrSkip(data, "sid", sid);
+        addOrSkip(data, "msg_id",msgId);
+        addOrSkip(data, "from_uid", fromUid);
+        addOrSkip(data, "gid", gid);
+
         insert(at, title, "BN", data);
         return this;
     }
@@ -1745,6 +1795,16 @@ public class Drafty implements Serializable {
             this.len = len;
             this.key = key;
         }
+
+        // 新增setStart方法
+        public void setStart(int start) {
+            this.at = start;
+        }
+
+        // 原有getStart/getLength等方法（确保存在）
+        public int getStart() { return at; }
+        public int getLength() { return len; }
+        public String getType() { return tp; }
 
         // 修正
         boolean isUnstyled() {

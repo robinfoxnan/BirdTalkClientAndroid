@@ -14,6 +14,7 @@ import com.bird2fish.birdtalksdk.SdkGlobalData
 import com.bird2fish.birdtalksdk.db.TopicDbHelper
 import com.bird2fish.birdtalksdk.net.MsgEncocder
 import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass.ChatMsgType
+import com.bird2fish.birdtalksdk.uihelper.SystemMsgHelper
 import com.bird2fish.birdtalksdk.uihelper.TextHelper
 import java.io.File
 import java.util.LinkedList
@@ -533,6 +534,16 @@ class ChatSession(
         this.lastMsg = message
     }
 
+    // 将系统消息添加到列表
+    fun addSysMessageToTail(message: MessageContent) {
+        synchronized(msgList) {
+            msgList.add(message)
+            msgListMask[message.msgId] = message
+        }
+
+        this.lastMsg = message
+    }
+
     // 检查未读的消息，把已读的都发送回执
     fun checkUnRead(first:Int, last:Int){
         synchronized(msgUnReadList){
@@ -679,6 +690,16 @@ class ChatSession(
         if (this.type == Topic.CHAT_P2P || this.type == Topic.CHAT_GROUP)
             return ChatSessionManager.sendAudioOut(this, context, draft, bits, mAudioFile, refMsgId)
         return 0L
+    }
+
+    // 操作记录重新设置结果
+    fun setOprationResult(msgId: Long, gid:Long, fromUid:Long, actionType:String, actValue:String){
+        synchronized(msgList) {
+            val msg = msgListMask[msgId]
+            if (msg != null){
+                msg.content = SystemMsgHelper.getResultDrafty(msgId, gid, fromUid, actionType, actValue)
+            }
+        }
     }
 }
 ////////////////////////////////////////////////////////////////////////////////

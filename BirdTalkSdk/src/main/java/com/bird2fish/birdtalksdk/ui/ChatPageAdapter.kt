@@ -48,9 +48,11 @@ import com.bird2fish.birdtalksdk.model.MessageStatus
 import com.bird2fish.birdtalksdk.net.FileDownloader
 import com.bird2fish.birdtalksdk.uihelper.AvatarHelper
 import com.bird2fish.birdtalksdk.uihelper.ImagesHelper
+import com.bird2fish.birdtalksdk.uihelper.SystemMsgHelper
 import com.bird2fish.birdtalksdk.uihelper.TextHelper
 import com.bird2fish.birdtalksdk.widgets.MediaControl
 import java.io.IOException
+import java.net.MalformedURLException
 
 
 // 每个消息条目的内容布局部分
@@ -765,51 +767,35 @@ class ChatPageAdapter(private val dataList: List<MessageContent>) : RecyclerView
                 return false
             }
 
-//            try {
-//                val actionType = data["act"] as String?
-//                val actionValue = data["val"] as String?
-//                val name = data["name"] as String?
-//                // StoredMessage msg = getMessage(mPosition);
-//                if ("pub" == actionType) {
-//                    val newMsg: Drafty = Drafty(data["title"] as String?)
-//                    val json: MutableMap<String, Any> = HashMap()
-//                    // {"seq":6,"resp":{"yes":1}}
-//                    if (!TextUtils.isEmpty(name)) {
-//                        val resp: MutableMap<String?, Any> = HashMap()
-//                        // noinspection
-//                        resp[name] = if (TextUtils.isEmpty(actionValue)) 1 else actionValue
-//                        json["resp"] = resp
-//                    }
-//
-//                    json["seq"] = "" + mSeqId
-//                    newMsg.attachJSON(json)
-//                    mActivity.sendMessage(newMsg, -1)
-//                } else if ("url" == actionType) {
-//                    val url = URL(Cache.getTinode().getBaseUrl(), data["ref"] as String?)
-//                    val scheme = url.protocol
-//                    // As a security measure refuse to follow URLs with non-http(s) protocols.
-//                    if ("http" == scheme || "https" == scheme) {
-//                        val uri = Uri.parse(url.toString())
-//                        var builder = uri.buildUpon()
-//                        if (!TextUtils.isEmpty(name)) {
-//                            builder = builder.appendQueryParameter(
-//                                name,
-//                                if (TextUtils.isEmpty(actionValue)) "1" else actionValue
-//                            )
-//                        }
-//                        builder = builder
-//                            .appendQueryParameter("seq", "" + mSeqId)
-//                            .appendQueryParameter("uid", Cache.getTinode().getMyId())
-//                        mActivity.startActivity(Intent(Intent.ACTION_VIEW, builder.build()))
-//                    }
-//                }
-//            } catch (ignored: ClassCastException) {
-//                return false
-//            } catch (ignored: MalformedURLException) {
-//                return false
-//            } catch (ignored: NullPointerException) {
-//                return false
-//            }
+            try {
+                val actionType = data["act"] as String  // 消息操作类型
+                val actionValue = data["val"] as String // 按钮的值，ok ,refuse
+                val sid = data["sid"] as Long
+                val msgId = data["msg_id"] as Long
+                val gid = data["gid"] as Long
+                val fromUid = data["from_uid"] as Long
+                // 1. 收集所有非空值
+                val nonNullParts = listOf(
+                    actionType,
+                    actionValue,
+                    sid.toString(),
+                    msgId.toString(),
+                    gid.toString(),
+                    fromUid.toString(),
+                ).filterNotNull() // 过滤掉null值
+
+                // 2. 用分隔符拼接（比如用 "&" 连接，可自定义为 ","、"|" 等）
+                val combinedString = nonNullParts.joinToString(separator = "&")
+                TextHelper.showToast(fragment!!.requireContext(), combinedString)
+                ChatSessionManager.setOperationResult(sid, msgId, gid, fromUid, actionType, actionValue)
+
+            } catch (ignored: ClassCastException) {
+                return false
+            } catch (ignored: MalformedURLException) {
+                return false
+            } catch (ignored: NullPointerException) {
+                return false
+            }
 
             return true
         }

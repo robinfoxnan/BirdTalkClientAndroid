@@ -20,6 +20,7 @@ import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass.ChatMsgType
 import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass.ChatType
 import com.bird2fish.birdtalksdk.uihelper.ImagesHelper
 import com.bird2fish.birdtalksdk.uihelper.RingPlayer
+import com.bird2fish.birdtalksdk.uihelper.SystemMsgHelper
 import com.bird2fish.birdtalksdk.uihelper.TextHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
@@ -848,6 +849,7 @@ object ChatSessionManager {
                     lst = TopicDbHelper.getGChatMessagesById(t.tid, max, SdkGlobalData.LOAD_MSG_BATCH, false)
                 }else{
                     // 加载系统的通知事件
+                    loadSystemMesssage(t)
                     continue
                 }
                 if (lst != null){
@@ -1223,6 +1225,32 @@ object ChatSessionManager {
 
         }
 
+    }
+
+    // 加载系统消息
+    fun loadSystemMesssage(sysSession:ChatSession){
+        var draft = SystemMsgHelper.getButtonDrafty(sysSession, 1)
+        val msg = MessageContent(sysSession, 1, 1, MessageStatus.OK,
+            true, 0L, 0L, 0L, "",
+            draft, ChatMsgType.PLUGIN, null, "", 0L, "")
+        sysSession.addSysMessageToTail(msg)
+
+
+    }
+
+    // 设置各种针对按钮的操作结果
+    fun setOperationResult(sid:Long, msgId: Long, gid:Long, fromUid:Long, actionType:String, actValue:String){
+        if ("invite" == actionType) {
+
+            val chatSession = getSession(sid)
+            chatSession.setOprationResult(msgId, gid, fromUid, actionType, actValue)
+
+            SdkGlobalData.invokeOnEventCallbacks(MsgEventType.MSG_COMING, 0, msgId, fromUid, mapOf("result" to actValue))
+        } else if ("join_req" == actionType) {
+
+        } else if ("join_ok" == actionType) {
+
+        }
     }
 
 
