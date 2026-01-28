@@ -1,12 +1,17 @@
 package com.bird2fish.birdtalksdk.ui
 
 import android.app.Activity
+import android.content.Context
 import android.content.DialogInterface
+import android.content.Intent
 import android.graphics.Color
 import android.graphics.Rect
 import android.graphics.drawable.ColorDrawable
+import android.net.Uri
 import android.os.Bundle
+import android.os.Environment
 import android.text.Editable
+import android.text.TextUtils
 import android.text.TextWatcher
 import android.util.Log
 import android.util.TypedValue
@@ -21,6 +26,8 @@ import android.widget.ImageView
 import android.widget.RadioButton
 import android.widget.RadioGroup
 import android.widget.TextView
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.DialogFragment
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -35,51 +42,14 @@ import com.bird2fish.birdtalksdk.model.Group
 import com.bird2fish.birdtalksdk.model.GroupCache
 import com.bird2fish.birdtalksdk.model.User
 import com.bird2fish.birdtalksdk.net.MsgEncocder
+import com.bird2fish.birdtalksdk.net.Session
 import com.bird2fish.birdtalksdk.uihelper.AvatarHelper
+import com.bird2fish.birdtalksdk.uihelper.AvatarUploadHelper
 import com.bird2fish.birdtalksdk.uihelper.ImagesHelper
 import com.bird2fish.birdtalksdk.uihelper.TextHelper
+import com.yalantis.ucrop.UCrop
+import java.io.File
 
-/**
- * 网格布局间距装饰器
- * @param spanCount 列数
- * @param spacing 间距（px）
- * @param includeEdge 是否包含边缘
- */
-class GridSpacingItemDecoration(
-    private val spanCount: Int,
-    private val spacing: Int,
-    private val includeEdge: Boolean
-) : RecyclerView.ItemDecoration() {
-
-    override fun getItemOffsets(
-        outRect: Rect,
-        view: View,
-        parent: RecyclerView,
-        state: RecyclerView.State
-    ) {
-        val position = parent.getChildAdapterPosition(view) // item position
-        val column = position % spanCount // item column
-
-        if (includeEdge) {
-            // 包含边缘：左右间距均分
-            outRect.left = spacing - column * spacing / spanCount
-            outRect.right = (column + 1) * spacing / spanCount
-
-            // 第一行添加顶部间距
-            if (position < spanCount) {
-                outRect.top = spacing
-            }
-            outRect.bottom = spacing // 所有Item添加底部间距
-        } else {
-            // 不包含边缘：左右间距仅中间有
-            outRect.left = column * spacing / spanCount
-            outRect.right = spacing - (column + 1) * spacing / spanCount
-            if (position >= spanCount) {
-                outRect.top = spacing // 非第一行添加顶部间距
-            }
-        }
-    }
-}
 
 class GroupSettingFragment :  DialogFragment(), StatusCallback {
 
@@ -90,7 +60,6 @@ class GroupSettingFragment :  DialogFragment(), StatusCallback {
     private lateinit var desView: EditText
     private lateinit var radioGVisibility: RadioGroup
     private lateinit var radioGJoin: RadioGroup
-    private lateinit var createButton: Button
     private lateinit var loadingAnimation: LottieAnimationView
     private lateinit var joinQuestion:EditText
     private lateinit var joinAnswer:EditText
@@ -98,11 +67,16 @@ class GroupSettingFragment :  DialogFragment(), StatusCallback {
     private lateinit var joinAnswerLabel:TextView
     private lateinit var radioQuestion: RadioButton
 
-    private lateinit var cancelButton : TextView
+    private lateinit var cancelButton : Button
+    private lateinit var saveButton :Button
 
     private lateinit var membersView:RecyclerView
     private lateinit var adminsView:RecyclerView
 
+
+    private lateinit var avatarUpload:AvatarUploadHelper
+    private var photoUri: Uri? = null
+    private var localUploadName : String? = ""
 
     private var avatarUuid:String = ""
     private var curGroup : Group? = null
@@ -128,16 +102,16 @@ class GroupSettingFragment :  DialogFragment(), StatusCallback {
     }
 
     override fun onEvent(eventType: MsgEventType, msgType:Int, msgId:Long, fid:Long, params:Map<String, String>){
-        if (eventType == MsgEventType.GROUP_CREATE_FAIL){
+        if (eventType == MsgEventType.GROUP_UPDATE_INFO_FAIL){
             (context as? Activity)?.runOnUiThread {
-                TextHelper.showToast(this.requireContext(), getString(R.string.group_create_fail))
+                TextHelper.showToast(this.requireContext(), getString(R.string.group_update_fail))
                 //enableControls()
             }
-        }else if (eventType == MsgEventType.GROUP_CREATE_OK){
+        }else if (eventType == MsgEventType.GROUP_UPDATE_INFO_OK){
             (context as? Activity)?.runOnUiThread {
                 TextHelper.showToast(
                     this.requireContext(),
-                    getString(R.string.group_create_success)
+                    getString(R.string.group_update_success)
                 )
                 this.dismiss()
             }
@@ -171,11 +145,13 @@ class GroupSettingFragment :  DialogFragment(), StatusCallback {
         desView =  root.findViewById(R.id.etGroupDesc)
         radioGVisibility =  root.findViewById(R.id.rgGroupType)
         radioGVisibility.check(R.id.rbPublic)
-        createButton = root.findViewById(R.id.btnCreateGroup)
+
         radioGJoin = root.findViewById(R.id.rgJoinType)
         radioGJoin.check(R.id.rbJoinDirect)
         loadingAnimation = root.findViewById(R.id.loadingAnimation)
         cancelButton = root.findViewById(R.id.btnCancel)
+        saveButton = root.findViewById(R.id.btnSaveGroup)
+
         joinAnswer = root.findViewById(R.id.etJoinAnswer)
         joinAnswerLabel = root.findViewById(R.id.etJoinAnswerLabel)
         joinQuestion = root.findViewById(R.id.etJoinQuestion)
@@ -185,11 +161,27 @@ class GroupSettingFragment :  DialogFragment(), StatusCallback {
         membersView = root.findViewById(R.id.rvMembers)
         adminsView = root.findViewById(R.id.rvAdmins)
 
+        // 上传头像的控件
+        avatarUpload = AvatarUploadHelper(this)
+        avatarUpload.initHelper(avatarView)
+        // 成功回调（省略参数类型）
+        avatarUpload.onUploadOk = { localUri, localName, uuidName ->
+            this.photoUri = localUri
+            this.localUploadName = localName
+            this.avatarUuid = uuidName
+            // 设置
+            saveGroupImage(this.avatarUuid)
+        }
 
-        val bitmap2 = ImagesHelper.generateDefaultAvatar(getString(R.string.create_group), 2)
-        avatarView.setImageBitmap(bitmap2)
+        // 失败回调（省略参数类型）
+        avatarUpload.onUploadErr = { localUri, localName, uuidName ->
+            TextHelper.showToast(this.requireContext(), "upload image error")
+        }
 
-        createButton.setOnClickListener {
+
+        this.avatarUuid = curGroup!!.icon
+
+        saveButton.setOnClickListener {
             //disableControls()
             //createGroup()
         }
@@ -198,7 +190,39 @@ class GroupSettingFragment :  DialogFragment(), StatusCallback {
         loadMembers()
         loadAdmins()
 
+        disableEdit()
         return root
+    }
+
+
+    // 保存头像信息
+    fun saveGroupImage(uuid:String){
+        MsgEncocder.sendSetGroupIcon(this.curGroup!!.gid, uuid)
+    }
+
+    fun saveGroupInfo(){
+        MsgEncocder.sendSetGroupInfo(this.curGroup!!)
+    }
+
+
+    // 如果不是管理员，则禁用保存
+    fun disableEdit(){
+        if (this.curGroup == null)
+            return
+        // 管理员才可以设置
+        if (this.curGroup!!.isAdmin(SdkGlobalData.selfUserinfo.id)){
+
+            // 点击头像，
+            avatarView.setOnClickListener{
+                avatarUpload.openGallery()
+            }
+
+            return
+        }
+
+        // 1）禁用保存
+        saveButton?.visibility = View.GONE
+
     }
 
     fun loadAdmins(){
@@ -231,7 +255,41 @@ class GroupSettingFragment :  DialogFragment(), StatusCallback {
         ).toInt()
         //adminsView?.addItemDecoration(GridSpacingItemDecoration(5, spacingInPx, true))
         adminsView?.setAdapter(adapter);
+        showViewLines(adminsView, 1, 5)
 
+    }
+
+    /**
+     * dp转px，适配不同屏幕
+     * @param dp 要转换的dp值
+     * @return 转换后的px值
+     */
+    private fun dp2px(dp: Int): Int {
+        val density = resources.displayMetrics.density
+        return (dp * density + 0.5f).toInt()
+    }
+
+    // 基础配置（可根据你的设计稿修改）
+    private val ITEM_HEIGHT_DP = 70    // 单个网格Item的高度（dp），对应你之前的头像+名称布局
+    private val GRID_SPACING_DP = 4     // 网格Item之间的间距（dp），和之前的GridSpacingItemDecoration一致
+
+
+    private fun showViewLines(view:RecyclerView, nRow:Int, nCol:Int){
+        // 1. 初始化网格布局（5列）
+        view?.layoutManager = GridLayoutManager(context, nCol)
+        // 2. （可选）添加网格间距（和之前的装饰器一致，保证高度计算准确）
+        val spacingPx = dp2px(GRID_SPACING_DP)
+       // view  ?.addItemDecoration(GridSpacingItemDecoration(nCol, spacingPx, true))
+
+        // 3. 计算3行网格的总高度（核心公式）
+        val itemHeightPx = dp2px(ITEM_HEIGHT_DP)
+        val totalHeightPx = itemHeightPx * nRow + spacingPx * (nRow + 1)
+        // 公式说明：总高度 = 单Item高度×行数 + 间距×(行数+1)（间距包含上下边缘）
+
+        // 4. 设置RecyclerView固定高度
+        view?.layoutParams = adminsView?.layoutParams?.apply {
+            height = totalHeightPx // 固定高度为3行的总高度
+        }
     }
 
     fun loadMembers(){
@@ -265,6 +323,14 @@ class GroupSettingFragment :  DialogFragment(), StatusCallback {
         ).toInt()
        // membersView?.addItemDecoration(GridSpacingItemDecoration(5, spacingInPx, true))
         membersView?.setAdapter(adapter);
+        if (lst.size >= 15){
+            showViewLines(membersView, 3, 5)
+        }else if (lst.size >= 10){
+            showViewLines(membersView, 2, 5)
+        }else{
+            showViewLines(membersView, 1, 5)
+        }
+
     }
 
     // 这一段主要是为了自动填入一些信息
@@ -337,8 +403,14 @@ class GroupSettingFragment :  DialogFragment(), StatusCallback {
             nameView.setText(curGroup!!.name)
             tagView.setText(curGroup!!.brief)
             desView.setText(curGroup!!.tags)
-            val bitmap = ImagesHelper.generateDefaultAvatar(curGroup!!.name, 2)
-            avatarView.setImageBitmap(bitmap)
+            if (TextUtils.isEmpty(curGroup!!.icon))
+            {
+                val bitmap = ImagesHelper.generateDefaultAvatar(curGroup!!.name, 2)
+                avatarView.setImageBitmap(bitmap)
+            }else{
+                AvatarHelper.tryLoadAvatar(requireContext(), this.curGroup!!.icon, avatarView,"male", curGroup!!.name)
+            }
+
 
             if (curGroup!!.visibleType == "public"){
                 radioGVisibility.check(R.id.rbPublic)
@@ -412,6 +484,9 @@ class GroupSettingFragment :  DialogFragment(), StatusCallback {
         // Dialog 真正被关闭
         Log.d("CreateGroupFragment", "dialog dismissed")
         //SdkGlobalData.userCallBackManager.removeCallback(this)
+//        SdkGlobalData.invokeOnEventCallbacks(
+//            MsgEventType.GROUP_UPDATE_INFO_OK, 0, 0, curGroup!!.gid,
+//            mapOf("group" to  curGroup!!.name))
     }
 
     fun updateGroup(){
@@ -511,6 +586,48 @@ class UserAdapter(private var userList: MutableList<User>) : RecyclerView.Adapte
 //            userMap = userMap.filterKeys { it != removedUser.userId }
 //            notifyItemRemoved(position)
 //            notifyItemRangeChanged(position, userList.size)
+        }
+    }
+}
+
+/**
+ * 网格布局间距装饰器
+ * @param spanCount 列数
+ * @param spacing 间距（px）
+ * @param includeEdge 是否包含边缘
+ */
+class GridSpacingItemDecoration(
+    private val spanCount: Int,
+    private val spacing: Int,
+    private val includeEdge: Boolean
+) : RecyclerView.ItemDecoration() {
+
+    override fun getItemOffsets(
+        outRect: Rect,
+        view: View,
+        parent: RecyclerView,
+        state: RecyclerView.State
+    ) {
+        val position = parent.getChildAdapterPosition(view) // item position
+        val column = position % spanCount // item column
+
+        if (includeEdge) {
+            // 包含边缘：左右间距均分
+            outRect.left = spacing - column * spacing / spanCount
+            outRect.right = (column + 1) * spacing / spanCount
+
+            // 第一行添加顶部间距
+            if (position < spanCount) {
+                outRect.top = spacing
+            }
+            outRect.bottom = spacing // 所有Item添加底部间距
+        } else {
+            // 不包含边缘：左右间距仅中间有
+            outRect.left = column * spacing / spanCount
+            outRect.right = spacing - (column + 1) * spacing / spanCount
+            if (position >= spanCount) {
+                outRect.top = spacing // 非第一行添加顶部间距
+            }
         }
     }
 }

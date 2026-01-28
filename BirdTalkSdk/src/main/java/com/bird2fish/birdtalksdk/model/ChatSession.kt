@@ -49,14 +49,14 @@ class ChatSession(
                     return txt
                 }
                 return if (friend != null && !TextUtils.isEmpty(friend!!.nick) ){
-                    "${friend!!.nick} (${friend!!.id})"
+                    "${friend!!.nick}"
                 }else{
                     super.title
                 }
             }else if (type == Topic.CHAT_GROUP){
                 val txt = SdkGlobalData.context!!.getString(R.string.group_prefix)
                 return if (group != null && !TextUtils.isEmpty(group!!.name)){
-                    "$txt${group!!.name} (${group!!.gid})"
+                    "$txt${group!!.name}"
                 }else{
                     txt + super.title
                 }
@@ -114,7 +114,7 @@ class ChatSession(
                 this.sysFriend!!.name = txt
                 this.sysFriend!!.nick = txt
                 this.sysFriend!!.icon = "birdtalk128.png"
-                this.sysFriend!!.id =100L
+                this.sysFriend!!.id =0L
             }
             else -> {
                 Log.e("ChatSession", "初始化发现了type = $type")

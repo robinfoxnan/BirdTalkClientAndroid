@@ -77,9 +77,23 @@ object ChatSessionManager {
 
     // 获取会话，有可能是空的
     fun getSession(sessionId: Long): ChatSession{
-        synchronized(sessions){
-            if (sessions.containsKey(sessionId))
-                return sessions[sessionId]!!
+        synchronized(sessions) {
+            if (sessions.containsKey(sessionId)){
+                val s =  sessions[sessionId]!!
+                // 这一段是当隐藏了会话项，新消息到来的时候需要重新显示
+                if (!s.showHide){
+                    s.setShowHide(true)
+                    if (s.isP2pChat()){
+                        TopicDbHelper.insertOrReplacePTopic(s)
+                    }else{
+                        TopicDbHelper.insertOrReplaceGTopic(s)
+                    }
+                    rebuildDisplayList()
+                    SdkGlobalData.invokeOnEventCallbacks(MsgEventType.MSG_COMING, 0, 0,
+                        s.getSessionId(), mapOf("msg coming" to "showSession"))
+                }
+                return s
+            }
             else{
                 return createSession(sessionId)
             }
@@ -1134,6 +1148,29 @@ object ChatSessionManager {
             //通知创建失败
             SdkGlobalData.invokeOnEventCallbacks(
                 MsgEventType.GROUP_CREATE_FAIL,0, msgId, group.gid,
+                mapOf("error" to detail))
+        }
+    }
+
+    // 所有的群用户都会收到这个更新消息
+    fun onGroupSetInfoRet(result:String, detail:String, sendId: Long, msgId: Long, group:Group){
+        if (result == "ok"){
+            // 写库，群组
+            GroupCache.updateGroup(group, true)
+
+            // 确保会话中有
+            this.getSession(group)
+            // 刷新会话界面
+            rebuildDisplayList()
+
+            // 通知创建成功
+            SdkGlobalData.invokeOnEventCallbacks(
+                MsgEventType.GROUP_UPDATE_INFO_OK, 0, msgId, group.gid,
+                mapOf("group" to group.name))
+        }else{
+            //通知创建失败
+            SdkGlobalData.invokeOnEventCallbacks(
+                MsgEventType.GROUP_UPDATE_INFO_FAIL,0, msgId, group.gid,
                 mapOf("error" to detail))
         }
     }

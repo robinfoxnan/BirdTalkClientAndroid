@@ -156,6 +156,8 @@
 
     <string name="group_create_fail">group create fail</string>
     <string name="group_create_success">group create success</string>
+    <string name="group_update_fail">group update fail</string>
+    <string name="group_update_success">group update success</string>
 
     <string name="menu_item_speaker">use speaker</string>
     <string name="menu_item_headmic">use head mic</string>

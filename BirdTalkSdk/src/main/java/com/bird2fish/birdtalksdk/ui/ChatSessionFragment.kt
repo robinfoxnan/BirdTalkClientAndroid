@@ -119,7 +119,8 @@ class ChatSessionFragment : Fragment()  , StatusCallback {
     // 这里是回调函数，无法操作界面
     override fun onEvent(eventType: MsgEventType, msgType:Int, msgId:Long, fid:Long, params:Map<String, String>){
         if (eventType == MsgEventType.FRIEND_CHAT_SESSION || eventType == MsgEventType.MSG_COMING
-            || eventType == MsgEventType.GROUP_JOIN_OK || eventType == MsgEventType.GROUP_CREATE_OK){
+            || eventType == MsgEventType.GROUP_JOIN_OK || eventType == MsgEventType.GROUP_CREATE_OK
+            ||eventType == MsgEventType.GROUP_UPDATE_INFO_OK){
             (context as? Activity)?.runOnUiThread {
                 this.adapter?.notifyDataSetChanged()
             }
@@ -180,6 +181,7 @@ class ChatSessionAdapter(private val dataMap: MutableList<ChatSession>) : Recycl
         // ViewHolder 中的视图元素，例如 TextView、ImageView 等
         val imgIcon : ImageView = itemView.findViewById(id.iconTv)
         val tvNick: TextView = itemView.findViewById(id.nameTv)
+        var tvId :TextView = itemView.findViewById(id.idTv)
         val tvDes : TextView = itemView.findViewById(id.desTv)
         val tvTime :TextView = itemView.findViewById(id.timeTv)
         val tvState:ImageView = itemView.findViewById(id.StateTv)
@@ -219,6 +221,12 @@ class ChatSessionAdapter(private val dataMap: MutableList<ChatSession>) : Recycl
         //holder.imgIcon.setImageResource(id)
         AvatarHelper.tryLoadAvatar(fragment!!.requireContext(), item.icon, holder.imgIcon, item.getGender(), item.getNick())
         holder.tvNick.setText(item.title)
+        if (item.tid != 0L){
+            holder.tvId.setText(item.tid.toString())
+        }else{
+            holder.tvId.visibility = View.GONE
+        }
+
 
 
         if (item.lastMsg == null){
@@ -284,7 +292,12 @@ class ChatSessionAdapter(private val dataMap: MutableList<ChatSession>) : Recycl
         holder.tvHide.setOnClickListener{
             item.setShowHide(false)
             fragment?.onClickRemove()
-            TopicDbHelper.insertOrReplacePTopic(item);
+            if (item.isP2pChat())
+            {
+                TopicDbHelper.insertOrReplacePTopic(item)
+            } else{
+                TopicDbHelper.insertOrReplaceGTopic(item)
+            }
             ChatSessionManager.rebuildDisplayList()
             notifyDataSetChanged()
 

@@ -174,7 +174,7 @@ class MsgEncocder {
                 GroupNoneAction -> doNothing()
                 GroupCreate -> onGroupCreateReply(reply)
                 GroupDissolve -> doNothing()
-                GroupSetInfo -> doNothing()
+                GroupSetInfo -> onGroupSetInfoRet(reply)
                 GroupKickMember -> doNothing()
                 GroupInviteRequest -> doNothing()
                 GroupInviteAnswer -> doNothing()
@@ -253,6 +253,18 @@ class MsgEncocder {
             val group = TextHelper.groupInfo2Group(reply.group)
             ChatSessionManager.onCreateGroupRet(result, detail, sendId, msgId, group)
 
+        }
+
+        // 设置群组信息返回，所以群用户都会收到这个消息
+        private  fun onGroupSetInfoRet(reply: User.GroupOpResult){
+            Log.d("GroupRetCreate", reply.toString())
+
+            val result = reply.result
+            val detail = reply.detail
+            val sendId = reply.sendId
+            val msgId = reply.msgId
+            val group = TextHelper.groupInfo2Group(reply.group)
+            ChatSessionManager.onGroupSetInfoRet(result, detail, sendId, msgId, group)
         }
 
         // 自己加入应答，以及所有的群成员加入都会收到这个通知
@@ -1448,7 +1460,7 @@ class MsgEncocder {
             }
 
 
-            val opReq = User.GroupOpReq.newBuilder()
+            val opReq = GroupOpReq.newBuilder()
             opReq.setOperation(GroupCreate);
             opReq.setGroup(group)
             val sendId = SdkGlobalData.nextId()
@@ -1477,24 +1489,50 @@ class MsgEncocder {
         }
 
         // 设置群信息
-        fun sendSetgroupMemo(id:Long, name:String, tags:Array<String>, brief:String, icon:String){
+        fun sendSetGroupIcon(id:Long, icon:String){
             val timestamp = System.currentTimeMillis()
 
             val group = GroupInfo.newBuilder()
                 .setGroupId(id)
-                .setGroupName(name)
-                .clearTags()
-
-            for (i in 0 until tags.size) {
-                val element = tags[i]
-                group.addTags(element)
-            }
 
             group.putParams("icon", icon)
-            group.putParams("brief", brief)
-            group.putParams("jointype", "any")
+
 
             val opReq = User.GroupOpReq.newBuilder()
+            opReq.setOperation(GroupSetInfo);
+            opReq.setGroup(group)
+            val sendId = SdkGlobalData.nextId()
+            opReq.setSendId(sendId).setMsgId(sendId)
+
+            val plainMsg = MsgPlain.newBuilder().setGroupOp(opReq)
+            val msg = wrapMsg(plainMsg, timestamp, MsgTGroupOp)
+            sendMsg(msg)
+        }
+
+        // 设置群信息
+        fun sendSetGroupInfo(g:Group){
+            val timestamp = System.currentTimeMillis()
+
+            val group = GroupInfo.newBuilder()
+                .setGroupId(g.gid)
+                .setGroupName(g.name)
+                .setGroupType("chat")
+
+            group.putParams("icon", g.icon)
+            group.putParams("brief", g.brief)
+            group.putParams("jointype", g.joinType)
+            group.putParams("visibility", g.visibleType)
+            group.putParams("joinquestion", g.question)
+            group.putParams("joinanswer", g.answer)
+
+
+            val tags = TextHelper.splitTags(g.tags)
+            for (tag in tags){
+                group.addTags(tag)
+            }
+
+
+            val opReq = GroupOpReq.newBuilder()
             opReq.setOperation(GroupSetInfo);
             opReq.setGroup(group)
             val sendId = SdkGlobalData.nextId()

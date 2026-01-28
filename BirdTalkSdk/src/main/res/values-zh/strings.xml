@@ -150,6 +150,8 @@
     <string name="manage_admins">群成员管理</string>
     <string name="group_create_fail">群组创建失败</string>
     <string name="group_create_success">群组创建完成</string>
+    <string name="group_update_fail">更新群组信息失败</string>
+    <string name="group_update_success">更新群组信息成功</string>
 
     <string name="menu_item_speaker">扬声器播放</string>
     <string name="menu_item_headmic">耳机播放</string>

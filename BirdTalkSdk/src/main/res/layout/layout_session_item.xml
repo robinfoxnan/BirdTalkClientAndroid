@@ -52,17 +52,27 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginLeft="5dp"
-                android:layout_marginTop="5dp"
+                android:layout_marginTop="2dp"
                 android:text="@string/nick_name"
                 android:textColor="#000000"
-                android:textSize="18sp" />
+                android:textSize="17sp" />
+
+            <TextView
+                android:id="@+id/idTv"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="5dp"
+                android:layout_marginTop="1dp"
+                android:text="12345678"
+                android:textColor="#898989"
+                android:textSize="10sp" />
 
             <TextView
                 android:id="@+id/desTv"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginLeft="5dp"
-                android:layout_marginTop="0dp"
+                android:layout_marginLeft="8dp"
+                android:layout_marginTop="1dp"
                 android:text="@string/description"
                 android:textColor="#898989"
                 android:textSize="14sp" />

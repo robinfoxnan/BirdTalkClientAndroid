@@ -17,8 +17,11 @@ import androidx.core.view.size
 import androidx.fragment.app.Fragment
 import androidx.viewpager2.adapter.FragmentStateAdapter
 import androidx.viewpager2.widget.ViewPager2
+import com.bird2fish.birdtalksdk.InterErrorType
+import com.bird2fish.birdtalksdk.MsgEventType
 import com.bird2fish.birdtalksdk.R
 import com.bird2fish.birdtalksdk.SdkGlobalData
+import com.bird2fish.birdtalksdk.StatusCallback
 import com.bird2fish.birdtalksdk.db.GroupDbHelper
 import com.bird2fish.birdtalksdk.db.TopicDbHelper
 import com.bird2fish.birdtalksdk.db.UserDbHelper
@@ -26,7 +29,7 @@ import com.bird2fish.birdtalksdk.model.Group
 import com.bird2fish.birdtalksdk.uihelper.AvatarHelper
 import java.util.LinkedList
 
-class ChatManagerFragment : Fragment() {
+class ChatManagerFragment : Fragment() , StatusCallback {
 
     private lateinit var viewPager: ViewPager2
     private lateinit var chatPagerAdapter: ChatPagerAdapter
@@ -59,7 +62,7 @@ class ChatManagerFragment : Fragment() {
         chatTitle = view.findViewById(R.id.header_title)
 
         initButtons()
-
+        SdkGlobalData.userCallBackManager.addCallback(this)
         return view
     }
 
@@ -136,15 +139,26 @@ class ChatManagerFragment : Fragment() {
 //        }
     }
 
+    override fun onError(code : InterErrorType, lastAction:String, errType:String, detail:String){
+
+    }
+    // 上传或下载事件
+    // 这里是回调函数，无法操作界面
+    override fun onEvent(eventType: MsgEventType, msgType:Int, msgId:Long, fid:Long, params:Map<String, String>){
+        if (eventType == MsgEventType.GROUP_UPDATE_INFO_OK){
+            (context as? Activity)?.runOnUiThread {
+                // 显示好友的信息
+                val curSession = SdkGlobalData.currentChatSession ?: return@runOnUiThread
+                this.chatTitle.text = curSession.title
+                AvatarHelper.tryLoadAvatar(requireContext(), curSession.icon, this.chatImage, curSession.getGender(), curSession.getNick())
+            }
+        }
+    }
+
     // 打开群组属性设置页面
     fun openGroupSetting(){
-
         val gid = SdkGlobalData.currentChatSession!!.tid
-
-
         val page = GroupSettingFragment.newInstance(gid)
-
-
         page.show(parentFragmentManager, "GroupSettingDialog")
     }
 
