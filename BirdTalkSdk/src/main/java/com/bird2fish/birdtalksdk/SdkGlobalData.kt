@@ -122,8 +122,8 @@ class SdkGlobalData {
                 //TopicDbHelper.deleteFromPTopic(10001)
                 //TopicDbHelper.dropPChatTopic(10001)
                 //TopicDbHelper.dropPChatTable()
-                TopicDbHelper.dropGChatTopic(10006)
-                TopicDbHelper.deleteFromGTopic(10006)
+                //TopicDbHelper.dropGChatTopic(10006)
+                //TopicDbHelper.deleteFromGTopic(10006)
 
             }catch (e:Exception){
                 Log.e("Sdk", e.toString())

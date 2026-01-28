@@ -64,6 +64,7 @@ object ChatSessionManager {
             val s = t.asChatSession()
             sessions[sessionId] = s
             TopicDbHelper.insertOrReplacePTopic(t)
+            makeSureSessionVisible(s)
             return s
         }
         // 群聊
@@ -71,7 +72,8 @@ object ChatSessionManager {
         val t = Topic(-sessionId, 0, 0, Topic.CHAT_GROUP, 1, group.name, group.icon)
         val s = t.asChatSession()
         sessions[sessionId] = s
-        TopicDbHelper.insertOrReplaceGTopic(t)
+        TopicDbHelper.insertOrReplaceGTopic(s)
+        makeSureSessionVisible(s)
         return s
     }
 
@@ -81,17 +83,7 @@ object ChatSessionManager {
             if (sessions.containsKey(sessionId)){
                 val s =  sessions[sessionId]!!
                 // 这一段是当隐藏了会话项，新消息到来的时候需要重新显示
-                if (!s.showHide){
-                    s.setShowHide(true)
-                    if (s.isP2pChat()){
-                        TopicDbHelper.insertOrReplacePTopic(s)
-                    }else{
-                        TopicDbHelper.insertOrReplaceGTopic(s)
-                    }
-                    rebuildDisplayList()
-                    SdkGlobalData.invokeOnEventCallbacks(MsgEventType.MSG_COMING, 0, 0,
-                        s.getSessionId(), mapOf("msg coming" to "showSession"))
-                }
+                makeSureSessionVisible(s)
                 return s
             }
             else{
@@ -767,7 +759,7 @@ object ChatSessionManager {
         )
 
         // 通知界面更新消息，已经保存处理完了
-        SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(
+        SdkGlobalData.invokeOnEventCallbacks(
             MsgEventType.MSG_COMING, chatMsg.msgType.number,
             chatMsg.msgId, chatMsg.fromId, resultMap)
 
@@ -1125,25 +1117,45 @@ object ChatSessionManager {
             // 如果是刚刚好，那么等待拖动界面下一次加载，这里啥也不做了
         }
     }
+
+    // 收到消息，以及发送消息，都需要确认这个会话是显示的，方便识别
+    fun makeSureSessionVisible(s: ChatSession){
+
+        if (!s.showHide){
+            s.setShowHide(true)
+            if (s.isP2pChat()){
+                TopicDbHelper.insertOrReplacePTopic(s)
+            }else{
+                TopicDbHelper.insertOrReplaceGTopic(s)
+            }
+        }
+
+        rebuildDisplayList()
+        SdkGlobalData.invokeOnEventCallbacks(MsgEventType.MSG_COMING, 0, 0,
+            s.getSessionId(), mapOf("msg coming" to "showSession"))
+    }
     ///////////////////////////////////////////////////////////////////////////////////////////////////
     // 创建群组结束后
     fun onCreateGroupRet(result:String, detail:String, sendId: Long, msgId: Long, group:Group){
         if (result == "ok"){
             // 写库，群组
-            GroupCache.updateGroup(group, true)
+            val gInCache = GroupCache.updateGroup(group, true)
+            gInCache.addMember(SdkGlobalData.selfUserinfo)
+            gInCache.addAdmin(SdkGlobalData.selfUserinfo)
+            gInCache.owner = SdkGlobalData.selfUserinfo
+            gInCache.ownerId = SdkGlobalData.selfUserinfo.id
 
             // 确保会话中有
             this.getSession(group)
             // 刷新会话界面
-            rebuildDisplayList()
-            SdkGlobalData.invokeOnEventCallbacks(
-                MsgEventType.APP_NOTIFY_CHANGE_SESSION, 0, msgId, group.gid,
-                mapOf("group" to group.name))
-
-            // 通知创建成功
             SdkGlobalData.invokeOnEventCallbacks(
                 MsgEventType.GROUP_CREATE_OK, 0, msgId, group.gid,
                 mapOf("group" to group.name))
+
+
+            // 这里要开启查询成员，
+            MsgEncocder.sendListGroupMembers(group.gid)
+
         }else{
             //通知创建失败
             SdkGlobalData.invokeOnEventCallbacks(
@@ -1185,16 +1197,16 @@ object ChatSessionManager {
 
                     // 确保会话中有
                     this.getSession(group)
-                    // 刷新会话界面
-                    rebuildDisplayList()
-                    SdkGlobalData.invokeOnEventCallbacks(
-                        MsgEventType.APP_NOTIFY_CHANGE_SESSION, 0, msgId, group.gid,
-                        mapOf("group" to group.name))
 
                     // 通知创建成功
                     SdkGlobalData.invokeOnEventCallbacks(
                         MsgEventType.GROUP_JOIN_OK, 0, msgId, group.gid,
                         mapOf("group" to group.name))
+
+                    GroupCache.onRetGroupMembers(group, members)
+
+                    // 这里要开启查询成员，
+                    MsgEncocder.sendListGroupMembers(group.gid)
                 }else{
                     //通知创建失败
                     SdkGlobalData.invokeOnEventCallbacks(
@@ -1202,9 +1214,13 @@ object ChatSessionManager {
                         mapOf("error" to detail, "group" to group.name))
                 }
                 continue
+            }else{
+                // 其他人加入了群，这里了需要转换为系统通知
+                GroupCache.onRetGroupMembers(group, members)
+
             }
 
-            // 其他人加入了群，这里了需要转换为系统通知
+
         }
 
     }

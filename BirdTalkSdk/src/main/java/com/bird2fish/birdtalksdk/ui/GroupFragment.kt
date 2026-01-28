@@ -83,7 +83,7 @@ class GroupFragment : Fragment(), StatusCallback {
     fun switchSendMsgPage(g:Group){
         // 通过消息方式通知上层界面切换到消息发送
         val chatSession = ChatSessionManager.getSession(g)
-        //SdkGlobalData.currentChatFid = f.id
+        ChatSessionManager.makeSureSessionVisible(chatSession)
         SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(
             MsgEventType.APP_NOTIFY_SEND_MSG,
             0, 0, chatSession.getSessionId(), mapOf("page" to "GroupInFragment" ) )

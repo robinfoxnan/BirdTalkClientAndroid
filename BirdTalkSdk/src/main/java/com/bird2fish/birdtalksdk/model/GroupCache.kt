@@ -204,18 +204,7 @@ object GroupCache {
                 GroupDbHelper.insertOrUpdateGroup(group)
             }
         }
-        for (u in users){
-            if (u.role.contains('o')){
-                g!!.addAdmin(u)
-                g!!.addMember(u)
-                g!!.ownerId = u.id
-                g!!.owner = u
-            }else if (u.role.contains('a')){
-                g!!.addAdmin(u)
-            }else{
-                g!!.addMember(u)
-            }
-        }
+        g!!.addUsers(users)
 
     }
 

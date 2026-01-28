@@ -158,7 +158,7 @@ object Session  {
         SdkGlobalData.initLoad(uid)
 
         // sdk内部需要与服务器同步数据，然后通知界面跳转并刷新
-        SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(MsgEventType.LOGIN_OK, 0,0L, 0L, resultMap)
+        SdkGlobalData.invokeOnEventCallbacks(MsgEventType.LOGIN_OK, 0,0L, 0L, resultMap)
         updateState(Session.SessionState.READY)
 
 

@@ -71,6 +71,22 @@ class Group(
         admins.remove(uid)
     }
 
+    // 通知用户添加到组的时候需要，查询成员列表时候也需要
+    fun addUsers(members:List<User>){
+        for (u in members){
+            if (u.role.contains('o')){
+                this.addAdmin(u)
+                this.addMember(u)
+                this.ownerId = u.id
+                this.owner = u
+            }else if (u.role.contains('a')){
+                this.addAdmin(u)
+            }else{
+                this.addMember(u)
+            }
+        }
+    }
+
     fun addMember(user: User) {
         members[user.id] = user
     }

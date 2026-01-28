@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.DialogInterface
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
+import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -32,6 +33,7 @@ import com.bird2fish.birdtalksdk.SdkGlobalData
 import com.bird2fish.birdtalksdk.StatusCallback
 import com.bird2fish.birdtalksdk.net.MsgEncocder
 import com.bird2fish.birdtalksdk.uihelper.AvatarHelper
+import com.bird2fish.birdtalksdk.uihelper.AvatarUploadHelper
 import com.bird2fish.birdtalksdk.uihelper.ImagesHelper
 import com.bird2fish.birdtalksdk.uihelper.TextHelper
 import com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility
@@ -54,7 +56,10 @@ class CreateGroupFragment : DialogFragment() , StatusCallback {
 
     private lateinit var cancelButton :TextView
 
-
+    // 设置头像放辅助工具
+    private lateinit var avatarUpload: AvatarUploadHelper
+    private var photoUri: Uri? = null
+    private var localUploadName : String? = ""
     private var avatarUuid:String = ""
 
     override fun onError(code : InterErrorType, lastAction:String, errType:String, detail:String){
@@ -105,6 +110,27 @@ class CreateGroupFragment : DialogFragment() , StatusCallback {
         createButton.setOnClickListener {
             disableControls()
             createGroup()
+        }
+
+        // 上传头像的控件
+        avatarUpload = AvatarUploadHelper(this)
+        avatarUpload.initHelper(avatarView)
+        // 成功回调（省略参数类型）
+        avatarUpload.onUploadOk = { localUri, localName, uuidName ->
+            this.photoUri = localUri
+            this.localUploadName = localName
+            this.avatarUuid = uuidName
+            // 设置
+        }
+
+        // 失败回调（省略参数类型）
+        avatarUpload.onUploadErr = { localUri, localName, uuidName ->
+            TextHelper.showToast(this.requireContext(), "upload image error")
+
+        }
+
+        avatarView.setOnClickListener{
+            avatarUpload.openGallery()
         }
 
         return root
