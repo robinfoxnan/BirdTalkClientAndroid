@@ -1060,10 +1060,12 @@ public class TopicDbHelper {
                     ret.add(messageData);
                 }
                 // 只有全部成功时，才标记事务成功
-                //if (isAllSuccess)
-                {
-                    db.setTransactionSuccessful();
-                }
+
+            }
+
+            //if (isAllSuccess)
+            {
+                db.setTransactionSuccessful();
             }
         } catch (Exception e) {
             e.printStackTrace();

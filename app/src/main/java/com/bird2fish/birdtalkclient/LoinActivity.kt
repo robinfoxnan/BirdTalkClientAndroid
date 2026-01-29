@@ -65,7 +65,7 @@ class LoinActivity : AppCompatActivity(), StatusCallback {
                 showText("链接异常关闭，准备重链接")
             }
         }else if (eventType == MsgEventType.CONNECTED){
-            showText("服务器重连完毕")
+            //showText("服务器重连完毕")
         }
     }
 
@@ -136,7 +136,13 @@ class LoinActivity : AppCompatActivity(), StatusCallback {
 
         // 设置调佣关系
         GlobalData.loginActivity = this
+        SdkGlobalData.addCallback(this)
 
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        SdkGlobalData.removeCallback(this)
     }
 
     fun SwitchToMain(){

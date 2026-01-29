@@ -27,6 +27,7 @@ import com.bird2fish.birdtalksdk.db.TopicDbHelper
 import com.bird2fish.birdtalksdk.db.UserDbHelper
 import com.bird2fish.birdtalksdk.model.Group
 import com.bird2fish.birdtalksdk.uihelper.AvatarHelper
+import java.lang.reflect.Field
 import java.util.LinkedList
 
 class ChatManagerFragment : Fragment() , StatusCallback {
@@ -50,6 +51,9 @@ class ChatManagerFragment : Fragment() , StatusCallback {
 
         // 初始化 ViewPager2
         this.viewPager = view.findViewById(R.id.chat_pages)
+        this.viewPager.setOnTouchListener { _, _ -> true }
+        // 核心：彻底禁用手动滑动（替代原有单独的 setOnTouchListener）
+        this.viewPager.disableSwipeCompletely()
 
         // 创建并设置适配器
         chatPagerAdapter = ChatPagerAdapter(this)
@@ -65,6 +69,28 @@ class ChatManagerFragment : Fragment() , StatusCallback {
         SdkGlobalData.userCallBackManager.addCallback(this)
         return view
     }
+
+
+    /**
+     * ViewPager2 扩展方法：彻底禁用手动左右滑动（解决内部 RecyclerView 滑动穿透问题）
+     */
+    fun ViewPager2.disableSwipeCompletely() {
+        try {
+            // 反射获取 ViewPager2 内部的 mRecyclerView 字段（核心，底层滑动容器）
+            val field: Field = ViewPager2::class.java.getDeclaredField("mRecyclerView")
+            field.isAccessible = true // 突破私有字段访问限制
+            val recyclerView = field.get(this) as android.view.View
+            // 给内部 RecyclerView 设置触摸监听器，完全拦截滑动手势
+            recyclerView.setOnTouchListener { _, _ -> true }
+        } catch (e: Exception) {
+            // 反射异常不影响核心功能，仅打印日志（兼容不同 ViewPager2 版本）
+            e.printStackTrace()
+        }
+        // 同时保留 ViewPager2 自身的触摸拦截（双重保障）
+        this.setOnTouchListener { _, _ -> true }
+    }
+
+
 
     fun initButtons(){
         buttonSetting.setOnClickListener {

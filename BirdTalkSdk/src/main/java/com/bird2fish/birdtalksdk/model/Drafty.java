@@ -1036,9 +1036,9 @@ public class Drafty implements Serializable {
         if (fmt != null && fmt.length > 0) {
             for (int i = 0; i < fmt.length; i++) {
                 Style style = fmt[i];
-                if (style.getStart() >= pos) {
+                if (style.at >= pos) {
                     // 原有样式的起始位置在插入点之后，位置+1
-                    style.setStart(style.getStart() + 1);
+                    style.setStart(style.at + 1);
                 }
             }
         }
@@ -1802,10 +1802,6 @@ public class Drafty implements Serializable {
         }
 
         // 原有getStart/getLength等方法（确保存在）
-        public int getStart() { return at; }
-        public int getLength() { return len; }
-        public String getType() { return tp; }
-
         // 修正
         boolean isUnstyled() {
             return tp == null || "".equals(tp) || tp.equals("null");

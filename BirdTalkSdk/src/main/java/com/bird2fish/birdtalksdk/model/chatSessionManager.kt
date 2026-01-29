@@ -1119,7 +1119,7 @@ object ChatSessionManager {
         val tempDbList = LinkedList<MessageData>()
         val ret = TopicDbHelper.insertGChatDataBatch(gid, dbMessageList, tempDbList)
         if (!ret){
-            Log.e("Sdk", "batch insert db p2p chatmsg error")
+            Log.e("Sdk", "batch insert db group chatmsg error")
         }
 
         // 这里可能有很多个会话的消息，需要单独的处理

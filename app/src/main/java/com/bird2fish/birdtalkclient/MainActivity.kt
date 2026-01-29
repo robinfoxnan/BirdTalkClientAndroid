@@ -32,15 +32,11 @@ import com.bird2fish.birdtalksdk.uihelper.TextHelper
 enum class AppPageCode {
     HOME,
     CHAT_SESSION,
-    PROFILE,
     LOGIN,
     LOGIN_WITH_CODE,
     CONTACT_SDK,
     CHAT_SDK,
     PROFILE_SDK,
-    //CONTACTS,
-    //TEST,
-    //CHAT,
 }
 
 /*
@@ -74,7 +70,6 @@ class MainActivity : AppCompatActivity() , StatusCallback {
             AppPageCode.CONTACT_SDK -> {fragment =ContactFragment()}
             AppPageCode.CHAT_SESSION -> {fragment =ChatSessionFragment()}
             AppPageCode.CHAT_SDK -> {fragment = ChatManagerFragment()}
-            AppPageCode.PROFILE -> {fragment = FragmentMe()}
             AppPageCode.LOGIN -> {
                 fragment = LoginFragment()
                 fragment.setChangeWithCodeCallback { switchFragment(AppPageCode.LOGIN_WITH_CODE) }

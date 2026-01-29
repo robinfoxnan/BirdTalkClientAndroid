@@ -229,6 +229,12 @@ class WebSocketClient private constructor() {
         return return "$baseUrl/filestore/download?u=$u&sign=$sign"
     }
 
+    // https://127.0.0.1:7817/welcome
+    fun getWelcomeUrl():String{
+        val baseUrl = if (fileServerPath.startsWith("https")) fileServerPath else "https://$fileServerPath"
+        return return "$baseUrl/welcome"
+    }
+
     fun clean() {
         shutdownSock()
         client?.dispatcher?.executorService?.shutdown()

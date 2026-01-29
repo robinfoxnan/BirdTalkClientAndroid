@@ -30,31 +30,28 @@ import com.bird2fish.birdtalksdk.model.MessageContent
 import com.bird2fish.birdtalksdk.model.MessageData
 import com.bird2fish.birdtalksdk.model.MessageInOut
 import com.bird2fish.birdtalksdk.model.MessageStatus
-import com.bird2fish.birdtalksdk.model.Topic
 import com.bird2fish.birdtalksdk.model.User
-import com.bird2fish.birdtalksdk.model.UserStatus
 import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass
 import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass.ChatMsgType
 import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass.ChatMsgType.*
 import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass.ChatType
 import com.bird2fish.birdtalksdk.pbmodel.User.GroupInfo
-import java.io.File
-import java.net.MalformedURLException
-import java.net.URL
-import java.text.DecimalFormat
-import kotlin.math.floor
-import kotlin.math.pow
+import com.fasterxml.jackson.databind.DeserializationFeature
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.i18n.phonenumbers.PhoneNumberUtil
-
+import java.io.File
 import java.io.IOException
 import java.io.InputStream
+import java.net.MalformedURLException
+import java.net.URL
 import java.security.MessageDigest
 import java.security.SecureRandom
-import com.fasterxml.jackson.databind.ObjectMapper;
-
-import java.util.Locale
+import java.text.DecimalFormat
 import java.util.Date
 import java.util.LinkedList
+import java.util.Locale
+import kotlin.math.floor
+import kotlin.math.pow
 
 object  TextHelper {
 
@@ -209,45 +206,52 @@ object  TextHelper {
             sid = tid
         }
 
-
         // 这里一定保证返回一个合法的数据
         val chatSession = ChatSessionManager.getSession(sid)
-        msg = when (chatMsg.msgType) {
-            TEXT -> {
-                val utf8String = chatMsg.data.toString(Charsets.UTF_8)
+        try {
 
-                MessageContent(chatSession, chatMsg.msgId, chatMsg.sendId, MessageStatus.OK, inOut,
-                    chatMsg.sendReply, chatMsg.recvReply, chatMsg.readReply, utf8String, null, chatMsg.msgType)
+            msg = when (chatMsg.msgType) {
+                TEXT -> {
+                    val utf8String = chatMsg.data.toString(Charsets.UTF_8)
+
+                    MessageContent(chatSession, chatMsg.msgId, chatMsg.sendId, MessageStatus.OK, inOut,
+                        chatMsg.sendReply, chatMsg.recvReply, chatMsg.readReply, utf8String, null, chatMsg.msgType)
+                }
+
+                IMAGE -> {
+                    val txt = chatMsg.data.toString(Charsets.UTF_8)
+                    val draft = deserializeDrafty(txt)
+                    Log.d("Image Drafty", txt)
+
+                    MessageContent(chatSession, chatMsg.msgId, chatMsg.sendId, MessageStatus.OK, inOut,
+                        chatMsg.sendReply, chatMsg.recvReply, chatMsg.readReply, "", draft, chatMsg.msgType)
+                }
+
+                VOICE -> {
+                    val txt = chatMsg.data.toString(Charsets.UTF_8)
+                    val draft = deserializeDrafty(txt)
+                    Log.d("Audio Drafty", txt)
+
+                    MessageContent(chatSession, chatMsg.msgId, chatMsg.sendId, MessageStatus.OK, inOut,
+                        chatMsg.sendReply, chatMsg.recvReply, chatMsg.readReply, "", draft, chatMsg.msgType)
+                }
+
+                FILE -> {
+                    val txt = chatMsg.data.toString(Charsets.UTF_8)
+                    val draft = deserializeDrafty(txt)
+                    Log.d("File Drafty", txt)
+
+                    MessageContent(chatSession, chatMsg.msgId, chatMsg.sendId, MessageStatus.OK, inOut,
+                        chatMsg.sendReply, chatMsg.recvReply, chatMsg.readReply, "", draft, chatMsg.msgType)
+                }
+
+                else-> null
             }
-
-            IMAGE -> {
-                val txt = chatMsg.data.toString(Charsets.UTF_8)
-                val draft = deserializeDrafty(txt)
-                Log.d("Image Drafty", txt)
-
-                MessageContent(chatSession, chatMsg.msgId, chatMsg.sendId, MessageStatus.OK, inOut,
-                    chatMsg.sendReply, chatMsg.recvReply, chatMsg.readReply, "", draft, chatMsg.msgType)
-            }
-
-            VOICE -> {
-                val txt = chatMsg.data.toString(Charsets.UTF_8)
-                val draft = deserializeDrafty(txt)
-                Log.d("Audio Drafty", txt)
-
-                MessageContent(chatSession, chatMsg.msgId, chatMsg.sendId, MessageStatus.OK, inOut,
-                    chatMsg.sendReply, chatMsg.recvReply, chatMsg.readReply, "", draft, chatMsg.msgType)
-            }
-
-            FILE -> {
-                val txt = chatMsg.data.toString(Charsets.UTF_8)
-                val draft = deserializeDrafty(txt)
-                Log.d("File Drafty", txt)
-
-                MessageContent(chatSession, chatMsg.msgId, chatMsg.sendId, MessageStatus.OK, inOut,
-                    chatMsg.sendReply, chatMsg.recvReply, chatMsg.readReply, "", draft, chatMsg.msgType)
-            }
-
-            else-> null
+        }catch (e:Exception){
+            e.printStackTrace()
+            Log.e("pbMsg2MessageContent", e.toString())
+            MessageContent(chatSession, chatMsg.msgId, chatMsg.sendId, MessageStatus.OK, inOut,
+                chatMsg.sendReply, chatMsg.recvReply, chatMsg.readReply, "消息损坏，无法解析", null, chatMsg.msgType)
         }
 
         // 群组显示的图标不一样呢
@@ -481,9 +485,14 @@ object  TextHelper {
      * @return 反序列化后的Drafty对象
      * @throws Exception 反序列化过程中可能抛出的异常
      */
+    //{"ent":[{"data":{"duration":4861,"preview":"","ref":"20260129_1gu8z6g5ax4n9","size":12833,"mime":"audio/mp4","name":"20260129_1gu8z6g5ax4n9"},"tp":"AU"}],
+    //"fmt":[{"at":0,"key":0,"len":1,"tp":null,"length":1,"start":0,"type":null}],"txt":" "}
     @Throws(Exception::class)
     fun deserializeDrafty(json: String): Drafty {
         val mapper = ObjectMapper()
+        // 核心配置：忽略反序列化时的所有未知字段（一行代码解决问题）
+        // 某些时候fmt结构中会多了一个字段
+        mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
         return mapper.readValue(json, Drafty::class.java)
     }
 
