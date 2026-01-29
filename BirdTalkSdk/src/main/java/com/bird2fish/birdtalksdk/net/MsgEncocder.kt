@@ -1729,6 +1729,25 @@ class MsgEncocder {
             sendMsg(msg)
         }
 
+        // 正向同步群组消息
+        fun sendSynGChatDataForward(msgId:Long, gid:Long){
+            val timestamp = System.currentTimeMillis()
+            val msgQ = MsgQuery.newBuilder()
+
+            msgQ.userId = SdkGlobalData.selfUserinfo.id   // 私聊这里不区分会话
+            msgQ.groupId = gid
+            msgQ.littleId = msgId
+            msgQ.bigId = Long.MAX_VALUE
+
+            msgQ.synType = SynType.SynTypeForward
+            msgQ.queryType = QueryDataTypeChatData
+            msgQ.chatType = ChatType.ChatTypeGroup
+
+
+            val plainMsg = MsgPlain.newBuilder().setCommonQuery(msgQ)
+            val msg = wrapMsg(plainMsg, timestamp, MsgTQuery)
+            sendMsg(msg)
+        }
 
     }
 }

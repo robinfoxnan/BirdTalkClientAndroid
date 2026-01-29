@@ -817,16 +817,19 @@ object ChatSessionManager {
         var lstTm = 0L
         // 如果是启动登录就加载数据库的历史消息，然后与服务器同步，
         if (!bInit){
-            loadPMessageFormDbOnLogin()
+            loadMessageFormDbOnInit()
             bInit = true
         }
-        // 如果是断开后的链接后登录，直接同步消息
         else{
+            // 如果是断开后的链接后登录，直接从服务器同步消息
             loadP2pMessageFromServerOnLogin()
+            loadAllGroupMessageFromServerOnLogin()
+            val t = getSession(0)
+            loadSystemMesssage(t)
         }
     }
     // 启动时候需要从数据库加载消息
-    fun loadPMessageFormDbOnLogin():Long{
+    fun loadMessageFormDbOnInit():Long{
         val max = Long.MAX_VALUE
         var lastTm = 0L
 
@@ -835,29 +838,32 @@ object ChatSessionManager {
             // 这里的TID 也是有正负之分的
             for (p in sessions){
                 val sid = p.key
-                val t = p.value
+                val chatSession = p.value
                 // 如果不显示的会话，不加载数据，也不显示
-                if (!t.showHide){
+                if (!chatSession.showHide){
                     continue
                 }
-                val chatSession = t
-                Log.d("loadPMessageFormDbOnLogin()", t.toString())
+                Log.d("loadPMessageFormDbOnLogin()", chatSession.toString())
 
-                if (t.type == Topic.CHAT_P2P){
-                    lst = TopicDbHelper.getPChatMessagesById(t.tid, max, SdkGlobalData.LOAD_MSG_BATCH, false)
-                }else if (t.type == Topic.CHAT_GROUP){
-                    lst = TopicDbHelper.getGChatMessagesById(t.tid, max, SdkGlobalData.LOAD_MSG_BATCH, false)
+                if (chatSession.isP2pChat()){
+                    lst = TopicDbHelper.getPChatMessagesById(chatSession.tid, max, SdkGlobalData.LOAD_MSG_BATCH, false)
+                    if (lst != null){
+                        // 将数据库里的数据插入到列表中, 这是反向加载，所以是倒序的
+                        val tm = chatSession.loadMessageOnLogin(lst!!, chatSession)
+                        if (tm > lastTm){
+                            lastTm = tm
+                        }
+                    }
+                }else if (chatSession.isGroupChat()){
+                    //lst = TopicDbHelper.getGChatMessagesById(t.tid, max, SdkGlobalData.LOAD_MSG_BATCH, false)
+                    // 2026-01-29
+                    // 启动后，群聊不优先加载本地的消息，而是从远端加载，这是为了防止客户长时间未登录，群消息空档太多！！！
+                    loadGroupMessageFromServerOnLogin(chatSession)
+                    continue
                 }else{
                     // 加载系统的通知事件
-                    loadSystemMesssage(t)
+                    //loadSystemMesssage(chatSession)
                     continue
-                }
-                if (lst != null){
-                    // 将数据库里的数据插入到列表中, 这是反向加载，所以是倒序的
-                    val tm = chatSession.loadMessageOnLogin(lst!!, t)
-                    if (tm > lastTm){
-                        lastTm = tm
-                    }
                 }
 
             }
@@ -873,7 +879,7 @@ object ChatSessionManager {
 
     // 重链接成功后需要与服务器, 这里是一组消息
     // 重要：如果这里不加1，会返回重复的数据，造成隐藏的会话项重新设置为显示，后续如果清理数据，也至少需要保留一条！！！
-    fun loadP2pMessageFromServerOnLogin(){
+    private fun loadP2pMessageFromServerOnLogin(){
 
         // 找出当前私聊或者群聊中最后一条记录, +1 是为了防止重复
         val maxId = TopicDbHelper.getPChatLastId()
@@ -886,7 +892,42 @@ object ChatSessionManager {
             // 设置fid==0，就是加载所有的数据，默认返回100条
             MsgEncocder.sendSynChatDataBackward(Long.MAX_VALUE, 0, 0)
         }
+    }
 
+    // 从远端服务器开始加载数据
+    private fun loadAllGroupMessageFromServerOnLogin(){
+        synchronized(sessions) {
+            for (p in sessions) {
+                val sid = p.key
+                val t = p.value
+                // 如果不显示的会话，不加载数据，也不显示
+                if (!t.showHide) {
+                    continue
+                }
+                if (t.isGroupChat()){
+                    //lst = TopicDbHelper.getGChatMessagesById(t.tid, max, SdkGlobalData.LOAD_MSG_BATCH, false)
+                    // 2026-01-29
+                    // 启动后，群聊不优先加载本地的消息，而是从远端加载，这是为了防止客户长时间未登录，群消息空档太多！！！
+                    loadGroupMessageFromServerOnLogin(t)
+                    continue
+                }
+            }
+        }
+    }
+    // 群聊数据在登录后，直接优先加载远端的；
+    // 这里使用反向加载方式
+    // 这里需要区分2种方式：1）APP刚启动，这时候反向加载；2）断开重连接，内存有了部分数据，反向加载
+    private fun loadGroupMessageFromServerOnLogin(chatSession:ChatSession){
+        val max = Long.MAX_VALUE
+        val lastContent = chatSession.getLastMessage()
+        if (lastContent != null){
+            // 正向加载
+            val maxId = lastContent.msgId
+            MsgEncocder.sendSynGChatDataForward(maxId + 1, chatSession.tid)
+        }else{
+            // 反向加载
+            MsgEncocder.sendSynChatDataBackward(max, SdkGlobalData.selfUserinfo.id, chatSession.tid)
+        }
     }
 
 
@@ -925,7 +966,7 @@ object ChatSessionManager {
             val fid = data.key
             val userMsgList = data.value
             val chatSession = getSession(fid)
-            chatSession.onPRecvBatchMsg(userMsgList, false)
+            chatSession.onRecvBatchMsg(userMsgList, false, true)
         }
 
         // 通知界面更新消息，已经保存处理完了
@@ -957,7 +998,7 @@ object ChatSessionManager {
             val fid = data.key
             val userMsgList = data.value
             val chatSession = getSession(fid)
-            chatSession.onPRecvBatchMsg(userMsgList, false)
+            chatSession.onRecvBatchMsg(userMsgList, false, true)
         }
 
         // 通知界面更新消息，已经保存处理完了
@@ -1010,7 +1051,7 @@ object ChatSessionManager {
             val fid = data.key
             val userMsgList = data.value
             val chatSession = getSession(fid)
-            chatSession.onPRecvBatchMsg(userMsgList, true)
+            chatSession.onRecvBatchMsg(userMsgList, true, true)
         }
 
 
@@ -1071,13 +1112,52 @@ object ChatSessionManager {
         return ret
     }
 
-    // 群组一直都是反向同步，打开时候，仅仅先同步近期的数据
+    // 群组启动时候反向同步，打开时候，仅仅先同步近期的数据
     fun onQueryGChatDataReplyBackward(gid:Long, littleId:Long, bigId:Long,  lst: List<MsgOuterClass.MsgChat>){
+        // 1）保存到数据库
+        val dbMessageList = pbChatDataList2DBMessageList(lst)
+        val tempDbList = LinkedList<MessageData>()
+        val ret = TopicDbHelper.insertGChatDataBatch(gid, dbMessageList, tempDbList)
+        if (!ret){
+            Log.e("Sdk", "batch insert db p2p chatmsg error")
+        }
 
+        // 这里可能有很多个会话的消息，需要单独的处理
+        val msgList = pbChatDataList2MessageContentList(lst)
+
+        val chatSession = getSession(-gid)
+
+        chatSession.onRecvBatchMsg(msgList, false, false)
+
+
+        // 通知界面更新消息，已经保存处理完了
+        SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(
+            MsgEventType.MSG_HISTORY, 0,
+            0L, -gid, mapOf("msg" to "batch forward") )
     }
 
+    // 断开户重连接，这里就是正向
     fun onQueryGChatDataReplyForward(gid:Long, littleId:Long, bigId:Long,  lst: List<MsgOuterClass.MsgChat>){
-        // 用不到
+        // 1）保存到数据库
+        val dbMessageList = pbChatDataList2DBMessageList(lst)
+        val tempDbList = LinkedList<MessageData>()
+        val ret = TopicDbHelper.insertGChatDataBatch(gid, dbMessageList, tempDbList)
+        if (!ret){
+            Log.e("Sdk", "batch insert db p2p chatmsg error")
+        }
+
+        // 这里可能有很多个会话的消息，需要单独的处理
+        val msgList = pbChatDataList2MessageContentList(lst)
+
+        val chatSession = getSession(-gid)
+
+        chatSession.onRecvBatchMsg(msgList, true, false)
+
+
+        // 通知界面更新消息，已经保存处理完了
+        SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(
+            MsgEventType.MSG_HISTORY, 0,
+            0L, -gid, mapOf("msg" to "batch forward") )
     }
 
     fun onQueryGChatDataReplyBetween(gid:Long, littleId:Long, bigId:Long,  lst: List<MsgOuterClass.MsgChat>){
@@ -1087,12 +1167,35 @@ object ChatSessionManager {
 
     // 页面上下拉控件，触发事件， 加载历史数据
     fun onLoadHistoryMessageOnDrag(session:ChatSession, firstMsg:MessageContent?){
+        // 这里需要同步系统消息, 也就是群申请邀请记录
+        if (session.type == 0){
+
+            return
+        }
+
         if (session.isP2pChat()){
             onLoadP2pHistoryMessageOnDrag(session, firstMsg)
-        }else{
-
+        }else if (session.isGroupChat()){
+            onLoadGroupHistoryMessageOnDrag(session, firstMsg)
         }
     }
+
+    // 页面上下拉控件，触发事件， 加载历史数据
+    fun onLoadGroupHistoryMessageOnDrag(session:ChatSession, firstMsg:MessageContent?){
+        // 反向加载
+        var maxId = Long.MAX_VALUE
+        if (firstMsg != null){
+            maxId = firstMsg.msgId
+        }
+        val lstMsg = session.getLastMessage()
+        if (lstMsg != null){
+            if (lstMsg.msgId < maxId){
+                maxId = lstMsg.msgId
+            }
+        }
+        MsgEncocder.sendSynChatDataBackward(maxId-1, SdkGlobalData.selfUserinfo.id, session.tid)
+    }
+
 
     // 页面上下拉控件，触发事件， 加载历史数据:  {私聊的数据，先尝试本地加载，这里是从向前边的历史数据开始加载}
     fun onLoadP2pHistoryMessageOnDrag(session:ChatSession, firstMsg:MessageContent?){

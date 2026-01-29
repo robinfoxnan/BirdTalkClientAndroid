@@ -417,7 +417,7 @@ class ChatSession(
     }
 
     // 批量请求收到的的消息,是来自好友的消息
-    fun onPRecvBatchMsg(messageLst: List<MessageContent>, isForward:Boolean){
+    fun onRecvBatchMsg(messageLst: List<MessageContent>, isForward:Boolean, isP2p:Boolean){
         synchronized(msgList){
             for (msg in messageLst){
                 if (isForward){
@@ -442,11 +442,14 @@ class ChatSession(
             }
         }
 
-        synchronized(msgUnReadList){
-            for (msg in messageLst){
-                msgUnReadList[msg.msgId] = msg
+        if (isP2p)
+        {
+            synchronized(msgUnReadList){
+                for (msg in messageLst){
+                    msgUnReadList[msg.msgId] = msg
+                }
+                this.unReadCount = msgUnReadList.size.toLong()
             }
-            this.unReadCount = msgUnReadList.size.toLong()
         }
 
         // 聊天会话的列表中更新
