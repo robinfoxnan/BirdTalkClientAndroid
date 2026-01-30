@@ -118,6 +118,7 @@
     <string name="msg_video">视频</string>
 
     <string name="share_to">分享至</string>
+    <string name="share_friends">选择好友</string>
     <string name="hide">隐藏</string>
     <string name="delete">移除</string>
 
@@ -145,9 +146,17 @@
     <string name="group_join_question_hint">填写一个问题</string>
     <string name="group_join_answer">入群验证答案</string>
     <string name="group_join_answer_hint">输入正确答案</string>
-    <string name="group_setting">群设置</string>
+    <string name="group_setting">群的属性</string>
     <string name="manage_members">群成员</string>
     <string name="manage_admins">群成员管理</string>
+    <string name="add_admins">添加管理员</string>
+    <string name="group_invite">邀请入群</string>
+    <string name="group_quit">退出群聊</string>
+    <string name="group_dissolve">解散群</string>
+    <string name="group_transfer">转让群主</string>
+    <string name="group_history">人员记录</string>
+
+
     <string name="group_create_fail">群组创建失败</string>
     <string name="group_create_success">群组创建完成</string>
     <string name="group_update_fail">更新群组信息失败</string>
@@ -161,6 +170,8 @@
     <string name="sys_notice">【系统通知】</string>
     <string name="group_prefix">【群】</string>
     <string name="me">【我】</string>
+    <string name="user_join_group_hint">用户 %s 加入了群</string>
+    <string name="user_join_group_hint2"> %s 邀请 %s 加入群</string>
 
 
 </resources>

@@ -42,6 +42,10 @@ class ChatSession(
     private var friend: User? = null
     private var group: Group? = null
     private var sysFriend: User? = null
+
+    fun getGroup():Group?{
+        return this.group
+    }
     override var title: String
         get(){
             if (type == Topic.CHAT_P2P){
@@ -531,9 +535,12 @@ class ChatSession(
             msgListMask[message.msgId] = message
         }
 
-        synchronized(msgUnReadList){
-            msgUnReadList[message.msgId] = message
+        if (this.isP2pChat()){
+            synchronized(msgUnReadList){
+                msgUnReadList[message.msgId] = message
+            }
         }
+
         this.lastMsg = message
     }
 

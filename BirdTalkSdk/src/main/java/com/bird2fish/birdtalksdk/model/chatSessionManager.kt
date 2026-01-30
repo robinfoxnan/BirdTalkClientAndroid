@@ -1292,6 +1292,24 @@ object ChatSessionManager {
         }
     }
 
+
+    // 添加一条入群的提示
+    private fun addJoinGroupMessage(chatSession:ChatSession,  member:User, sendId: Long, msgId: Long){
+
+        val hint = SdkGlobalData.context!!.getString(R.string.user_join_group_hint, member.nick)
+        val content = MessageContent(chatSession, msgId, sendId, MessageStatus.OK, true, System.currentTimeMillis(),
+            0, 0, hint, null, ChatMsgType.TEXT)
+        content.userId = member.id
+        content.nick = member.nick
+        content.iconUrl = member.icon
+
+        chatSession.addMessageToTail(content)
+
+        SdkGlobalData.invokeOnEventCallbacks(
+            MsgEventType.MSG_COMING, 0, msgId, member.id,
+            mapOf("group" to member.nick))
+    }
+
     // 收到有人加入的应答
     fun onJoinAnswer(result:String, detail:String, sendId: Long, msgId: Long, group:Group, members:List<User>){
         for (m in members){
@@ -1301,7 +1319,9 @@ object ChatSessionManager {
                     GroupCache.updateGroup(group, true)
 
                     // 确保会话中有
-                    this.getSession(group)
+                    val chatSession = this.getSession(group)
+                    // 添加一条入群的提示
+                    addJoinGroupMessage(chatSession, m, sendId, msgId)
 
                     // 通知创建成功
                     SdkGlobalData.invokeOnEventCallbacks(

@@ -25,8 +25,12 @@ import com.bird2fish.birdtalksdk.StatusCallback
 import com.bird2fish.birdtalksdk.db.GroupDbHelper
 import com.bird2fish.birdtalksdk.db.TopicDbHelper
 import com.bird2fish.birdtalksdk.db.UserDbHelper
+import com.bird2fish.birdtalksdk.model.ChatSessionManager
 import com.bird2fish.birdtalksdk.model.Group
+import com.bird2fish.birdtalksdk.model.User
+import com.bird2fish.birdtalksdk.net.MsgEncocder
 import com.bird2fish.birdtalksdk.uihelper.AvatarHelper
+import com.bird2fish.birdtalksdk.uihelper.TextHelper
 import java.lang.reflect.Field
 import java.util.LinkedList
 
@@ -103,10 +107,17 @@ class ChatManagerFragment : Fragment() , StatusCallback {
             val speakerItem = popupMenu.menu.findItem(R.id.menu_speaker_play)
             val headphoneItem = popupMenu.menu.findItem(R.id.menu_headphone_play)
             val groupSettingItem = popupMenu.menu.findItem(R.id.menu_setting_group)
+            var groupAddAdminItem = popupMenu.menu.findItem(R.id.menu_add_group_admin)
+            var groupQuitItem = popupMenu.menu.findItem(R.id.menu_group_quit)
+            var groupInviteItem = popupMenu.menu.findItem(R.id.menu_group_invite)
+            var groupDissolveItem = popupMenu.menu.findItem(R.id.menu_group_dissolve)
+            var groupTransferItem = popupMenu.menu.findItem(R.id.menu_group_transfer)
+            var groupHistoryItem = popupMenu.menu.findItem(R.id.menu_group_history)
 
             // 比如：当前是扬声器模式，就隐藏“扬声器播放”项，显示“耳机播放”项
             speakerItem.setVisible(!SdkGlobalData.useLoudSpeaker)
             headphoneItem.setVisible(SdkGlobalData.useLoudSpeaker)
+
 
             // 3. 设置菜单选项的点击监听
             popupMenu.setOnMenuItemClickListener { menuItem ->
@@ -126,19 +137,69 @@ class ChatManagerFragment : Fragment() , StatusCallback {
                         openGroupSetting()
                         true
                     }
+                    R.id.menu_group_invite ->{
+                        // 邀请自己的好友入群
+                        inviteFriends()
+                        true
+                    }
                     else -> false
                 }
             }
 
             // 4. 群设置按钮
             if ( SdkGlobalData.currentChatSession != null){
-                if (SdkGlobalData.currentChatSession!!. isGroupChat()){
+                if (SdkGlobalData.currentChatSession!!.isGroupChat()){
+
+
+                    val group = SdkGlobalData.currentChatSession!!.getGroup()
+                    if (group != null)
+                    {
+                        if (group.isOwner(SdkGlobalData.selfUserinfo.id)){
+                            groupTransferItem.setVisible(true)
+                            groupDissolveItem.setVisible(true)
+                        }else{
+                            groupTransferItem.setVisible(false)
+                            groupDissolveItem.setVisible(false)
+                        }
+
+                        if ( group!!.isAdmin(SdkGlobalData.selfUserinfo.id)){
+                            groupAddAdminItem.setVisible(true)
+                            groupInviteItem.setVisible(true)
+                        }else{
+                            groupAddAdminItem.setVisible(false)
+
+                            // 私有群只有管理员可以邀请，公开群都可以邀请
+                            if (group!!.visibleType == "public"){
+                                groupInviteItem.setVisible(true)
+                            }else{
+                                groupInviteItem.setVisible(false)
+                            }
+                        }
+                    }
+
+                    // 群成员都饭可以访问的
                     groupSettingItem.setVisible(true)
+                    groupQuitItem.setVisible(true)
+                    groupHistoryItem.setVisible(true)
+
                 }else{
+                    // 如果不是群，则禁用相关的菜单
                     groupSettingItem.setVisible(false)
+                    groupAddAdminItem.setVisible(false)
+                    groupQuitItem.setVisible(false)
+                    groupInviteItem.setVisible(false)
+                    groupDissolveItem.setVisible(false)
+                    groupTransferItem.setVisible(false)
+                    groupHistoryItem.setVisible(false)
                 }
             }else{
                 groupSettingItem.setVisible(false)
+                groupAddAdminItem.setVisible(false)
+                groupQuitItem.setVisible(false)
+                groupInviteItem.setVisible(false)
+                groupDissolveItem.setVisible(false)
+                groupTransferItem.setVisible(false)
+                groupHistoryItem.setVisible(false)
             }
 
 
@@ -188,6 +249,15 @@ class ChatManagerFragment : Fragment() , StatusCallback {
         page.show(parentFragmentManager, "GroupSettingDialog")
     }
 
+    // 邀请好友入群
+    fun inviteFriends(){
+        val gid = SdkGlobalData.currentChatSession!!.tid
+        val fDialog = FriendSelectDialog.newInstance(gid, "groupMember")
+        fDialog.setOnFriendSelectedListener(::onFriendSelectedExternal)
+
+        fDialog.show(parentFragmentManager, "GroupSettingDialog")
+    }
+
     // 切换到扬声器播放模式
     fun switchToSpeakerPlayback(){
         SdkGlobalData.useLoudSpeaker = true
@@ -211,6 +281,50 @@ class ChatManagerFragment : Fragment() , StatusCallback {
             mode = AudioManager.MODE_IN_COMMUNICATION
         }
     }
+
+    // 1. 定义独立的外部函数（符合监听的函数类型要求）
+    fun onFriendSelectedExternal(selectedFriends: List<ListItem>) {
+
+        // 这里编写「好友选择完成」的业务逻辑，示例为打印选中结果
+        if (selectedFriends.isEmpty()) {
+            TextHelper.showToast(requireContext(), "没有选择好友")
+        } else {
+            val sb = StringBuilder()
+            val lst = LinkedList<User>()
+            for (item in selectedFriends){
+                when(item){
+                    is ListItem.GroupItem -> {}
+                    is ListItem.RecentContacts -> {}
+                    is ListItem.Separator -> {}
+                    is ListItem.FriendItem -> {
+                        if (item.checked){
+                            sb.append(item.user.nick)
+                            sb.append(", ")
+                            lst.add(item.user)
+                        }
+                    }
+                }
+            }
+            //TextHelper.showToast(requireContext(), sb.toString())
+            if ( SdkGlobalData.currentChatSession != null) {
+                if (SdkGlobalData.currentChatSession!!.isGroupChat()) {
+                    val group = SdkGlobalData.currentChatSession!!.getGroup()
+
+                    if (group != null){
+                        MsgEncocder.sendGroupInvite(group,lst)
+                        // 用这个用户的名义发送一个消息，
+                        val txt = getString(R.string.user_join_group_hint2, SdkGlobalData.selfUserinfo.nick, sb.toString())
+                        ChatSessionManager.sendTextMessageOut(SdkGlobalData.currentChatSession!!, txt, 0L)
+                    }
+                }
+            }
+
+        }
+
+        //
+    }
+
+
 
 //    fun checkShowButtons(){
 //        // 1. 正确获取ViewPager的页面数量（适配标准ViewPager）

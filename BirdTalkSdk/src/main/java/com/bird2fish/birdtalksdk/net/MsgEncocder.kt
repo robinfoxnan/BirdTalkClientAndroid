@@ -17,6 +17,7 @@ import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass.ErrorMsgType.UNRECOGNIZED
 import com.bird2fish.birdtalksdk.pbmodel.MsgOuterClass.QueryDataType.*
 import com.bird2fish.birdtalksdk.pbmodel.User.FriendOpReq
 import com.bird2fish.birdtalksdk.pbmodel.User.GroupInfo
+import com.bird2fish.birdtalksdk.pbmodel.User.GroupMemberOrBuilder
 import com.bird2fish.birdtalksdk.pbmodel.User.GroupOpReq
 import com.bird2fish.birdtalksdk.pbmodel.User.GroupOperationType.*
 import com.bird2fish.birdtalksdk.pbmodel.User.UserInfo
@@ -1555,11 +1556,40 @@ class MsgEncocder {
                 gInfo.putParams("joinanswer", answer)
             }
 
-            val opReq = User.GroupOpReq.newBuilder()
+            val opReq = GroupOpReq.newBuilder()
             opReq.setOperation(GroupJoinRequest);
             opReq.setGroup(gInfo)
             val sendId = SdkGlobalData.nextId()
             opReq.setSendId(sendId).setMsgId(sendId)
+
+            val plainMsg = MsgPlain.newBuilder().setGroupOp(opReq)
+            val msg = wrapMsg(plainMsg, timestamp, MsgTGroupOp)
+            sendMsg(msg)
+        }
+
+        // 发送邀请，直接拖入群里
+        fun sendGroupInvite(group: Group, users:List<com.bird2fish.birdtalksdk.model.User>){
+            val timestamp = System.currentTimeMillis()
+
+            val gInfo = GroupInfo.newBuilder()
+                .setGroupId(group.gid)
+
+            val opReq = GroupOpReq.newBuilder()
+            opReq.setOperation(GroupInviteRequest);
+            opReq.setGroup(gInfo)
+            val sendId = SdkGlobalData.nextId()
+            opReq.setSendId(sendId).setMsgId(sendId)
+
+            for (u in users){
+                val inviteMember1 = User.GroupMember.newBuilder()
+                    .setUserId(u.id) // 被邀请人1的ID
+                    .setNick(u.nick)
+                    .setIcon(u.icon)
+                    .setRole("u") // 被邀请人默认角色
+                    .setGroupId(group.gid)
+                    .build()
+                opReq.addMembers(inviteMember1)
+            }
 
             val plainMsg = MsgPlain.newBuilder().setGroupOp(opReq)
             val msg = wrapMsg(plainMsg, timestamp, MsgTGroupOp)

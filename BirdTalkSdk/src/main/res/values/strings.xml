@@ -123,6 +123,7 @@
     <string name="msg_video">video</string>
 
     <string name="share_to">share to </string>
+    <string name="share_friends">select friends </string>
     <string name="hide">hide</string>
     <string name="delete">remove</string>
 
@@ -153,6 +154,12 @@
     <string name="group_setting">setting group</string>
     <string name="manage_members">manager members</string>
     <string name="manage_admins">manager admins</string>
+    <string name="add_admins">add admins</string>
+    <string name="group_invite">invite</string>
+    <string name="group_quit">quit</string>
+    <string name="group_dissolve">dissolve</string>
+    <string name="group_transfer">transfer owner</string>
+    <string name="group_history">group history</string>
 
     <string name="group_create_fail">group create fail</string>
     <string name="group_create_success">group create success</string>
@@ -167,6 +174,8 @@
     <string name="sys_notice">[System]</string>
     <string name="group_prefix">[G]</string>
     <string name="me">[Me]</string>
+    <string name="user_join_group_hint">user %s join group</string>
+    <string name="user_join_group_hint2"> %s invite %s into group chat</string>
 
 
 </resources>

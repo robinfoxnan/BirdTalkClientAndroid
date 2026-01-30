@@ -12,7 +12,31 @@
         android:title="@string/menu_item_headmic"/>
 
     <item
+        android:id="@+id/menu_group_invite"
+        android:title="@string/group_invite"/>
+
+    <item
         android:id="@+id/menu_setting_group"
-        android:icon="@drawable/ic_headphone_play"
         android:title="@string/group_setting"/>
+
+    <item
+        android:id="@+id/menu_group_history"
+        android:title="@string/group_history"/>
+
+    <item
+        android:id="@+id/menu_group_quit"
+        android:title="@string/group_quit"/>
+
+    <item
+        android:id="@+id/menu_add_group_admin"
+        android:title="@string/add_admins"/>
+
+    <item
+        android:id="@+id/menu_group_transfer"
+        android:title="@string/group_transfer"/>
+
+    <item
+        android:id="@+id/menu_group_dissolve"
+        android:title="@string/group_dissolve"/>
+
 </menu>
