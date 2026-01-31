@@ -113,6 +113,7 @@ class ChatManagerFragment : Fragment() , StatusCallback {
             var groupDissolveItem = popupMenu.menu.findItem(R.id.menu_group_dissolve)
             var groupTransferItem = popupMenu.menu.findItem(R.id.menu_group_transfer)
             var groupHistoryItem = popupMenu.menu.findItem(R.id.menu_group_history)
+            var groupKick = popupMenu.menu.findItem(R.id.menu_group_kick)
 
             // 比如：当前是扬声器模式，就隐藏“扬声器播放”项，显示“耳机播放”项
             speakerItem.setVisible(!SdkGlobalData.useLoudSpeaker)
@@ -142,6 +143,16 @@ class ChatManagerFragment : Fragment() , StatusCallback {
                         inviteFriends()
                         true
                     }
+                    R.id.menu_group_kick ->{
+                        // 从群内踢一个人
+                        kickGroupMembers()
+                        true
+                    }
+                    R.id.menu_add_group_admin->{
+                        // 添加管理员
+                        addGroupAdmins()
+                        true
+                    }
                     else -> false
                 }
             }
@@ -154,20 +165,25 @@ class ChatManagerFragment : Fragment() , StatusCallback {
                     val group = SdkGlobalData.currentChatSession!!.getGroup()
                     if (group != null)
                     {
+                        // 群主的权限：解散，禅让，不能退群
                         if (group.isOwner(SdkGlobalData.selfUserinfo.id)){
                             groupTransferItem.setVisible(true)
                             groupDissolveItem.setVisible(true)
+                            groupQuitItem.setVisible(false)  // 群主不能退
                         }else{
                             groupTransferItem.setVisible(false)
                             groupDissolveItem.setVisible(false)
+                            groupQuitItem.setVisible(true)
                         }
 
+                        // 管理员可以添加管理员
                         if ( group!!.isAdmin(SdkGlobalData.selfUserinfo.id)){
                             groupAddAdminItem.setVisible(true)
                             groupInviteItem.setVisible(true)
+                            groupKick.setVisible(true)
                         }else{
                             groupAddAdminItem.setVisible(false)
-
+                            groupKick.setVisible(false)
                             // 私有群只有管理员可以邀请，公开群都可以邀请
                             if (group!!.visibleType == "public"){
                                 groupInviteItem.setVisible(true)
@@ -175,11 +191,14 @@ class ChatManagerFragment : Fragment() , StatusCallback {
                                 groupInviteItem.setVisible(false)
                             }
                         }
+
+
+
                     }
 
                     // 群成员都饭可以访问的
                     groupSettingItem.setVisible(true)
-                    groupQuitItem.setVisible(true)
+
                     groupHistoryItem.setVisible(true)
 
                 }else{
@@ -252,10 +271,47 @@ class ChatManagerFragment : Fragment() , StatusCallback {
     // 邀请好友入群
     fun inviteFriends(){
         val gid = SdkGlobalData.currentChatSession!!.tid
-        val fDialog = FriendSelectDialog.newInstance(gid, "groupMember")
+        val fDialog = FriendSelectDialog.newInstance(gid, "addGroupMember")
         fDialog.setOnFriendSelectedListener(::onFriendSelectedExternal)
 
         fDialog.show(parentFragmentManager, "GroupSettingDialog")
+    }
+
+    // 踢人
+    fun kickGroupMembers(){
+        val gid = SdkGlobalData.currentChatSession!!.tid
+        val fDialog = FriendSelectDialog.newInstance(gid, "kick")
+        fDialog.setOnFriendSelectedListener(::onKickSelectedExternal)
+
+        fDialog.show(parentFragmentManager, "GroupSettingDialog")
+    }
+
+    // 选择群成员
+    fun addGroupAdmins(){
+        val gid = SdkGlobalData.currentChatSession!!.tid
+        val fDialog = FriendSelectDialog.newInstance(gid, "addAdmin")
+        fDialog.setOnFriendSelectedListener(::onAdminsSelectedExternal)
+
+        fDialog.show(parentFragmentManager, "GroupSettingDialog")
+    }
+
+    // 转让群主
+    fun transferOwner(){
+        val gid = SdkGlobalData.currentChatSession!!.tid
+        val fDialog = FriendSelectDialog.newInstance(gid, "transfer")
+        //fDialog.setOnFriendSelectedListener(::onFriendSelectedExternal)
+
+        fDialog.show(parentFragmentManager, "GroupSettingDialog")
+    }
+
+    // 解散群
+    fun dissolveGroup(){
+
+    }
+
+    // 查看成员进出群历史记录，以及申请入群的操作
+    fun showGroupMemberHistory(){
+
     }
 
     // 切换到扬声器播放模式
@@ -313,16 +369,94 @@ class ChatManagerFragment : Fragment() , StatusCallback {
                     if (group != null){
                         MsgEncocder.sendGroupInvite(group,lst)
                         // 用这个用户的名义发送一个消息，
-                        val txt = getString(R.string.user_join_group_hint2, SdkGlobalData.selfUserinfo.nick, sb.toString())
+                        val txt = getString(R.string.user_invite_group_hint2, SdkGlobalData.selfUserinfo.nick, sb.toString())
                         ChatSessionManager.sendTextMessageOut(SdkGlobalData.currentChatSession!!, txt, 0L)
                     }
                 }
             }
 
         }
+    }//end add group member
 
-        //
-    }
+    // 踢人的选项已经浏览完毕
+    fun onKickSelectedExternal(selectedFriends: List<ListItem>) {
+
+        // 这里编写「好友选择完成」的业务逻辑，示例为打印选中结果
+        if (selectedFriends.isEmpty()) {
+            TextHelper.showToast(requireContext(), "没有选择群成员")
+        } else {
+            val sb = StringBuilder()
+            val lst = LinkedList<User>()
+            for (item in selectedFriends){
+                when(item){
+                    is ListItem.GroupItem -> {}
+                    is ListItem.RecentContacts -> {}
+                    is ListItem.Separator -> {}
+                    is ListItem.FriendItem -> {
+                        if (item.checked){
+                            sb.append(item.user.nick)
+                            sb.append(", ")
+                            lst.add(item.user)
+                        }
+                    }
+                }
+            }
+            //TextHelper.showToast(requireContext(), sb.toString())
+            if ( SdkGlobalData.currentChatSession != null) {
+                if (SdkGlobalData.currentChatSession!!.isGroupChat()) {
+                    val group = SdkGlobalData.currentChatSession!!.getGroup()
+
+                    if (group != null){
+                        MsgEncocder.sendGroupKick(group,lst)
+                        // 用这个用户的名义发送一个消息，
+                        val txt = getString(R.string.user_kick_group_hint2, SdkGlobalData.selfUserinfo.nick, sb.toString())
+                        ChatSessionManager.sendTextMessageOut(SdkGlobalData.currentChatSession!!, txt, 0L)
+                    }
+                }
+            }
+
+        }
+    }// end kick
+
+    // 浏览并选择需要添加为管理员的人
+    fun onAdminsSelectedExternal(selectedFriends: List<ListItem>) {
+
+        // 这里编写「好友选择完成」的业务逻辑，示例为打印选中结果
+        if (selectedFriends.isEmpty()) {
+            TextHelper.showToast(requireContext(), "没有选择群成员")
+        } else {
+            val sb = StringBuilder()
+            val lst = LinkedList<User>()
+            for (item in selectedFriends){
+                when(item){
+                    is ListItem.GroupItem -> {}
+                    is ListItem.RecentContacts -> {}
+                    is ListItem.Separator -> {}
+                    is ListItem.FriendItem -> {
+                        if (item.checked){
+                            sb.append(item.user.nick)
+                            sb.append(", ")
+                            lst.add(item.user)
+                        }
+                    }
+                }
+            }
+            //TextHelper.showToast(requireContext(), sb.toString())
+            if ( SdkGlobalData.currentChatSession != null) {
+                if (SdkGlobalData.currentChatSession!!.isGroupChat()) {
+                    val group = SdkGlobalData.currentChatSession!!.getGroup()
+
+                    if (group != null){
+                        MsgEncocder.sendGroupAddAdmins(group,lst)
+                        // 用这个用户的名义发送一个消息，
+                        val txt = getString(R.string.user_set_admins_group_hint2, SdkGlobalData.selfUserinfo.nick, sb.toString())
+                        ChatSessionManager.sendTextMessageOut(SdkGlobalData.currentChatSession!!, txt, 0L)
+                    }
+                }
+            }
+
+        }
+    }// end add admins
 
 
 

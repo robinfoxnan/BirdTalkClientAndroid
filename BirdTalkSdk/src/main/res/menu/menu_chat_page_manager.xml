@@ -16,6 +16,10 @@
         android:title="@string/group_invite"/>
 
     <item
+        android:id="@+id/menu_group_kick"
+        android:title="@string/group_kick"/>
+
+    <item
         android:id="@+id/menu_setting_group"
         android:title="@string/group_setting"/>
 

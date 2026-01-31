@@ -146,15 +146,19 @@
     <string name="group_join_question_hint">填写一个问题</string>
     <string name="group_join_answer">入群验证答案</string>
     <string name="group_join_answer_hint">输入正确答案</string>
-    <string name="group_setting">群的属性</string>
-    <string name="manage_members">群成员</string>
-    <string name="manage_admins">群成员管理</string>
+    <string name="group_setting">群属性</string>
+    <string name="group_kick">踢人</string>
+    <string name="group_members">所有成员</string>
+    <string name="group_admins">管理员</string>
+    <string name="group_owner">群主</string>
     <string name="add_admins">添加管理员</string>
     <string name="group_invite">邀请入群</string>
     <string name="group_quit">退出群聊</string>
     <string name="group_dissolve">解散群</string>
     <string name="group_transfer">转让群主</string>
     <string name="group_history">人员记录</string>
+    <string name="group_member">组成员</string>
+    <string name="friends">好友</string>
 
 
     <string name="group_create_fail">群组创建失败</string>
@@ -171,7 +175,12 @@
     <string name="group_prefix">【群】</string>
     <string name="me">【我】</string>
     <string name="user_join_group_hint">用户 %s 加入了群</string>
-    <string name="user_join_group_hint2"> %s 邀请 %s 加入群</string>
+    <string name="user_invite_group_hint2"> %s 邀请 %s 加入群</string>
+    <string name="user_kick_group_hint2"> %s 将 %s 移出群聊</string>
+    <string name="user_transfer_group_hint2"> %s 转让群主给 %s</string>
+    <string name="user_set_admins_group_hint2"> %s 设置 %s 为管理员</string>
+    <string name="user_remove_admins_group_hint2"> %s 移除 %s 管理员权限</string>
+    <string name="user_dissolve_group_hint"> %s 解散群</string>
 
 
 </resources>

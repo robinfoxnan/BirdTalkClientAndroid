@@ -176,13 +176,13 @@ class MsgEncocder {
                 GroupCreate -> onGroupCreateReply(reply)
                 GroupDissolve -> doNothing()
                 GroupSetInfo -> onGroupSetInfoRet(reply)
-                GroupKickMember -> doNothing()
+                GroupKickMember -> onGroupKickMember(reply)
                 GroupInviteRequest -> doNothing()
                 GroupInviteAnswer -> doNothing()
                 GroupJoinRequest -> doNothing()
                 GroupJoinAnswer -> onJoinAnswer(reply)
                 GroupQuit -> doNothing()
-                GroupAddAdmin -> doNothing()
+                GroupAddAdmin -> onAddAdmins(reply)
                 GroupDelAdmin -> doNothing()
                 GroupTransferOwner -> doNothing()
                 GroupSetMemberInfo -> doNothing()
@@ -278,6 +278,37 @@ class MsgEncocder {
             val userList = TextHelper.groupMembers2Users(reply.membersList)
 
             ChatSessionManager.onJoinAnswer(result, detail, sendId, msgId, group, userList)
+        }
+
+        // 添加管理后返回的结果
+        private fun onAddAdmins(reply: User.GroupOpResult){
+            val result = reply.result
+            val detail = reply.detail
+            val sendId = reply.sendId
+            val msgId = reply.msgId
+            val group = TextHelper.groupInfo2Group(reply.group)
+            val userList = TextHelper.groupMembers2Users(reply.membersList)
+
+            if (result == "ok"){
+                val gInCache = GroupCache.findGroupSync(group.gid)
+                for (m in userList){
+                    gInCache.addAdmin(m)
+                }
+            }
+        }
+
+        // 踢人返回后的应答，这里需要从群中删除对应的用户
+        private fun onGroupKickMember(reply: User.GroupOpResult){
+            val result = reply.result
+            val detail = reply.detail
+            val sendId = reply.sendId
+            val msgId = reply.msgId
+            val group = TextHelper.groupInfo2Group(reply.group)
+            val userList = TextHelper.groupMembers2Users(reply.membersList)
+            if (result == "ok"){
+                val gInCache = GroupCache.findGroupSync(group.gid)
+                gInCache.removeUsers(userList)
+            }
         }
 
         // 查询消息等返回的结果
@@ -1576,6 +1607,64 @@ class MsgEncocder {
 
             val opReq = GroupOpReq.newBuilder()
             opReq.setOperation(GroupInviteRequest);
+            opReq.setGroup(gInfo)
+            val sendId = SdkGlobalData.nextId()
+            opReq.setSendId(sendId).setMsgId(sendId)
+
+            for (u in users){
+                val inviteMember1 = User.GroupMember.newBuilder()
+                    .setUserId(u.id) // 被邀请人1的ID
+                    .setNick(u.nick)
+                    .setIcon(u.icon)
+                    .setRole("u") // 被邀请人默认角色
+                    .setGroupId(group.gid)
+                    .build()
+                opReq.addMembers(inviteMember1)
+            }
+
+            val plainMsg = MsgPlain.newBuilder().setGroupOp(opReq)
+            val msg = wrapMsg(plainMsg, timestamp, MsgTGroupOp)
+            sendMsg(msg)
+        }
+
+        // 发送命令，踢人
+        fun sendGroupKick(group: Group, users:List<com.bird2fish.birdtalksdk.model.User>){
+            val timestamp = System.currentTimeMillis()
+
+            val gInfo = GroupInfo.newBuilder()
+                .setGroupId(group.gid)
+
+            val opReq = GroupOpReq.newBuilder()
+            opReq.setOperation(GroupKickMember)
+            opReq.setGroup(gInfo)
+            val sendId = SdkGlobalData.nextId()
+            opReq.setSendId(sendId).setMsgId(sendId)
+
+            for (u in users){
+                val inviteMember1 = User.GroupMember.newBuilder()
+                    .setUserId(u.id) // 被邀请人1的ID
+                    .setNick(u.nick)
+                    .setIcon(u.icon)
+                    .setRole("u") // 被邀请人默认角色
+                    .setGroupId(group.gid)
+                    .build()
+                opReq.addMembers(inviteMember1)
+            }
+
+            val plainMsg = MsgPlain.newBuilder().setGroupOp(opReq)
+            val msg = wrapMsg(plainMsg, timestamp, MsgTGroupOp)
+            sendMsg(msg)
+        }
+
+        // 发送命令，设置群成员为管理员
+        fun sendGroupAddAdmins(group: Group, users:List<com.bird2fish.birdtalksdk.model.User>){
+            val timestamp = System.currentTimeMillis()
+
+            val gInfo = GroupInfo.newBuilder()
+                .setGroupId(group.gid)
+
+            val opReq = GroupOpReq.newBuilder()
+            opReq.setOperation(GroupAddAdmin)
             opReq.setGroup(gInfo)
             val sendId = SdkGlobalData.nextId()
             opReq.setSendId(sendId).setMsgId(sendId)

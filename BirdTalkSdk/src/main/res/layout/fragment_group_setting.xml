@@ -45,7 +45,7 @@
             app:layout_constraintStart_toStartOf="@id/ivAvatar"
             app:layout_constraintEnd_toEndOf="@id/ivAvatar"/>
 
-        <!-- 群成员 & 管理 -->
+        <!-- 群主， 群成员 ， 管理员 -->
         <LinearLayout
             android:id="@+id/layoutMemberManage"
             android:layout_width="0dp"
@@ -68,7 +68,60 @@
                 android:paddingTop="1dp"
                 android:paddingBottom="1dp">
 
-                <!-- 标题行：文字 + 右侧箭头 -->
+                <!-- 群主行：文字  -->
+                <LinearLayout
+                    android:id="@+id/llOwnerHeader"
+                    android:layout_width="match_parent"
+                    android:layout_height="24dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:paddingStart="4dp"
+                    android:paddingEnd="4dp">
+
+                    <TextView
+                        android:id="@+id/tvOwner"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+
+                        android:text="@string/group_owner"
+                        android:textSize="15sp"
+                        android:textColor="#333333"/>
+
+                    <TextView
+                        android:id="@+id/tvOwnerNick"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:paddingStart="10dp"
+                        android:layout_weight="1"
+                        android:text="@string/group_owner"
+                        android:textSize="15sp"
+                        android:textColor="#333333"/>
+
+                </LinearLayout>
+                <LinearLayout android:id="@+id/llOwnerDetail"
+                    android:layout_width="match_parent"
+                    android:layout_height="50dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:paddingStart="4dp"
+                    android:paddingEnd="4dp">
+
+                    <ImageView
+                        android:id="@+id/ivOwnerIcon"
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:contentDescription="expand"
+                        android:src="@drawable/widget_avatar_2" />
+
+
+
+                </LinearLayout>
+
+                <!-- 群成员：文字 + 右侧箭头 -->
                 <LinearLayout
                     android:id="@+id/llMembersHeader"
                     android:layout_width="match_parent"
@@ -85,7 +138,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="@string/manage_members"
+                        android:text="@string/group_members"
                         android:textSize="15sp"
                         android:textColor="#333333"/>
 
@@ -144,7 +197,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="@string/manage_admins"
+                        android:text="@string/group_admins"
                         android:textSize="15sp"
                         android:textColor="#333333"/>
 

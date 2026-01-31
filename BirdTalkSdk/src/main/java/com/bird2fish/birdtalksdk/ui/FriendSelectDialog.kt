@@ -42,7 +42,7 @@ class FriendSelectDialog :  DialogFragment() {
     private lateinit var btnOk :TextView
     private lateinit var adapter:FriendSelectAdapter
 
-    private var mode = "friend"    // "friend" | "mix" | "groupMember"
+    private var mode = "friend"    // "friend" | "mix" | "addGroupMember" | "kick" | "transfer" | "addAdmin"
     // 数据列表
     val items = LinkedList<ListItem>()
     var curGroup:Group? = null
@@ -168,17 +168,30 @@ class FriendSelectDialog :  DialogFragment() {
             items.add(ListItem.RecentContacts(
                 topics = ChatSessionManager.rebuildDisplayList()
             ))
+        }else if (mode == "friend" || mode == "addGroupMember")
+        {
+            val title = getString(R.string.friends)
+            items.add( ListItem.Separator(title = title))
+
+            val mutuals = UserCache.getMutualFollowList()
+            for (u in mutuals){
+                items.add(ListItem.FriendItem(u))
+            }
+        }else if (mode == "kick" || mode == "transfer" || mode == "addAdmin"){
+            val title = getString(R.string.group_member)
+            items.add( ListItem.Separator(title = title))
+            if (curGroup != null){
+                for (m in curGroup!!.getMembers()){
+                    if (m.id == SdkGlobalData.selfUserinfo.id)
+                        continue;
+
+                    items.add(ListItem.FriendItem(m))
+                }
+            }
+
         }
 
-
-        items.add( ListItem.Separator(title = "好友列表"))
-
-        val mutuals = UserCache.getMutualFollowList()
-        for (u in mutuals){
-            items.add(ListItem.FriendItem(u))
-        }
         return items;
-
     }
 
     // 设置过滤器
@@ -365,8 +378,13 @@ class FriendSelectAdapter(private val dataList: List<ListItem>) :
             }
 
             // 如果这样的模式，需要禁用已经加入到
-            if (fragment!!.getMode() == "groupMember"){
+            val mod = fragment!!.getMode()
+            if (mod == "addGroupMember"){
                 if (fragment!!.isUserInGroup(item.user)){
+                    radio.visibility = View.GONE
+                }
+            }else if( mod == "addAdmin"){
+                if (fragment!!.curGroup!!.isAdmin(item.user.id)){
                     radio.visibility = View.GONE
                 }
             }

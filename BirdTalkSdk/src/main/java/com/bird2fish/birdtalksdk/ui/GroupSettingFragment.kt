@@ -53,6 +53,8 @@ import java.io.File
 
 class GroupSettingFragment :  DialogFragment(), StatusCallback {
 
+    private lateinit var groupOwnerImage:ImageView
+    private lateinit var groupOwnerNick:TextView
 
     private lateinit var avatarView: ImageView
     private lateinit var nameView: EditText
@@ -139,6 +141,8 @@ class GroupSettingFragment :  DialogFragment(), StatusCallback {
         // Inflate the layout for this fragment
         val root = inflater.inflate(R.layout.fragment_group_setting, container, false)
 
+        groupOwnerImage = root.findViewById(R.id.ivOwnerIcon)
+        groupOwnerNick = root.findViewById(R.id.tvOwnerNick)
         avatarView = root.findViewById(R.id.ivAvatar)
         nameView = root.findViewById(R.id.etGroupName)
         tagView =  root.findViewById(R.id.etGroupTag)
@@ -180,6 +184,14 @@ class GroupSettingFragment :  DialogFragment(), StatusCallback {
 
 
         this.avatarUuid = curGroup!!.icon
+
+        if (curGroup != null){
+            if (curGroup!!.owner!= null){
+                groupOwnerNick.setText(curGroup!!.owner!!.nick)
+                AvatarHelper.tryLoadAvatar(requireContext(), curGroup!!.owner!!.icon, groupOwnerImage, curGroup!!.owner!!.gender, curGroup!!.owner!!.nick)
+            }
+        }
+
 
         saveButton.setOnClickListener {
             //disableControls()

@@ -72,8 +72,8 @@ class Group(
     }
 
     // 通知用户添加到组的时候需要，查询成员列表时候也需要
-    fun addUsers(members:List<User>){
-        for (u in members){
+    fun addUsers(memList:List<User>){
+        for (u in memList){
             if (u.role.contains('o')){
                 this.addAdmin(u)
                 this.addMember(u)
@@ -84,6 +84,14 @@ class Group(
             }else{
                 this.addMember(u)
             }
+        }
+    }
+
+    // 踢人返回的结果
+    fun removeUsers(memList:List<User>){
+        for (u in memList){
+            members.remove(u.id)
+            admins.remove(u.id)
         }
     }
 

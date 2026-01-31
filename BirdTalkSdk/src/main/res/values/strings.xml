@@ -152,14 +152,18 @@
     <string name="group_join_answer">answer</string>
     <string name="group_join_answer_hint">write answer here</string>
     <string name="group_setting">setting group</string>
-    <string name="manage_members">manager members</string>
-    <string name="manage_admins">manager admins</string>
+    <string name="group_kick">remove member</string>
+    <string name="group_members">members</string>
+    <string name="group_admins">admins</string>
+    <string name="group_owner">owner</string>
     <string name="add_admins">add admins</string>
     <string name="group_invite">invite</string>
     <string name="group_quit">quit</string>
     <string name="group_dissolve">dissolve</string>
     <string name="group_transfer">transfer owner</string>
     <string name="group_history">group history</string>
+    <string name="group_member">group members</string>
+    <string name="friends">friends</string>
 
     <string name="group_create_fail">group create fail</string>
     <string name="group_create_success">group create success</string>
@@ -175,7 +179,11 @@
     <string name="group_prefix">[G]</string>
     <string name="me">[Me]</string>
     <string name="user_join_group_hint">user %s join group</string>
-    <string name="user_join_group_hint2"> %s invite %s into group chat</string>
-
+    <string name="user_invite_group_hint2"> %s invite %s into group chat</string>
+    <string name="user_kick_group_hint2"> %s remove %s from group chat</string>
+    <string name="user_transfer_group_hint2"> %s transfer owner to  %s of group</string>
+    <string name="user_set_admins_group_hint2"> %s set  %s to admins of group</string>
+    <string name="user_remove_admins_group_hint2"> %s remove %s from admins</string>
+    <string name="user_dissolve_group_hint"> %s dissolve group</string>
 
 </resources>
