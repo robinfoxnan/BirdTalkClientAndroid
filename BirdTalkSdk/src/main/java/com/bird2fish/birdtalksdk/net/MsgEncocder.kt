@@ -1706,7 +1706,7 @@ class MsgEncocder {
                 .setGroupId(group.gid)
 
             val opReq = GroupOpReq.newBuilder()
-            opReq.setOperation(GroupAddAdmin)
+            opReq.setOperation(GroupQuit)
             opReq.setGroup(gInfo)
             val sendId = SdkGlobalData.nextId()
             opReq.setSendId(sendId).setMsgId(sendId)

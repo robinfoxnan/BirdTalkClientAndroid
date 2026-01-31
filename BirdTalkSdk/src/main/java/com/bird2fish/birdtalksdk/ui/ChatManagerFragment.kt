@@ -120,59 +120,22 @@ class ChatManagerFragment : Fragment() , StatusCallback {
             speakerItem.setVisible(!SdkGlobalData.useLoudSpeaker)
             headphoneItem.setVisible(SdkGlobalData.useLoudSpeaker)
 
-
             // 3. 设置菜单选项的点击监听
-            popupMenu.setOnMenuItemClickListener { menuItem ->
-                when (menuItem.itemId) {
-                    R.id.menu_speaker_play -> {
-                        // 处理扬声器播放的逻辑
-                        switchToSpeakerPlayback()
-                        true // 表示已处理该点击事件
-                    }
-                    R.id.menu_headphone_play -> {
-                        // 处理耳机播放的逻辑
-                        switchToHeadphonePlayback()
-                        true
-                    }
-                    R.id.menu_setting_group ->{
-                        // 处理群组设置的逻辑
-                        openGroupSetting()
-                        true
-                    }
-                    R.id.menu_group_invite ->{
-                        // 邀请自己的好友入群
-                        inviteFriends()
-                        true
-                    }
-                    R.id.menu_group_kick ->{
-                        // 从群内踢一个人
-                        kickGroupMembers()
-                        true
-                    }
-                    R.id.menu_add_group_admin->{
-                        // 添加管理员
-                        addGroupAdmins()
-                        true
-                    }
-                    R.id.menu_group_quit->{
-                        // 退群
-                        quitGroup()
-                        true
-                    }
-                    else -> false
-                }
-            }
+            popMenuSetEvent(popupMenu)
 
+            var inGroupNow = true
             // 4. 群设置按钮
             if ( SdkGlobalData.currentChatSession != null){
                 if (SdkGlobalData.currentChatSession!!.isGroupChat()){
 
-
                     val group = SdkGlobalData.currentChatSession!!.getGroup()
                     if (group != null)
                     {
-                        // 群主的权限：解散，禅让，不能退群
-                        if (group.isOwner(SdkGlobalData.selfUserinfo.id)){
+                        if (!group.isMember(SdkGlobalData.selfUserinfo.id)){
+                            inGroupNow = false
+                        }
+                        else if (group.isOwner(SdkGlobalData.selfUserinfo.id)){
+                            // 群主的权限：解散，禅让，不能退群
                             groupTransferItem.setVisible(true)
                             groupDissolveItem.setVisible(true)
                             groupQuitItem.setVisible(false)  // 群主不能退
@@ -197,43 +160,32 @@ class ChatManagerFragment : Fragment() , StatusCallback {
                                 groupInviteItem.setVisible(false)
                             }
                         }
-
-
-
                     }
-
                     // 群成员都饭可以访问的
                     groupSettingItem.setVisible(true)
-
                     groupHistoryItem.setVisible(true)
 
                 }else{
-                    // 如果不是群，则禁用相关的菜单
-                    groupSettingItem.setVisible(false)
-                    groupAddAdminItem.setVisible(false)
-                    groupQuitItem.setVisible(false)
-                    groupInviteItem.setVisible(false)
-                    groupDissolveItem.setVisible(false)
-                    groupTransferItem.setVisible(false)
-                    groupHistoryItem.setVisible(false)
+                    // 如果不是群，私聊，则禁用相关的菜单
+                    disableALlGroupMenu(popupMenu)
                 }
-            }else{
-                groupSettingItem.setVisible(false)
-                groupAddAdminItem.setVisible(false)
-                groupQuitItem.setVisible(false)
-                groupInviteItem.setVisible(false)
-                groupDissolveItem.setVisible(false)
-                groupTransferItem.setVisible(false)
-                groupHistoryItem.setVisible(false)
+            }else{// chatSession == null
+                disableALlGroupMenu(popupMenu)
             }
 
-
-
+            if (!inGroupNow){
+                disableALlGroupMenu(popupMenu)
+            }
             // . 显示弹出菜单
             popupMenu.show()
         }
 
-        //        // 设置按钮点击事件以切换页面
+
+
+    }
+
+
+    //        // 设置按钮点击事件以切换页面
 //        buttonNext = view.findViewById<ImageView>(R.id.btn_next_page)
 //        buttonNext.setOnClickListener {
 //            // 获取当前页面索引
@@ -249,6 +201,68 @@ class ChatManagerFragment : Fragment() , StatusCallback {
 //            // 切换到下一个页面
 //            this.viewPager.setCurrentItem(currentItem - 1, true)
 //        }
+
+    private fun popMenuSetEvent(popupMenu:PopupMenu){
+        popupMenu.setOnMenuItemClickListener { menuItem ->
+            when (menuItem.itemId) {
+                R.id.menu_speaker_play -> {
+                    // 处理扬声器播放的逻辑
+                    switchToSpeakerPlayback()
+                    true // 表示已处理该点击事件
+                }
+                R.id.menu_headphone_play -> {
+                    // 处理耳机播放的逻辑
+                    switchToHeadphonePlayback()
+                    true
+                }
+                R.id.menu_setting_group ->{
+                    // 处理群组设置的逻辑
+                    openGroupSetting()
+                    true
+                }
+                R.id.menu_group_invite ->{
+                    // 邀请自己的好友入群
+                    inviteFriends()
+                    true
+                }
+                R.id.menu_group_kick ->{
+                    // 从群内踢一个人
+                    kickGroupMembers()
+                    true
+                }
+                R.id.menu_add_group_admin->{
+                    // 添加管理员
+                    addGroupAdmins()
+                    true
+                }
+                R.id.menu_group_quit->{
+                    // 退群
+                    quitGroup()
+                    true
+                }
+                else -> false
+            }
+        }
+    }
+
+    private fun disableALlGroupMenu(popupMenu:PopupMenu){
+
+        val groupSettingItem = popupMenu.menu.findItem(R.id.menu_setting_group)
+        var groupAddAdminItem = popupMenu.menu.findItem(R.id.menu_add_group_admin)
+        var groupQuitItem = popupMenu.menu.findItem(R.id.menu_group_quit)
+        var groupInviteItem = popupMenu.menu.findItem(R.id.menu_group_invite)
+        var groupDissolveItem = popupMenu.menu.findItem(R.id.menu_group_dissolve)
+        var groupTransferItem = popupMenu.menu.findItem(R.id.menu_group_transfer)
+        var groupHistoryItem = popupMenu.menu.findItem(R.id.menu_group_history)
+        var groupKick = popupMenu.menu.findItem(R.id.menu_group_kick)
+        groupSettingItem.setVisible(false)
+        groupAddAdminItem.setVisible(false)
+        groupQuitItem.setVisible(false)
+        groupInviteItem.setVisible(false)
+        groupDissolveItem.setVisible(false)
+        groupTransferItem.setVisible(false)
+        groupHistoryItem.setVisible(false)
+        groupKick.setVisible(false)
     }
 
     override fun onError(code : InterErrorType, lastAction:String, errType:String, detail:String){

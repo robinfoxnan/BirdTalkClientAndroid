@@ -16,6 +16,7 @@ import android.provider.OpenableColumns
 import android.text.TextUtils
 import android.util.Base64
 import android.util.Log
+import android.view.Gravity
 import android.webkit.MimeTypeMap
 import android.widget.Toast
 import androidx.core.net.toFile
@@ -999,12 +1000,18 @@ object  TextHelper {
 
     // 显示简单的 Toast 消息
     fun showToast(context: Context, message: String, duration: Int = Toast.LENGTH_SHORT) {
-        Toast.makeText(context, message, duration).show()
+        val toast = Toast.makeText(context, message, Toast.LENGTH_SHORT)
+        // 2. 关键：设置显示位置 + 垂直偏移，实现上半部分展示
+        toast.setGravity(Gravity.TOP or Gravity.CENTER_HORIZONTAL, 0, 200);
+        toast.show()
     }
 
     // 显示简单的 Toast 消息，使用默认的短时间
     fun showToast(context: Context, messageResId: Int, duration: Int = Toast.LENGTH_SHORT) {
-        Toast.makeText(context, messageResId, duration).show()
+        val toast = Toast.makeText(context, messageResId, Toast.LENGTH_SHORT)
+        // 2. 关键：设置显示位置 + 垂直偏移，实现上半部分展示
+        toast.setGravity(Gravity.TOP or Gravity.CENTER_HORIZONTAL, 0, 200);
+        toast.show()
     }
 
     fun bytesToHumanSize(bytes: Long): String {

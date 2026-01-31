@@ -81,6 +81,7 @@ class Group(
                 this.owner = u
             }else if (u.role.contains('a')){
                 this.addAdmin(u)
+                this.addMember(u)
             }else{
                 this.addMember(u)
             }
