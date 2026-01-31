@@ -69,6 +69,7 @@ import com.bird2fish.birdtalksdk.model.Drafty
 import com.bird2fish.birdtalksdk.model.MessageContent
 import com.bird2fish.birdtalksdk.model.MessageStatus
 import com.bird2fish.birdtalksdk.model.User
+import com.bird2fish.birdtalksdk.model.UserCache
 import com.bird2fish.birdtalksdk.model.UserStatus
 import com.bird2fish.birdtalksdk.pbmodel.User.GroupInfo
 import com.bird2fish.birdtalksdk.uihelper.AvatarHelper
@@ -784,6 +785,31 @@ class ChatPageFragment : Fragment() , StatusCallback {
         return view
     }// end of onCreateView
 
+    // 如果是群聊，自己必须是群成员，如果是私聊，需要
+    private fun checkCanSend():Boolean{
+        if (chatSession!!.isP2pChat()){
+            val user = chatSession!!.getUser() ?: return false
+            if (UserCache.isMutualfollowing(user.id)){
+                return true
+            }else{
+                val txt = getString(R.string.block_send_to_friend)
+                TextHelper.showToast(requireContext(), txt)
+                return false
+            }
+        }else if (chatSession!!.isGroupChat()){
+            val group = chatSession!!.getGroup() ?: return false
+
+            if (group.isMember(SdkGlobalData.selfUserinfo.id)){
+                return true
+            }else{
+                val txt = getString(R.string.block_send_to_group)
+                TextHelper.showToast(requireContext(), txt)
+                return false
+            }
+        }
+        return false
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         setShowHide(false)
@@ -1460,6 +1486,9 @@ class ChatPageFragment : Fragment() , StatusCallback {
 
     // 发送浏览选择的图片
     private fun sendLoadImage(context: Context, uri: Uri){
+        // 检查是否可以发送
+        if (!checkCanSend())
+            return
 
         val msgId = ChatSessionManager.sendImageMessageUploading(this.chatSession!!, context, uri)
         if (msgId ==0L){
@@ -1483,6 +1512,9 @@ class ChatPageFragment : Fragment() , StatusCallback {
     // 发送文本
     private fun sendText(activity: Activity?) {
 
+        // 检查是否可以发送
+        if (!checkCanSend())
+            return
         //testSendImage()
 
         if (activity == null || activity.isFinishing || activity.isDestroyed) {
@@ -1545,6 +1577,10 @@ class ChatPageFragment : Fragment() , StatusCallback {
 
     // 发送语音
     private fun sendAudio(activity: AppCompatActivity?) {
+        // 检查是否可以发送
+        if (!checkCanSend())
+            return
+
         if (activity == null || activity.isFinishing || activity.isDestroyed) {
             return
         }
@@ -1589,7 +1625,10 @@ class ChatPageFragment : Fragment() , StatusCallback {
 
     // 浏览文件后发送文件
     private fun sendFile(uri:Uri){
-        TextHelper.showToast(requireContext(), uri.toString())
+        //TextHelper.showToast(requireContext(), uri.toString())
+        // 检查是否可以发送
+        if (!checkCanSend())
+            return
 
         ChatSessionManager.sendFileMessageUploading(chatSession!!, requireContext(), uri)
         this.mMessagesAdapter?.notifyDataSetChanged()

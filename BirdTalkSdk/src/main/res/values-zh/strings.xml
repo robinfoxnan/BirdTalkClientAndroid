@@ -175,6 +175,7 @@
     <string name="group_prefix">【群】</string>
     <string name="me">【我】</string>
     <string name="user_join_group_hint">用户 %s 加入了群</string>
+    <string name="user_quit_group_hint">用户 %s 退出了群</string>
     <string name="user_invite_group_hint2"> %s 邀请 %s 加入群</string>
     <string name="user_kick_group_hint2"> %s 将 %s 移出群聊</string>
     <string name="user_transfer_group_hint2"> %s 转让群主给 %s</string>
@@ -182,5 +183,7 @@
     <string name="user_remove_admins_group_hint2"> %s 移除 %s 管理员权限</string>
     <string name="user_dissolve_group_hint"> %s 解散群</string>
 
+    <string name="block_send_to_group">不能向已经退出群发送消息</string>
+    <string name="block_send_to_friend">不是双向关注的好友，不能发送消息</string>
 
 </resources>

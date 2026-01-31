@@ -101,6 +101,7 @@ class Group(
 
     fun removeMember(uid: Long) {
         members.remove(uid)
+        admins.remove(uid)
     }
 
     fun getAdmins(): MutableList<User>{

@@ -1154,10 +1154,18 @@ object ChatSessionManager {
         chatSession.onRecvBatchMsg(msgList, true, false)
 
 
+
         // 通知界面更新消息，已经保存处理完了
         SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(
             MsgEventType.MSG_HISTORY, 0,
             0L, -gid, mapOf("msg" to "batch forward") )
+
+        // 数据刚好为100,说明可能后续还有数据需要同步
+        if (lst.size >= SdkGlobalData.LOAD_MSG_BATCH_SERVER){
+            val index = msgList.size - 1
+            val maxId = msgList[index].msgId
+            MsgEncocder.sendSynGChatDataForward(maxId + 1, chatSession.tid)
+        }
     }
 
     fun onQueryGChatDataReplyBetween(gid:Long, littleId:Long, bigId:Long,  lst: List<MsgOuterClass.MsgChat>){

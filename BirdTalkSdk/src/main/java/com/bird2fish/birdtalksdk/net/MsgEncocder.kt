@@ -181,7 +181,7 @@ class MsgEncocder {
                 GroupInviteAnswer -> doNothing()
                 GroupJoinRequest -> doNothing()
                 GroupJoinAnswer -> onJoinAnswer(reply)
-                GroupQuit -> doNothing()
+                GroupQuit -> onUserQuitGroup(reply)
                 GroupAddAdmin -> onAddAdmins(reply)
                 GroupDelAdmin -> doNothing()
                 GroupTransferOwner -> doNothing()
@@ -278,6 +278,19 @@ class MsgEncocder {
             val userList = TextHelper.groupMembers2Users(reply.membersList)
 
             ChatSessionManager.onJoinAnswer(result, detail, sendId, msgId, group, userList)
+        }
+
+        // 用户退出了群
+        private fun onUserQuitGroup(reply: User.GroupOpResult){
+            val result = reply.result
+            val detail = reply.detail
+            val sendId = reply.sendId
+            val msgId = reply.msgId
+            val group = TextHelper.groupInfo2Group(reply.group)
+            val reqMem = reply.reqMem
+            //val user = TextHelper.groupMember2User(reqMem)
+            val gInCache = GroupCache.findGroupSync(group.gid)
+            gInCache.removeMember(reqMem.userId)
         }
 
         // 添加管理后返回的结果
@@ -1679,6 +1692,25 @@ class MsgEncocder {
                     .build()
                 opReq.addMembers(inviteMember1)
             }
+
+            val plainMsg = MsgPlain.newBuilder().setGroupOp(opReq)
+            val msg = wrapMsg(plainMsg, timestamp, MsgTGroupOp)
+            sendMsg(msg)
+        }
+
+        // 发送退群申请
+        fun sendQuitGroup(group:Group){
+            val timestamp = System.currentTimeMillis()
+
+            val gInfo = GroupInfo.newBuilder()
+                .setGroupId(group.gid)
+
+            val opReq = GroupOpReq.newBuilder()
+            opReq.setOperation(GroupAddAdmin)
+            opReq.setGroup(gInfo)
+            val sendId = SdkGlobalData.nextId()
+            opReq.setSendId(sendId).setMsgId(sendId)
+
 
             val plainMsg = MsgPlain.newBuilder().setGroupOp(opReq)
             val msg = wrapMsg(plainMsg, timestamp, MsgTGroupOp)

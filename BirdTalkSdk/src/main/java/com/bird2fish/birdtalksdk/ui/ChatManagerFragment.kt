@@ -27,6 +27,7 @@ import com.bird2fish.birdtalksdk.db.TopicDbHelper
 import com.bird2fish.birdtalksdk.db.UserDbHelper
 import com.bird2fish.birdtalksdk.model.ChatSessionManager
 import com.bird2fish.birdtalksdk.model.Group
+import com.bird2fish.birdtalksdk.model.MessageContent
 import com.bird2fish.birdtalksdk.model.User
 import com.bird2fish.birdtalksdk.net.MsgEncocder
 import com.bird2fish.birdtalksdk.uihelper.AvatarHelper
@@ -151,6 +152,11 @@ class ChatManagerFragment : Fragment() , StatusCallback {
                     R.id.menu_add_group_admin->{
                         // 添加管理员
                         addGroupAdmins()
+                        true
+                    }
+                    R.id.menu_group_quit->{
+                        // 退群
+                        quitGroup()
                         true
                     }
                     else -> false
@@ -304,6 +310,12 @@ class ChatManagerFragment : Fragment() , StatusCallback {
         fDialog.show(parentFragmentManager, "GroupSettingDialog")
     }
 
+    // 退群
+    fun quitGroup(){
+        val txt = getString(R.string.user_quit_group_hint, SdkGlobalData.selfUserinfo.nick)
+        SdkGlobalData.currentChatSession!!.sendTextMessageOut(txt, 0L)
+        MsgEncocder.sendQuitGroup(SdkGlobalData.currentChatSession!!.getGroup()!!)
+    }
     // 解散群
     fun dissolveGroup(){
 

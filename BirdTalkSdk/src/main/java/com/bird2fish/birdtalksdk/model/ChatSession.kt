@@ -46,6 +46,10 @@ class ChatSession(
     fun getGroup():Group?{
         return this.group
     }
+    fun getUser():User?{
+        return this.friend
+    }
+
     override var title: String
         get(){
             if (type == Topic.CHAT_P2P){
