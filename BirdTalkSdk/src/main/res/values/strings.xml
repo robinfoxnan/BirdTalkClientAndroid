@@ -152,6 +152,7 @@
     <string name="group_join_answer">answer</string>
     <string name="group_join_answer_hint">write answer here</string>
     <string name="group_setting">setting group</string>
+    <string name="group_id">group id</string>
     <string name="group_kick">remove member</string>
     <string name="group_members">members</string>
     <string name="group_admins">admins</string>

@@ -217,6 +217,7 @@ object  TextHelper {
 
                     MessageContent(chatSession, chatMsg.msgId, chatMsg.sendId, MessageStatus.OK, inOut,
                         chatMsg.sendReply, chatMsg.recvReply, chatMsg.readReply, utf8String, null, chatMsg.msgType)
+
                 }
 
                 IMAGE -> {
@@ -251,9 +252,12 @@ object  TextHelper {
         }catch (e:Exception){
             e.printStackTrace()
             Log.e("pbMsg2MessageContent", e.toString())
-            MessageContent(chatSession, chatMsg.msgId, chatMsg.sendId, MessageStatus.OK, inOut,
+            msg = MessageContent(chatSession, chatMsg.msgId, chatMsg.sendId, MessageStatus.OK, inOut,
                 chatMsg.sendReply, chatMsg.recvReply, chatMsg.readReply, "消息损坏，无法解析", null, chatMsg.msgType)
         }
+
+        // 发送时间，这个必须设置
+        msg?.tm = chatMsg.tm
 
         // 群组显示的图标不一样呢
         if (chatMsg.chatType == ChatType.ChatTypeGroup){

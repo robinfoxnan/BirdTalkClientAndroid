@@ -1098,6 +1098,7 @@ object ChatSessionManager {
         }
         return ret
     }
+
     fun pbChatDataList2MessageContentList(lst: List<MsgOuterClass.MsgChat>):List<MessageContent>{
         val ret = LinkedList<MessageContent>()
         for (item in lst){

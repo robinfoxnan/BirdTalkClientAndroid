@@ -147,6 +147,7 @@
     <string name="group_join_answer">入群验证答案</string>
     <string name="group_join_answer_hint">输入正确答案</string>
     <string name="group_setting">群属性</string>
+    <string name="group_id">群号</string>
     <string name="group_kick">踢人</string>
     <string name="group_members">所有成员</string>
     <string name="group_admins">管理员</string>

@@ -52,6 +52,8 @@ dependencies {
     implementation 'androidx.preference:preference:1.2.0'
     implementation 'androidx.recyclerview:recyclerview:1.2.1' // 或最新版本
 
+    implementation "androidx.fragment:fragment-ktx:1.6.1" // 推荐最新稳定版
+
     implementation 'com.squareup.picasso:picasso:2.8'
     implementation 'com.github.yalantis:ucrop:2.2.8' //- lightweight general solution
     //implementation 'com.github.yalantis:ucrop:2.2.8-native' //- get power of the native code to preserve image quality (+ about 1.5 MB to an apk size)

@@ -3,6 +3,7 @@ import android.app.Activity
 import android.graphics.Color
 import android.graphics.PorterDuff
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -36,6 +37,20 @@ class ChatSessionFragment : Fragment()  , StatusCallback {
     private lateinit var recyclerView: SlideRecyclerView
     private lateinit var adapter: ChatSessionAdapter
     private lateinit var addBtn : ImageButton
+
+    // 正确重写onHiddenChanged方法
+    override fun onHiddenChanged(hidden: Boolean) {
+        super.onHiddenChanged(hidden) // 必须调用super
+        Log.d("MyFragment", "Fragment是否隐藏：$hidden")
+
+        if (!hidden) {
+            // 页面从隐藏变为显示
+            this.adapter?.notifyDataSetChanged()
+        } else {
+            // 页面从显示变为隐藏
+//            onFragmentHide()
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -319,5 +334,6 @@ class ChatSessionAdapter(private val dataMap: MutableList<ChatSession>) : Recycl
 
     // 其他方法，例如添加删除项的方法，用于与 ItemTouchHelper 配合实现左滑删除
     // ...
+
 
 }

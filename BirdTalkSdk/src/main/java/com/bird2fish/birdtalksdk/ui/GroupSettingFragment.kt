@@ -55,6 +55,7 @@ class GroupSettingFragment :  DialogFragment(), StatusCallback {
 
     private lateinit var groupOwnerImage:ImageView
     private lateinit var groupOwnerNick:TextView
+    private lateinit var groupIdLabel:TextView
 
     private lateinit var avatarView: ImageView
     private lateinit var nameView: EditText
@@ -141,6 +142,7 @@ class GroupSettingFragment :  DialogFragment(), StatusCallback {
         // Inflate the layout for this fragment
         val root = inflater.inflate(R.layout.fragment_group_setting, container, false)
 
+        groupIdLabel = root.findViewById(R.id.tvGroupId)
         groupOwnerImage = root.findViewById(R.id.ivOwnerIcon)
         groupOwnerNick = root.findViewById(R.id.tvOwnerNick)
         avatarView = root.findViewById(R.id.ivAvatar)
@@ -350,6 +352,8 @@ class GroupSettingFragment :  DialogFragment(), StatusCallback {
     private var defaultTagSet = false
     private var defaultDesSet = false
     fun initDefaultValue(){
+
+
         nameView.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {
                 // 文本变化前调用，可留空
@@ -412,6 +416,7 @@ class GroupSettingFragment :  DialogFragment(), StatusCallback {
 
         // 根据群组的信息设置
         if (curGroup != null){
+            groupIdLabel.setText(curGroup!!.gid.toString())
             nameView.setText(curGroup!!.name)
             tagView.setText(curGroup!!.brief)
             desView.setText(curGroup!!.tags)
