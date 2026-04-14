@@ -5,6 +5,8 @@
 
 这是一款开源的即时通信软件的安卓版本客户端。
 
+
+
 [安卓代码仓库]: https://github.com/robinfoxnan/BirdTalkClientAndroid
 
 [服务端代码仓库]: https://github.com/robinfoxnan/BirdTalkServer
