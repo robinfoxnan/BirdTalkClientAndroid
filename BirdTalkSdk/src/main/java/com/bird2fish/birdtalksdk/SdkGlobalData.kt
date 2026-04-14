@@ -132,7 +132,7 @@ class SdkGlobalData {
         }
 
 
-        // 登录成功后操作
+        // 登录成功后操作，每次重连之后都会加载这些
         // 尝试加载用户的好友和粉丝等各种预加载信息
         fun initLoad(uid:Long){
             try {

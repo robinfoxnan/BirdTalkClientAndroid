@@ -13,6 +13,7 @@ import android.os.Bundle
 import android.os.Environment
 import android.provider.MediaStore
 import android.util.Config
+import android.util.Log
 import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
@@ -97,6 +98,7 @@ class ProfileFragment : EmbedFrame(), StatusCallback {
                     SdkGlobalData.selfUserinfo.icon = it
                     this._uuidImageName.postValue(it)
                     // 这里应该发送消息，重新设置头像
+                    Log.d("profile", "上传成功 "+SdkGlobalData.selfUserinfo.icon )
                     saveUserAvatar(it)
                     this.localUploadName = ""
                     onHide()
@@ -204,6 +206,7 @@ class ProfileFragment : EmbedFrame(), StatusCallback {
                     }
                     //TextHelper.showToast(this.requireContext(), "裁剪成功: ${it.toString()}")
                     photoUri = resultUri
+                    Log.d("profile", "剪裁 "+photoUri)
 
                     // 尝试上传
                     this.photoUri?.let{

@@ -25,6 +25,7 @@ import com.bird2fish.birdtalksdk.uihelper.TextHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
+import org.w3c.dom.Text
 import java.io.File
 import java.io.FileNotFoundException
 import java.util.HashMap
@@ -923,9 +924,18 @@ object ChatSessionManager {
         if (lastContent != null){
             // 正向加载
             val maxId = lastContent.msgId
-            MsgEncocder.sendSynGChatDataForward(maxId + 1, chatSession.tid)
+            // 在群内，就同步数据，否则就不再同步了
+            if (GroupCache.isInGroup(chatSession.tid)){
+                MsgEncocder.sendSynGChatDataForward(maxId + 1, chatSession.tid)
+            }
+
         }else{
-            // 反向加载
+            // 退出的群聊，尝试本地加载数据，否则界面没有数据
+            if (!GroupCache.isInGroup(chatSession.tid)){
+                onLoadGroupHistoryMessageOnDrag(chatSession, null)
+                return
+            }
+            // 仍然在群内，反向加载
             MsgEncocder.sendSynChatDataBackward(max, SdkGlobalData.selfUserinfo.id, chatSession.tid)
         }
     }
@@ -1202,9 +1212,36 @@ object ChatSessionManager {
                 maxId = lstMsg.msgId
             }
         }
+
+        // 如果已经不是群成员了，那么可以从本地加载旧历史
+        if (!GroupCache.isInGroup(session.tid)){
+
+            val messages = TopicDbHelper.getGChatMessagesById(session.tid, maxId, 100, false)
+            val msgList =dbGroupMessageList2MessgeContentList(messages, session)
+            session.onRecvBatchMsg(msgList, false, false)
+
+
+            // 通知界面更新消息，已经保存处理完了
+            SdkGlobalData.userCallBackManager.invokeOnEventCallbacks(
+                MsgEventType.MSG_HISTORY, 0,
+                0L, session.tid, mapOf("msg" to "batch forward") )
+            return;
+        }
+
+        // 如果是在群内，则应该从网络获取，
         MsgEncocder.sendSynChatDataBackward(maxId-1, SdkGlobalData.selfUserinfo.id, session.tid)
     }
 
+    // 本地加载的历史群聊数据，转换为本地内存类型的数据
+    private fun dbGroupMessageList2MessgeContentList(messages : List<MessageData>, session:ChatSession):List<MessageContent>{
+        val msgList = java.util.ArrayList<MessageContent>();
+        for (msg in messages){
+            val content = TextHelper.MsgContentFromDbMessageGroup(msg, session)
+            if (content != null)
+                msgList.add(content)
+        }
+        return msgList
+    }
 
     // 页面上下拉控件，触发事件， 加载历史数据:  {私聊的数据，先尝试本地加载，这里是从向前边的历史数据开始加载}
     fun onLoadP2pHistoryMessageOnDrag(session:ChatSession, firstMsg:MessageContent?){
@@ -1212,7 +1249,7 @@ object ChatSessionManager {
         if (firstMsg != null){
             firstId= firstMsg.msgId
         }
-        // 向前加载
+        //  从后向前加载，如果没有就是使用最大值开始找
         val lst = TopicDbHelper.getPChatMessagesById(session.tid, firstId, SdkGlobalData.LOAD_MSG_BATCH, false)
         if (lst != null && lst.size > 0){
             firstId = lst.first().id
