@@ -49,7 +49,7 @@ import java.util.Date
 import java.util.Locale
 
 
-class ProfileFragment : Fragment(), StatusCallback {
+class ProfileFragment : EmbedFrame(), StatusCallback {
 
 
     private lateinit var profileImageView: ImageView
@@ -325,7 +325,7 @@ class ProfileFragment : Fragment(), StatusCallback {
 //            onHide()
 //        }
 //    }
-    fun onShow(){
+    override fun onShow(){
         // Fragment 可见且可交互时执行
         tvId.text = SdkGlobalData.selfUserinfo.id.toString()
         tvName.text = SdkGlobalData.selfUserinfo.name
@@ -344,7 +344,7 @@ class ProfileFragment : Fragment(), StatusCallback {
 
     }
 
-    fun onHide(){
+    override fun onHide(){
         SdkGlobalData.userCallBackManager.removeCallback(this)
     }
 
@@ -386,7 +386,12 @@ class ProfileFragment : Fragment(), StatusCallback {
     private fun openGallery() {
         if (!permissionsHelper.hasGalleryPermission()){
             permissionsHelper.requestGalleryPermission()
-            return
+            if (!permissionsHelper.hasGalleryPermission())
+            {
+                // 没有给权限
+                return
+            }
+
         }
         val intent = Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
         pickImageLauncher.launch(intent)

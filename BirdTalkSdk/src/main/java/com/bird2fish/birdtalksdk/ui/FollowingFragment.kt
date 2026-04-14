@@ -24,7 +24,7 @@ import com.bird2fish.birdtalksdk.uihelper.AvatarHelper
 import com.bird2fish.birdtalksdk.uihelper.ImagesHelper
 
 
-class FollowingFragment : Fragment(), StatusCallback {
+class FollowingFragment : EmbedFrame(), StatusCallback {
     // TODO: Rename and change types of parameters
     private var friendList: RecyclerView? = null
 

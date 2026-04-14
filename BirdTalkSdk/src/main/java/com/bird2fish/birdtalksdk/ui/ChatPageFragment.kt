@@ -86,7 +86,7 @@ import java.io.IOException
 import java.net.URI
 import java.util.LinkedList
 
-class ChatPageFragment : Fragment() , StatusCallback {
+class ChatPageFragment : EmbedFrame() , StatusCallback {
 
     private var root :View? =null
     private var parentView :ChatManagerFragment? = null

@@ -35,7 +35,7 @@ import com.bird2fish.birdtalksdk.uihelper.TextHelper
 import java.lang.reflect.Field
 import java.util.LinkedList
 
-class ChatManagerFragment : Fragment() , StatusCallback {
+class ChatManagerFragment : EmbedFrame() , StatusCallback {
 
     private lateinit var viewPager: ViewPager2
     private lateinit var chatPagerAdapter: ChatPagerAdapter

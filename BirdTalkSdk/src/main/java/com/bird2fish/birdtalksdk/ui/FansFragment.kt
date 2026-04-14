@@ -25,7 +25,7 @@ import com.bird2fish.birdtalksdk.model.ChatSessionManager
 import com.bird2fish.birdtalksdk.model.UserCache
 import com.bird2fish.birdtalksdk.net.MsgEncocder
 
-class FansFragment : Fragment() , StatusCallback {
+class FansFragment : EmbedFrame() , StatusCallback {
 
     private var friendList: RecyclerView? = null
 

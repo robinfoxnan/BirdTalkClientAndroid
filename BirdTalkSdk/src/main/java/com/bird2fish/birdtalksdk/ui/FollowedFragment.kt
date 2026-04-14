@@ -24,7 +24,7 @@ import com.bird2fish.birdtalksdk.model.ChatSessionManager
 import com.bird2fish.birdtalksdk.model.UserCache
 import com.bird2fish.birdtalksdk.uihelper.AvatarHelper
 
-class FollowedFragment : Fragment() , StatusCallback {
+class FollowedFragment : EmbedFrame() , StatusCallback {
 
     private var _binding: FollowedFragment? = null
     private val binding get() = _binding!!

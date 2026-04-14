@@ -24,7 +24,7 @@ import com.bird2fish.birdtalksdk.model.UserCache
 import com.bird2fish.birdtalksdk.uihelper.AvatarHelper
 
 
-class GroupFragment : Fragment(), StatusCallback {
+class GroupFragment : EmbedFrame(), StatusCallback {
     private  lateinit var groupListView:RecyclerView
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

@@ -622,6 +622,14 @@ class MsgEncocder {
 
                 UserNoneAction -> doNothing()
                 RegisterUser -> {
+                    // 直接填写名字注册时候，返回到这里
+                    if (result == "ok" && status == "loginok"){
+                        // 设置状态，并跳转
+                        // 解析自己的个人信息
+                        UserInfo2DbUser(user)
+                        Session.loginOk(user.userId)
+                        return
+                    }
                     if (result == "ok" || status == "waitcode"){
                         Session.loginNotifyCode()
                     }

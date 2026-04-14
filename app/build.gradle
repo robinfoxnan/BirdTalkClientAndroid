@@ -3,6 +3,14 @@ plugins {
     id 'org.jetbrains.kotlin.android'
 }
 
+// 👇 正确位置！在这里才不会报错！
+//configurations.all {
+//    resolutionStrategy.eachDependency { details ->
+//        if (details.requested.group == "androidx.core") {
+//            details.useVersion "1.7.0"
+//        }
+//    }
+//}
 android {
     namespace 'com.bird2fish.birdtalkclient'
     compileSdk 33

@@ -15,7 +15,7 @@ import com.google.android.material.tabs.TabLayoutMediator
 // TODO: Rename parameter arguments, choose names that match
 // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
 
-class ContactFragment : Fragment() {
+class ContactFragment : EmbedFrame() {
     // TODO: Rename and change types of parameters
     private lateinit var tabLayout: TabLayout
     private lateinit var viewPager: ViewPager2

@@ -32,7 +32,7 @@ import com.bird2fish.birdtalksdk.uihelper.ImagesHelper
 import com.bird2fish.birdtalksdk.uihelper.TextHelper
 
 
-class ChatSessionFragment : Fragment()  , StatusCallback {
+class ChatSessionFragment : EmbedFrame()  , StatusCallback {
 
     private lateinit var recyclerView: SlideRecyclerView
     private lateinit var adapter: ChatSessionAdapter

@@ -23,6 +23,7 @@ import com.bird2fish.birdtalksdk.model.ChatSessionManager
 import com.bird2fish.birdtalksdk.ui.ChatManagerFragment
 import com.bird2fish.birdtalksdk.ui.ChatSessionFragment
 import com.bird2fish.birdtalksdk.ui.ContactFragment
+import com.bird2fish.birdtalksdk.ui.EmbedFrame
 import com.bird2fish.birdtalksdk.ui.LoginCodeFragment
 import com.bird2fish.birdtalksdk.ui.LoginFragment
 import com.bird2fish.birdtalksdk.ui.ProfileFragment
@@ -116,7 +117,11 @@ class MainActivity : AppCompatActivity() , StatusCallback {
 
         ft.commit()
         lastPageIndex = index
-
+        // 判断 curFrame 是否是 EmbedFrame 类型
+        if (curFrame is EmbedFrame) {
+            // 是 → 可以直接调用 onShow / onHide
+            curFrame.onShow()
+        }
 
     }
 

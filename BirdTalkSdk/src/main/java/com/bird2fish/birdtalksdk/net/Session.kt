@@ -152,17 +152,17 @@ object Session  {
             "id" to uid.toString(),
             "result" to "ok"
         )
+
         // 这里还需要与服务器同步数据
         // 加载自己的个人信息
         // 1） 同步最新的消息，2)同步好友列表  3） 同步所在群  4）同步群消息
+
+        // 先加载数据才能跳转界面，否则界面数据不对啊
         SdkGlobalData.initLoad(uid)
+        updateState(Session.SessionState.READY)
 
         // sdk内部需要与服务器同步数据，然后通知界面跳转并刷新
         SdkGlobalData.invokeOnEventCallbacks(MsgEventType.LOGIN_OK, 0,0L, 0L, resultMap)
-        updateState(Session.SessionState.READY)
-
-
-
     }
 
     // 服务器应答登录错误

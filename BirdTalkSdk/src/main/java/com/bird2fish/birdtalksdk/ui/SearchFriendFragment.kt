@@ -214,9 +214,9 @@ class SearchFriendFragment : Fragment(), StatusCallback {
     override fun onEvent(eventType: MsgEventType, msgType:Int, msgId:Long, fid:Long, params:Map<String, String>){
         if (eventType == MsgEventType.SEARCH_FRIEND_RET){
             val lst = UserCache.getSearchFriendRet()
-            val info = "return user count: " + lst.size.toString()
+            //val info = "return user count: " + lst.size.toString()
             (context as? Activity)?.runOnUiThread {
-                Toast.makeText(context, info, Toast.LENGTH_SHORT).show()
+                //Toast.makeText(context, info, Toast.LENGTH_SHORT).show()
 
                 val lst = UserCache.getSearchFriendRet()
                 val adapter = SearchFriendsItemAdapter(lst)
